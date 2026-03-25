@@ -6,6 +6,7 @@ import { Terminal, UserPlus, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { getAuthEmailRedirectUrl } from "@/lib/siteUrl";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -23,7 +24,7 @@ const Signup = () => {
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: getAuthEmailRedirectUrl() },
     });
 
     if (error) {
