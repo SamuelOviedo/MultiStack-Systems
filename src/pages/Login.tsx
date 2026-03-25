@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import Navbar from "@/components/Navbar";
 import { Terminal, LogIn, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,9 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex flex-col">
+      <Navbar />
+      <div className="flex-1 flex items-center justify-center px-4 pt-20 pb-10">
       <div className="w-full max-w-md">
         {/* Terminal header */}
         <div className="mb-8 text-center">
@@ -118,6 +121,7 @@ const Login = () => {
             </p>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

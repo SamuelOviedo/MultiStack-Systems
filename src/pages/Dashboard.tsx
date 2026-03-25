@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Terminal, LogOut, FolderKanban, Plus } from "lucide-react";
+import Navbar from "@/components/Navbar";
+import { Terminal, FolderKanban, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate, Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 
@@ -22,8 +22,7 @@ const estadoColor: Record<string, string> = {
 };
 
 const Dashboard = () => {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,11 +49,6 @@ const Dashboard = () => {
     fetchProyectos();
   }, []);
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate("/");
-  };
-
   const handleAddProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre.trim()) return;
@@ -80,41 +74,22 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Nav */}
-      <nav className="border-b border-border bg-card/60 backdrop-blur-md sticky top-0 z-50">
-        <div className="container mx-auto flex items-center justify-between px-6 py-4">
-          <Link to="/" className="flex items-center gap-2">
-            <Terminal className="h-5 w-5 text-primary" />
-            <span className="font-display text-sm font-semibold tracking-tighter text-foreground">
-              MultiStack<span className="text-primary">.</span>
-            </span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-muted-foreground font-mono-code hidden sm:block">
-              {user?.email}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLogout}
-              className="font-display text-xs border-border hover:border-destructive hover:text-destructive"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              Cerrar Sesión
-            </Button>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Content */}
-      <div className="container mx-auto px-6 py-10">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container mx-auto px-6 pt-24 pb-10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <p className="font-display text-xs text-primary mb-1">$ multistack dashboard --list-projects</p>
             <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
               <FolderKanban className="h-6 w-6 text-primary" />
               Mis Proyectos
             </h1>
+            {user?.email && (
+              <p className="text-xs text-muted-foreground font-mono-code mt-2 sm:mt-1">
+                session: {user.email}
+              </p>
+            )}
           </div>
           <Button
             onClick={() => setShowForm(!showForm)}
