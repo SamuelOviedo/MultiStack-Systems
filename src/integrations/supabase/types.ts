@@ -14,33 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      proyectos_clientes: {
-        Row: {
-          descripcion: string | null
-          estado: Database["public"]["Enums"]["estado_proyecto"]
-          fecha_creacion: string
-          id: string
-          nombre_proyecto: string
-          user_id: string
-        }
-        Insert: {
-          descripcion?: string | null
-          estado?: Database["public"]["Enums"]["estado_proyecto"]
-          fecha_creacion?: string
-          id?: string
-          nombre_proyecto: string
-          user_id: string
-        }
-        Update: {
-          descripcion?: string | null
-          estado?: Database["public"]["Enums"]["estado_proyecto"]
-          fecha_creacion?: string
-          id?: string
-          nombre_proyecto?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
@@ -49,7 +23,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      estado_proyecto: "En análisis" | "Desarrollo" | "Finalizado"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -176,8 +150,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      estado_proyecto: ["En análisis", "Desarrollo", "Finalizado"],
-    },
+    Enums: {},
   },
 } as const
