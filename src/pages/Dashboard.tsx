@@ -32,10 +32,10 @@ const Dashboard = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const fetchProyectos = async () => {
-    const { data, error } = await supabase
-      .from("proyectos_clientes")
+    const { data, error } = await (supabase
+      .from("proyectos_clientes" as any)
       .select("*")
-      .order("fecha_creacion", { ascending: false });
+      .order("fecha_creacion", { ascending: false }) as any);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -54,11 +54,11 @@ const Dashboard = () => {
     if (!nombre.trim()) return;
     setSubmitting(true);
 
-    const { error } = await supabase.from("proyectos_clientes").insert({
+    const { error } = await (supabase.from("proyectos_clientes" as any).insert({
       user_id: user!.id,
       nombre_proyecto: nombre.trim(),
       descripcion: descripcion.trim() || null,
-    });
+    } as any) as any);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
