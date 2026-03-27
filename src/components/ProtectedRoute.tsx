@@ -2,8 +2,13 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Terminal } from "lucide-react";
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, loading } = useAuth();
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  allowedTypes?: number[];
+}
+
+const ProtectedRoute = ({ children, allowedTypes = [0, 1] }: ProtectedRouteProps) => {
+  const { session, userType, loading } = useAuth();
 
   if (loading) {
     return (
@@ -15,6 +20,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!session) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (userType !== null && !allowedTypes.includes(userType)) {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 import { Terminal, LogIn, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,15 +15,17 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, userType, loading: authLoading } = useAuth();
 
+  // Redirect once auth state + user type are resolved
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
-        navigate("/dashboard", { replace: true });
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    if (authLoading || !user || userType === null) return;
+    if (userType === 0 || userType === 1) {
+      navigate("/dashboard", { replace: true });
+    } else {
+      navigate("/", { replace: true });
+    }
+  }, [user, userType, authLoading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,10 +36,9 @@ const Login = () => {
 
     if (error) {
       toast({ title: "Error de autenticación", description: error.message, variant: "destructive" });
-    } else {
-      navigate("/dashboard");
+      setLoading(false);
     }
-    setLoading(false);
+    // On success: onAuthStateChange fires → useAuth updates user + userType → useEffect above redirects
   };
 
   return (
