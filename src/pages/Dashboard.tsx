@@ -30,6 +30,19 @@ const Dashboard = () => {
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [nombreUsuario, setNombreUsuario] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    (supabase
+      .from("profiles" as any)
+      .select("nombre_usuario")
+      .eq("id", user.id)
+      .single() as any
+    ).then(({ data }: any) => {
+      setNombreUsuario(data?.nombre_usuario ?? null);
+    });
+  }, [user]);
 
   const fetchProyectos = async () => {
     const { data, error } = await (supabase
@@ -83,13 +96,11 @@ const Dashboard = () => {
             <p className="font-display text-xs text-primary mb-1">$ multistack dashboard --list-projects</p>
             <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
               <FolderKanban className="h-6 w-6 text-primary" />
-              Mis Proyectos
+              {nombreUsuario ? `Hola, ${nombreUsuario}` : "Mis Proyectos"}
             </h1>
-            {user?.email && (
-              <p className="text-xs text-muted-foreground font-mono-code mt-2 sm:mt-1">
-                session: {user.email}
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground font-mono-code mt-2 sm:mt-1">
+              session: {user?.email}
+            </p>
           </div>
           <Button
             onClick={() => setShowForm(!showForm)}
