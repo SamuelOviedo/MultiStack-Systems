@@ -1,10 +1,5 @@
 # 🚀 Bienvenido a tu proyecto en Lovable
 
-## 📌 Información del proyecto
-
-**URL del proyecto:**\
-https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
-
 ------------------------------------------------------------------------
 
 ## 🛠️ ¿Cómo puedo editar este proyecto?
