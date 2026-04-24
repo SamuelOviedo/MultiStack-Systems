@@ -10,6 +10,8 @@ import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import ProjectDetail from "./pages/ProjectDetail.tsx";
+import TicketsGlobal from "./pages/TicketsGlobal.tsx";
+import ClientPortal from "./pages/ClientPortal.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -41,6 +43,15 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/dashboard/tickets"
+              element={
+                <ProtectedRoute>
+                  <TicketsGlobal />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/client/:token" element={<ClientPortal />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
