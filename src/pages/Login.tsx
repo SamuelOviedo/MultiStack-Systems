@@ -23,7 +23,7 @@ const Login = () => {
     if (userType === 0 || userType === 1) {
       navigate("/dashboard", { replace: true });
     } else {
-      navigate("/", { replace: true });
+      navigate("/solicitudes", { replace: true });
     }
   }, [user, userType, authLoading, navigate]);
 
