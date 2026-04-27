@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "noreply@multistack.app";
+const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "onboarding@resend.dev";
 const TEAM_EMAIL = Deno.env.get("TEAM_EMAIL") ?? "";
 
 const corsHeaders = {

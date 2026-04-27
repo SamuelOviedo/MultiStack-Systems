@@ -1,11 +1,11 @@
-export type TicketType = 'modificacion' | 'bug' | 'consulta' | 'pago' | 'mantenimiento' | 'otro';
+export type TicketType = 'modificacion' | 'bug' | 'consulta' | 'pago' | 'mantenimiento' | 'otro' | 'solicitud';
 export type TicketPriority = 'baja' | 'media' | 'alta' | 'urgente';
 export type TicketStatus = 'abierto' | 'en_revision' | 'en_progreso' | 'resuelto' | 'cerrado';
 export type SenderType = 'client' | 'team';
 
 export interface Ticket {
   id: string;
-  project_id: string;
+  project_id: string | null;
   client_name: string | null;
   client_email: string | null;
   type: TicketType;
@@ -46,6 +46,7 @@ export const TICKET_TYPE_LABELS: Record<TicketType, string> = {
   pago:          'Pago',
   mantenimiento: 'Mantenimiento',
   otro:          'Otro',
+  solicitud:     'Solicitud de Proyecto',
 };
 
 export const TICKET_STATUS_CONFIG: Record<TicketStatus, { label: string; color: string }> = {

@@ -73,6 +73,43 @@ export async function getOpenTicketsCount(): Promise<number> {
   return count ?? 0;
 }
 
+// ── Solicitudes (type-2 authenticated clients) ────────────────────────────────
+
+export async function createSolicitud(
+  clientEmail: string,
+  clientName: string,
+  title: string,
+  description: string,
+): Promise<void> {
+  const { error } = await db.from('tickets').insert({
+    project_id: null,
+    client_email: clientEmail,
+    client_name: clientName,
+    type: 'solicitud',
+    priority: 'media',
+    status: 'abierto',
+    title,
+    description,
+  });
+  if (error) throw error;
+}
+
+export async function getSolicitudesByEmail(
+  email: string,
+): Promise<(Ticket & { message_count: number })[]> {
+  const { data, error } = await db
+    .from('tickets')
+    .select('*, ticket_messages(count)')
+    .eq('client_email', email)
+    .is('project_id', null)
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((t: any) => ({
+    ...t,
+    message_count: t.ticket_messages?.[0]?.count ?? 0,
+  }));
+}
+
 // ── Client access tokens ──────────────────────────────────────────────────────
 
 export async function getProjectTokens(projectId: string): Promise<ClientAccessToken[]> {

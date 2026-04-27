@@ -11,6 +11,7 @@ import Signup from "./pages/Signup.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import ProjectDetail from "./pages/ProjectDetail.tsx";
 import TicketsGlobal from "./pages/TicketsGlobal.tsx";
+import MisSolicitudes from "./pages/MisSolicitudes.tsx";
 import ClientPortal from "./pages/ClientPortal.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -48,6 +49,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <TicketsGlobal />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/solicitudes"
+              element={
+                <ProtectedRoute allowedTypes={[2]}>
+                  <MisSolicitudes />
                 </ProtectedRoute>
               }
             />
