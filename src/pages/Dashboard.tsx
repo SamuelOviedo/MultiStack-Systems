@@ -103,7 +103,7 @@ export default function Dashboard() {
             <p className="font-display text-xs text-primary mb-1">$ multistack dashboard --list-projects</p>
             <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
               <FolderKanban className="h-6 w-6 text-primary" />
-              Mis Proyectos
+              Proyectos
             </h1>
             <p className="text-xs text-muted-foreground font-mono-code mt-1">session: {user?.email}</p>
           </div>
