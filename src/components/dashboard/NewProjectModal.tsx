@@ -61,7 +61,7 @@ export default function NewProjectModal({ open, onClose, onCreated }: Props) {
         value={form[key]}
         onChange={set(key)}
         placeholder={placeholder}
-        className="bg-background border-border font-mono-code text-sm"
+        className="bg-background border-border font-mono text-sm"
       />
     </div>
   );
@@ -84,14 +84,14 @@ export default function NewProjectModal({ open, onClose, onCreated }: Props) {
               value={form.descripcion}
               onChange={set("descripcion")}
               placeholder="Descripción breve del proyecto"
-              className="bg-background border-border font-mono-code text-sm resize-none"
+              className="bg-background border-border font-mono text-sm resize-none"
               rows={2}
               maxLength={500}
             />
           </div>
 
           <div className="border-t border-border pt-4 space-y-3">
-            <p className="font-display text-[10px] text-muted-foreground">— datos del cliente —</p>
+            <p className="font-mono text-[10px] text-muted-foreground">— datos del cliente —</p>
             {field("client_name", "client_name", "text", "Nombre del cliente")}
             {field("client_email", "client_email", "email", "cliente@email.com")}
             {field("client_phone", "client_phone", "tel", "+504 0000-0000")}

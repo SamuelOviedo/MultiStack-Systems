@@ -53,7 +53,7 @@ function MetaSummary({ stageKey, metadata }: { stageKey: string; metadata: Recor
   };
   const parts = summaries[stageKey] ?? [];
   if (!parts.length) return null;
-  return <p className="text-[10px] text-muted-foreground font-mono-code mt-1 line-clamp-1">{parts.join(" · ")}</p>;
+  return <p className="text-[10px] text-muted-foreground font-mono mt-1 line-clamp-1">{parts.join(" · ")}</p>;
 }
 
 const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
@@ -102,7 +102,7 @@ function PipelineHeader({
             <span className="text-primary">{completedKeys.size}/{PIPELINE_STAGES.length}</span>{" "}
             <span className="text-muted-foreground">etapas</span>
           </span>
-          <span className="font-display text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+          <span className="font-mono text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">
             {progress}%
           </span>
         </div>
@@ -139,7 +139,7 @@ function PipelineHeader({
                     </p>
                     {done && stageData ? (
                       <>
-                        <p className="text-[10px] text-primary font-mono-code mt-0.5">
+                        <p className="text-[10px] text-primary font-mono mt-0.5">
                           {new Date(stageData.completed_at).toLocaleDateString("es-HN")}
                           {stageData.completed_by ? ` · ${stageData.completed_by}` : ""}
                         </p>
@@ -184,11 +184,11 @@ function ProjectIdentityCard({
 }) {
   const cfg = STATUS_CONFIG[project.estado] ?? STATUS_CONFIG.en_analisis;
   const statusDot: Record<string, string> = {
-    activo:        "bg-green-400 animate-pulse",
-    en_desarrollo: "bg-yellow-400",
-    en_despliegue: "bg-blue-400",
-    pausado:       "bg-orange-400",
-    cancelado:     "bg-red-400",
+    activo:        "bg-success animate-pulse",
+    en_desarrollo: "bg-primary",
+    en_despliegue: "bg-accent",
+    pausado:       "bg-warning",
+    cancelado:     "bg-destructive",
   };
 
   return (
@@ -201,12 +201,12 @@ function ProjectIdentityCard({
                 <select
                   value={editForm.estado}
                   onChange={e => setEditForm((f: any) => ({ ...f, estado: e.target.value as ProjectStatus }))}
-                  className="rounded-md border border-border bg-background font-mono-code text-xs text-foreground px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="rounded-md border border-border bg-background font-mono text-xs text-foreground px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               ) : (
-                <span className={`inline-flex items-center gap-1.5 font-display text-[10px] px-2.5 py-1 rounded-md border ${cfg.color}`}>
+                <span className={`inline-flex items-center gap-1.5 font-mono text-[10px] px-2.5 py-1 rounded-md border ${cfg.color}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${statusDot[project.estado] ?? "bg-primary"}`} />
                   {cfg.label.toUpperCase()}
                 </span>
@@ -229,7 +229,7 @@ function ProjectIdentityCard({
               <Textarea
                 value={editForm.descripcion}
                 onChange={e => setEditForm((f: any) => ({ ...f, descripcion: e.target.value }))}
-                className="bg-background border-border font-mono-code text-sm resize-none mt-3"
+                className="bg-background border-border font-mono text-sm resize-none mt-3"
                 rows={2}
                 placeholder="Descripción del proyecto..."
               />
@@ -272,7 +272,7 @@ function ProjectIdentityCard({
                   value={(editForm as any)[k]}
                   onChange={e => setEditForm((f: any) => ({ ...f, [k]: e.target.value }))}
                   placeholder={label}
-                  className="bg-background border-border font-mono-code text-xs h-8"
+                  className="bg-background border-border font-mono text-xs h-8"
                 />
               </div>
             ))}
@@ -282,23 +282,23 @@ function ProjectIdentityCard({
             {project.client_name && (
               <div className="flex items-center gap-1.5">
                 <User className="h-3.5 w-3.5 text-primary" />
-                <span className="font-mono-code text-xs text-foreground font-medium">{project.client_name}</span>
+                <span className="font-mono text-xs text-foreground font-medium">{project.client_name}</span>
               </div>
             )}
             {project.client_email && (
               <div className="flex items-center gap-1.5">
                 <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-mono-code text-xs text-muted-foreground">{project.client_email}</span>
+                <span className="font-mono text-xs text-muted-foreground">{project.client_email}</span>
               </div>
             )}
             {project.client_phone && (
               <div className="flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-mono-code text-xs text-muted-foreground">{project.client_phone}</span>
+                <span className="font-mono text-xs text-muted-foreground">{project.client_phone}</span>
               </div>
             )}
             {!project.client_name && !project.client_email && !project.client_phone && (
-              <span className="text-xs text-muted-foreground italic font-mono-code">Sin datos de cliente registrados</span>
+              <span className="text-xs text-muted-foreground italic font-mono">Sin datos de cliente registrados</span>
             )}
           </div>
         )}
@@ -345,7 +345,7 @@ function ContentTabs({
             <Server className="h-3 w-3 mr-1.5" />
             Servicios
             {services.length > 0 && (
-              <span className="ml-1.5 bg-primary/10 text-primary font-display text-[10px] px-1.5 py-0.5 rounded-full">
+              <span className="ml-1.5 bg-primary/10 text-primary font-mono text-[10px] px-1.5 py-0.5 rounded-full">
                 {services.length}
               </span>
             )}
@@ -356,7 +356,7 @@ function ContentTabs({
             <TicketIcon className="h-3 w-3 mr-1.5" />
             Tickets
             {openCount > 0 && (
-              <span className="ml-1.5 bg-accent/20 text-accent font-display text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">
+              <span className="ml-1.5 bg-accent/20 text-accent font-mono text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">
                 {openCount}
               </span>
             )}
@@ -367,7 +367,7 @@ function ContentTabs({
             <Link2 className="h-3 w-3 mr-1.5" />
             Acceso
             {tokens.length > 0 && (
-              <span className="ml-1.5 bg-primary/10 text-primary font-display text-[10px] px-1.5 py-0.5 rounded-full">
+              <span className="ml-1.5 bg-primary/10 text-primary font-mono text-[10px] px-1.5 py-0.5 rounded-full">
                 {tokens.length}
               </span>
             )}
@@ -383,7 +383,7 @@ function ContentTabs({
                 <h2 className="font-display text-xs text-muted-foreground">$ servicios externos</h2>
               </div>
               <Button onClick={onShowServiceForm} variant="outline" size="sm"
-                className="font-display text-[10px] border-primary/30 text-primary hover:bg-primary/10">
+                className="font-mono text-[10px] border-primary/30 text-primary hover:bg-primary/10">
                 <Plus className="h-3 w-3 mr-1" />Agregar
               </Button>
             </div>
@@ -391,7 +391,7 @@ function ContentTabs({
               {services.length === 0 ? (
                 <div className="text-center py-10 border border-dashed border-border rounded-lg">
                   <Server className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-xs text-muted-foreground font-mono-code">Sin servicios registrados</p>
+                  <p className="text-xs text-muted-foreground font-mono">Sin servicios registrados</p>
                   <p className="text-[10px] text-muted-foreground/60 mt-1">Agrega dominios, hosting, bases de datos...</p>
                 </div>
               ) : (
@@ -412,12 +412,12 @@ function ContentTabs({
                         </div>
                         <div className="flex items-center gap-3">
                           {days !== null && (
-                            <span className={`font-display text-[10px] ${days <= 7 ? "text-red-400 font-medium" : days <= 30 ? "text-yellow-400" : "text-muted-foreground"}`}>
+                            <span className={`font-mono text-[10px] ${days <= 7 ? "text-destructive font-medium" : days <= 30 ? "text-warning" : "text-muted-foreground"}`}>
                               {days}d
                             </span>
                           )}
                           {s.cost_yearly && (
-                            <span className="font-display text-[10px] text-primary">{s.cost_yearly} {s.currency}/año</span>
+                            <span className="font-mono text-[10px] text-primary">{s.cost_yearly} {s.currency}/año</span>
                           )}
                           <button onClick={() => onDeleteService(s.id)}
                             className="text-muted-foreground hover:text-red-400 transition-colors p-1">
@@ -448,7 +448,7 @@ function ContentTabs({
                 <h2 className="font-display text-xs text-muted-foreground">$ tickets del proyecto</h2>
               </div>
               <select value={ticketFilter} onChange={e => setTicketFilter(e.target.value)}
-                className="bg-background border border-border rounded px-2 py-1 font-display text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+                className="bg-background border border-border rounded px-2 py-1 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
                 <option value="all">Todos</option>
                 {Object.entries(TICKET_STATUS_CONFIG).map(([v, c]) => (
                   <option key={v} value={v}>{c.label}</option>
@@ -459,7 +459,7 @@ function ContentTabs({
               {filteredTickets.length === 0 ? (
                 <div className="text-center py-10 border border-dashed border-border rounded-lg">
                   <TicketIcon className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-xs text-muted-foreground font-mono-code">Sin tickets</p>
+                  <p className="text-xs text-muted-foreground font-mono">Sin tickets</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -477,14 +477,14 @@ function ContentTabs({
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className={`font-display text-[10px] px-1.5 py-0.5 rounded border ${pc.color} ${pc.pulse ? "animate-pulse" : ""}`}>
+                          <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded border ${pc.color} ${pc.pulse ? "animate-pulse" : ""}`}>
                             {pc.label}
                           </span>
-                          <span className={`font-display text-[10px] px-1.5 py-0.5 rounded border ${sc.color}`}>
+                          <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded border ${sc.color}`}>
                             {sc.label}
                           </span>
                           {t.message_count > 0 && (
-                            <span className="text-[10px] text-muted-foreground font-mono-code">{t.message_count}msg</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">{t.message_count}msg</span>
                           )}
                         </div>
                       </button>

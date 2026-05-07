@@ -111,7 +111,7 @@ const Navbar = () => {
                     to="/dashboard"
                     className={cn(
                       cmdBtn,
-                      "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-green"
+                      "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary"
                     )}
                   >
                     <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
@@ -123,7 +123,7 @@ const Navbar = () => {
                   className={cn(
                     cmdBtn,
                     isClient
-                      ? "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-green"
+                      ? "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary"
                       : "relative inline-flex items-center gap-1.5 bg-background/80 text-muted-foreground border-border hover:text-primary hover:border-primary/40 hover:bg-primary/5"
                   )}
                 >
@@ -162,7 +162,7 @@ const Navbar = () => {
                   to="/signup"
                   className={cn(
                     cmdBtn,
-                    "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-green"
+                    "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary"
                   )}
                 >
                   [ SIGN UP ]

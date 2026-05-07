@@ -39,7 +39,7 @@ function inp(value: string, onChange: (v: string) => void, placeholder = "", typ
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
-      className="bg-background border-border font-mono-code text-sm"
+      className="bg-background border-border font-mono text-sm"
     />
   );
 }
@@ -49,7 +49,7 @@ function sel(value: string, onChange: (v: string) => void, options: string[]) {
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="w-full rounded-md border border-border bg-background font-mono-code text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+      className="w-full rounded-md border border-border bg-background font-mono text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
     >
       <option value="">Seleccionar...</option>
       {options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -76,7 +76,7 @@ function AnalisisForm({ meta, setMeta, notes, setNotes }: any) {
         ))}
       </div>
       <FieldRow label="notas">
-        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono-code text-sm resize-none" rows={2} />
+        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono text-sm resize-none" rows={2} />
       </FieldRow>
     </div>
   );
@@ -86,7 +86,7 @@ function DominioForm({ meta, setMeta, notes, setNotes }: any) {
   const f = (k: string) => (v: string) => setMeta((m: any) => ({ ...m, [k]: v }));
   return (
     <div className="space-y-3">
-      <p className="text-[10px] text-muted-foreground font-mono-code">
+      <p className="text-[10px] text-muted-foreground font-mono">
         💡 Buscar precio en{" "}
         <a href="https://tld-list.com" target="_blank" rel="noopener noreferrer" className="text-accent underline">
           tld-list.com
@@ -105,7 +105,7 @@ function DominioForm({ meta, setMeta, notes, setNotes }: any) {
         <FieldRow label="fecha_renovacion">{inp(meta.fecha_renovacion ?? "", f("fecha_renovacion"), "", "date")}</FieldRow>
       </div>
       <FieldRow label="notas">
-        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono-code text-sm resize-none" rows={2} />
+        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono text-sm resize-none" rows={2} />
       </FieldRow>
     </div>
   );
@@ -127,7 +127,7 @@ function DesarrolloForm({ meta, setMeta, notes, setNotes }: any) {
               key={s}
               type="button"
               onClick={() => toggleStack(s)}
-              className={`font-display text-[10px] px-2 py-1 rounded border transition-colors ${
+              className={`font-mono text-[10px] px-2 py-1 rounded border transition-colors ${
                 (meta.stack ?? []).includes(s)
                   ? "bg-primary/20 border-primary/50 text-primary"
                   : "bg-transparent border-border text-muted-foreground hover:border-primary/30"
@@ -142,7 +142,7 @@ function DesarrolloForm({ meta, setMeta, notes, setNotes }: any) {
       <FieldRow label="desarrollador">{inp(meta.desarrollador ?? "", f("desarrollador"), "Nombre del desarrollador")}</FieldRow>
       <FieldRow label="fecha_estimada_entrega">{inp(meta.fecha_estimada ?? "", f("fecha_estimada"), "", "date")}</FieldRow>
       <FieldRow label="notas">
-        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono-code text-sm resize-none" rows={2} />
+        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono text-sm resize-none" rows={2} />
       </FieldRow>
     </div>
   );
@@ -165,7 +165,7 @@ function DespliegueForm({ meta, setMeta, notes, setNotes }: any) {
         ))}
       </div>
       <FieldRow label="notas">
-        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono-code text-sm resize-none" rows={2} />
+        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono text-sm resize-none" rows={2} />
       </FieldRow>
     </div>
   );
@@ -188,7 +188,7 @@ function EntregaForm({ meta, setMeta, notes, setNotes }: any) {
         ))}
       </div>
       <FieldRow label="notas">
-        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono-code text-sm resize-none" rows={2} />
+        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono text-sm resize-none" rows={2} />
       </FieldRow>
     </div>
   );
@@ -201,7 +201,7 @@ function MantenimientoForm({ meta, setMeta, notes, setNotes }: any) {
       <FieldRow label="precio_mensual">{inp(meta.precio_mensual ?? "", f("precio_mensual"), "500.00", "number")}</FieldRow>
       <FieldRow label="moneda">{sel(meta.moneda ?? "HNL", f("moneda"), ["HNL", "USD"])}</FieldRow>
       <FieldRow label="notas">
-        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono-code text-sm resize-none" rows={2} />
+        <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-background border-border font-mono text-sm resize-none" rows={2} />
       </FieldRow>
     </div>
   );

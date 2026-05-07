@@ -107,7 +107,7 @@ export default function MisSolicitudes() {
             </p>
 
             <div className="space-y-1">
-              <label className="font-display text-[10px] text-muted-foreground uppercase tracking-wider">
+              <label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
                 Tipo de servicio
               </label>
               <select
@@ -123,7 +123,7 @@ export default function MisSolicitudes() {
             </div>
 
             <div className="space-y-1">
-              <label className="font-display text-[10px] text-muted-foreground uppercase tracking-wider">
+              <label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
                 Título / nombre del proyecto <span className="text-muted-foreground/50">(opcional)</span>
               </label>
               <input
@@ -136,7 +136,7 @@ export default function MisSolicitudes() {
             </div>
 
             <div className="space-y-1">
-              <label className="font-display text-[10px] text-muted-foreground uppercase tracking-wider">
+              <label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
                 Descripción y requerimientos
               </label>
               <textarea
@@ -187,13 +187,13 @@ export default function MisSolicitudes() {
                     className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/10 transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className={`font-display text-[10px] border rounded-sm px-2 py-0.5 shrink-0 ${statusCfg.color}`}>
+                      <span className={`font-mono text-[10px] border rounded-sm px-2 py-0.5 shrink-0 ${statusCfg.color}`}>
                         {statusCfg.label}
                       </span>
                       <span className="font-sans text-sm text-foreground truncate">{s.title}</span>
                     </div>
                     <div className="flex items-center gap-3 shrink-0 ml-3">
-                      <span className="font-display text-[10px] text-muted-foreground/60">
+                      <span className="font-mono text-[10px] text-muted-foreground/60">
                         {new Date(s.created_at).toLocaleDateString("es-AR")}
                       </span>
                       {isOpen

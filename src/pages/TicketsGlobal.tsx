@@ -72,7 +72,7 @@ export default function TicketsGlobal() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />;
   };
 
-  const selectClass = "bg-background border border-border rounded px-2 py-1 font-display text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary";
+  const selectClass = "bg-background border border-border rounded px-2 py-1 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary";
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
@@ -82,7 +82,7 @@ export default function TicketsGlobal() {
           <h1 className="font-display text-lg text-foreground">
             <span className="text-primary">$</span> tickets
           </h1>
-          <p className="text-xs text-muted-foreground font-mono-code mt-0.5">
+          <p className="text-xs text-muted-foreground font-mono mt-0.5">
             {openCount} abiertos · {tickets.length} total
           </p>
         </div>
@@ -91,7 +91,7 @@ export default function TicketsGlobal() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="flex items-center gap-1.5">
-          <span className="font-display text-[10px] text-muted-foreground">estado:</span>
+          <span className="font-mono text-[10px] text-muted-foreground">estado:</span>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className={selectClass}>
             <option value={ALL}>todos</option>
             {Object.entries(TICKET_STATUS_CONFIG).map(([v, c]) => (
@@ -100,7 +100,7 @@ export default function TicketsGlobal() {
           </select>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="font-display text-[10px] text-muted-foreground">tipo:</span>
+          <span className="font-mono text-[10px] text-muted-foreground">tipo:</span>
           <select value={filterType} onChange={e => setFilterType(e.target.value as any)} className={selectClass}>
             <option value={ALL}>todos</option>
             {Object.entries(TICKET_TYPE_LABELS).map(([v, l]) => (
@@ -109,7 +109,7 @@ export default function TicketsGlobal() {
           </select>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="font-display text-[10px] text-muted-foreground">prioridad:</span>
+          <span className="font-mono text-[10px] text-muted-foreground">prioridad:</span>
           <select value={filterPriority} onChange={e => setFilterPriority(e.target.value as any)} className={selectClass}>
             <option value={ALL}>todas</option>
             {Object.entries(TICKET_PRIORITY_CONFIG).map(([v, c]) => (
@@ -119,7 +119,7 @@ export default function TicketsGlobal() {
         </div>
         {projects.length > 0 && (
           <div className="flex items-center gap-1.5">
-            <span className="font-display text-[10px] text-muted-foreground">proyecto:</span>
+            <span className="font-mono text-[10px] text-muted-foreground">proyecto:</span>
             <select value={filterProject} onChange={e => setFilterProject(e.target.value)} className={selectClass}>
               <option value={ALL}>todos</option>
               {projects.map(p => <option key={p} value={p}>{p}</option>)}
@@ -133,38 +133,38 @@ export default function TicketsGlobal() {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-border bg-card/50">
-              <th className="text-left px-4 py-2.5 font-display text-[10px] text-muted-foreground">proyecto</th>
-              <th className="text-left px-4 py-2.5 font-display text-[10px] text-muted-foreground">título</th>
-              <th className="text-left px-4 py-2.5 font-display text-[10px] text-muted-foreground">tipo</th>
-              <th className="text-left px-4 py-2.5 font-display text-[10px] text-muted-foreground">estado</th>
-              <th className="px-4 py-2.5 font-display text-[10px] text-muted-foreground">
+              <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">proyecto</th>
+              <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">título</th>
+              <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">tipo</th>
+              <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">estado</th>
+              <th className="px-4 py-2.5 font-mono text-[10px] text-muted-foreground">
                 <button onClick={() => toggleSort("priority")} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   prioridad <SortIcon k="priority" />
                 </button>
               </th>
-              <th className="px-4 py-2.5 font-display text-[10px] text-muted-foreground">
+              <th className="px-4 py-2.5 font-mono text-[10px] text-muted-foreground">
                 <button onClick={() => toggleSort("created_at")} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   creado <SortIcon k="created_at" />
                 </button>
               </th>
-              <th className="px-4 py-2.5 font-display text-[10px] text-muted-foreground">
+              <th className="px-4 py-2.5 font-mono text-[10px] text-muted-foreground">
                 <button onClick={() => toggleSort("updated_at")} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   actividad <SortIcon k="updated_at" />
                 </button>
               </th>
-              <th className="px-4 py-2.5 font-display text-[10px] text-muted-foreground text-right">msg</th>
+              <th className="px-4 py-2.5 font-mono text-[10px] text-muted-foreground text-right">msg</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground font-mono-code text-xs">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground font-mono text-xs">
                   cargando...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground font-mono-code text-xs">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground font-mono text-xs">
                   sin tickets.
                 </td>
               </tr>
@@ -177,32 +177,32 @@ export default function TicketsGlobal() {
                   onClick={() => { setSelected(t); setDrawerOpen(true); }}
                   className="border-b border-border/50 hover:bg-card/60 cursor-pointer transition-colors"
                 >
-                  <td className="px-4 py-2.5 font-mono-code text-muted-foreground truncate max-w-[120px]">
+                  <td className="px-4 py-2.5 font-mono text-muted-foreground truncate max-w-[120px]">
                     {t.nombre_proyecto || "—"}
                   </td>
                   <td className="px-4 py-2.5 font-display text-foreground max-w-[200px] truncate">
                     {t.title}
                   </td>
-                  <td className="px-4 py-2.5 font-mono-code text-muted-foreground whitespace-nowrap">
+                  <td className="px-4 py-2.5 font-mono text-muted-foreground whitespace-nowrap">
                     {TICKET_TYPE_LABELS[t.type]}
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`font-display text-[10px] px-2 py-0.5 rounded border ${statusCfg.color}`}>
+                    <span className={`font-mono text-[10px] px-2 py-0.5 rounded border ${statusCfg.color}`}>
                       {statusCfg.label}
                     </span>
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`font-display text-[10px] px-2 py-0.5 rounded border ${priorityCfg.color} ${priorityCfg.pulse ? "animate-pulse" : ""}`}>
+                    <span className={`font-mono text-[10px] px-2 py-0.5 rounded border ${priorityCfg.color} ${priorityCfg.pulse ? "animate-pulse" : ""}`}>
                       {priorityCfg.label}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 font-mono-code text-muted-foreground text-[10px] whitespace-nowrap">
+                  <td className="px-4 py-2.5 font-mono text-muted-foreground text-[10px] whitespace-nowrap">
                     {new Date(t.created_at).toLocaleDateString("es-HN", { month: "short", day: "numeric" })}
                   </td>
-                  <td className="px-4 py-2.5 font-mono-code text-muted-foreground text-[10px] whitespace-nowrap">
+                  <td className="px-4 py-2.5 font-mono text-muted-foreground text-[10px] whitespace-nowrap">
                     {new Date(t.updated_at).toLocaleDateString("es-HN", { month: "short", day: "numeric" })}
                   </td>
-                  <td className="px-4 py-2.5 font-mono-code text-muted-foreground text-[10px] text-right">
+                  <td className="px-4 py-2.5 font-mono text-muted-foreground text-[10px] text-right">
                     {t.message_count}
                   </td>
                 </tr>

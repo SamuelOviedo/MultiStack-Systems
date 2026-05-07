@@ -91,7 +91,7 @@ export default function MaintenanceSection({ projectId, records, onRefresh }: Pr
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-display text-xs text-muted-foreground">$ registro de mantenimiento</h3>
         <Button onClick={openNew} size="sm" variant="outline"
-          className="font-display text-[10px] border-primary/30 text-primary hover:bg-primary/10">
+          className="font-mono text-[10px] border-primary/30 text-primary hover:bg-primary/10">
           <Plus className="h-3 w-3" />
           Registrar mes
         </Button>
@@ -122,7 +122,7 @@ export default function MaintenanceSection({ projectId, records, onRefresh }: Pr
                 {r.billed && r.billed_amount != null && (
                   <p className="font-display text-xs text-primary">{r.billed_amount} {/* currency not stored per record */}</p>
                 )}
-                <p className="font-display text-[10px] text-muted-foreground">{STATUS_LABEL[r.status]}</p>
+                <p className="font-mono text-[10px] text-muted-foreground">{STATUS_LABEL[r.status]}</p>
               </div>
             </button>
           ))}
@@ -143,13 +143,13 @@ export default function MaintenanceSection({ projectId, records, onRefresh }: Pr
               <label className="font-display text-xs text-muted-foreground mb-1.5 block">mes:</label>
               <Input type="month" value={form.month.slice(0, 7)}
                 onChange={e => setForm(f => ({ ...f, month: `${e.target.value}-01` }))}
-                className="bg-background border-border font-mono-code text-sm" />
+                className="bg-background border-border font-mono text-sm" />
             </div>
 
             <div>
               <label className="font-display text-xs text-muted-foreground mb-1.5 block">estado:</label>
               <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                className="w-full rounded-md border border-border bg-background font-mono-code text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
+                className="w-full rounded-md border border-border bg-background font-mono text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
                 <option value="pendiente">Pendiente</option>
                 <option value="en_proceso">En proceso</option>
                 <option value="completado">Completado</option>
@@ -162,13 +162,13 @@ export default function MaintenanceSection({ projectId, records, onRefresh }: Pr
               </label>
               <Textarea value={form.tasks} onChange={e => setForm(f => ({ ...f, tasks: e.target.value }))}
                 placeholder={"Actualización de plugins\nBackup realizado\nMonitoreo de uptime"}
-                className="bg-background border-border font-mono-code text-sm resize-none" rows={4} />
+                className="bg-background border-border font-mono text-sm resize-none" rows={4} />
             </div>
 
             <div>
               <label className="font-display text-xs text-muted-foreground mb-1.5 block">notas:</label>
               <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                className="bg-background border-border font-mono-code text-sm resize-none" rows={2} />
+                className="bg-background border-border font-mono text-sm resize-none" rows={2} />
             </div>
 
             <div className="border-t border-border pt-3 space-y-3">
@@ -181,7 +181,7 @@ export default function MaintenanceSection({ projectId, records, onRefresh }: Pr
                   <label className="font-display text-xs text-muted-foreground mb-1.5 block">monto_cobrado:</label>
                   <Input type="number" value={form.billed_amount}
                     onChange={e => setForm(f => ({ ...f, billed_amount: e.target.value }))}
-                    placeholder="500.00" className="bg-background border-border font-mono-code text-sm" />
+                    placeholder="500.00" className="bg-background border-border font-mono text-sm" />
                 </div>
               )}
             </div>

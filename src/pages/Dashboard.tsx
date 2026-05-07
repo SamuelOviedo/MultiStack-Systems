@@ -21,10 +21,10 @@ function PipelineBar({ completedCount }: { completedCount: number }) {
   return (
     <div className="mt-3">
       <div className="flex justify-between items-center mb-1">
-        <span className="text-[10px] text-muted-foreground font-mono-code">
+        <span className="text-[10px] text-muted-foreground font-mono">
           {PIPELINE_STAGES[Math.min(completedCount, TOTAL_STAGES - 1)].label}
         </span>
-        <span className="text-[10px] text-primary font-mono-code">{pct}%</span>
+        <span className="text-[10px] text-primary font-mono">{pct}%</span>
       </div>
       <div className="h-1 rounded-full bg-border overflow-hidden">
         <div
@@ -105,12 +105,12 @@ export default function Dashboard() {
               <FolderKanban className="h-6 w-6 text-primary" />
               Proyectos
             </h1>
-            <p className="text-xs text-muted-foreground font-mono-code mt-1">session: {user?.email}</p>
+            <p className="text-xs text-muted-foreground font-mono mt-1">session: {user?.email}</p>
           </div>
           <Button
             onClick={() => setShowModal(true)}
             size="sm"
-            className="font-display text-xs bg-primary text-primary-foreground hover:bg-primary/90 glow-green"
+            className="font-display text-xs bg-primary text-primary-foreground hover:bg-primary/90 glow-primary"
           >
             <Plus className="h-3.5 w-3.5" />
             [ NUEVO ]
@@ -128,7 +128,7 @@ export default function Dashboard() {
             <div key={label} className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Icon className={`h-3.5 w-3.5 ${color}`} />
-                <span className="font-display text-[10px] text-muted-foreground">{label}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">{label}</span>
               </div>
               <p className={`font-display text-2xl font-bold ${color}`}>{value}</p>
             </div>
@@ -137,18 +137,18 @@ export default function Dashboard() {
 
         {/* Renewal alerts */}
         {renewals.length > 0 && (
-          <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-4 mb-8">
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 mb-8">
             <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle className="h-4 w-4 text-yellow-400" />
-              <span className="font-display text-xs text-yellow-400">Renovaciones próximas (30 días)</span>
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <span className="font-mono text-xs text-warning">Renovaciones próximas (30 días)</span>
             </div>
             <div className="space-y-2">
               {renewals.map((r) => (
                 <div key={r.id} className="flex items-center justify-between text-xs">
-                  <span className="font-mono-code text-muted-foreground">
+                  <span className="font-mono text-muted-foreground">
                     {r.nombre_proyecto} — <span className="text-foreground">{r.name}</span>
                   </span>
-                  <span className={`font-display font-medium ${daysUntil(r.renewal_date!) <= 7 ? 'text-red-400' : 'text-yellow-400'}`}>
+                  <span className={`font-mono font-medium ${daysUntil(r.renewal_date!) <= 7 ? 'text-destructive' : 'text-warning'}`}>
                     {daysUntil(r.renewal_date!)}d
                   </span>
                 </div>
@@ -186,12 +186,12 @@ export default function Dashboard() {
                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-2" />
                   </div>
 
-                  <span className={`inline-block font-display text-[10px] px-2 py-0.5 rounded border ${cfg.color}`}>
+                  <span className={`inline-block font-mono text-[10px] px-2 py-0.5 rounded border ${cfg.color}`}>
                     {cfg.label}
                   </span>
 
                   {p.client_name && (
-                    <p className="text-[11px] text-muted-foreground font-mono-code mt-2">{p.client_name}</p>
+                    <p className="text-[11px] text-muted-foreground font-mono mt-2">{p.client_name}</p>
                   )}
                   {p.descripcion && (
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{p.descripcion}</p>
@@ -199,7 +199,7 @@ export default function Dashboard() {
 
                   <PipelineBar completedCount={completed} />
 
-                  <p className="text-[10px] text-muted-foreground font-mono-code mt-3">
+                  <p className="text-[10px] text-muted-foreground font-mono mt-3">
                     {new Date(p.fecha_creacion).toLocaleDateString("es-HN")}
                   </p>
                 </Link>

@@ -60,15 +60,15 @@ export default function ClientAccessSection({ projectId, tokens, onRefresh }: Pr
             <Input
               value={portalUrl}
               readOnly
-              className="bg-background border-border font-mono-code text-xs h-8"
+              className="bg-background border-border font-mono text-xs h-8"
             />
             <Button onClick={copyUrl} variant="outline" size="sm"
-              className="font-display text-[10px] shrink-0 border-primary/30 text-primary hover:bg-primary/10">
+              className="font-mono text-[10px] shrink-0 border-primary/30 text-primary hover:bg-primary/10">
               <Copy className="h-3.5 w-3.5" />
             </Button>
           </div>
 
-          <div className="text-[10px] text-muted-foreground font-mono-code space-y-0.5">
+          <div className="text-[10px] text-muted-foreground font-mono space-y-0.5">
             {activeToken.client_name  && <p>cliente: {activeToken.client_name}</p>}
             {activeToken.client_email && <p>email: {activeToken.client_email}</p>}
             <p>creado: {new Date(activeToken.created_at).toLocaleDateString("es-HN")}</p>
@@ -86,23 +86,23 @@ export default function ClientAccessSection({ projectId, tokens, onRefresh }: Pr
 
       {/* Generate / Regenerate form */}
       <div className="rounded-lg border border-border p-4 space-y-3">
-        <p className="font-display text-[10px] text-muted-foreground">
+        <p className="font-mono text-[10px] text-muted-foreground">
           {activeToken ? "— regenerar enlace (desactiva el anterior) —" : "— generar enlace de acceso —"}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="font-display text-[10px] text-muted-foreground mb-1 block">nombre_cliente:</label>
+            <label className="font-mono text-[10px] text-muted-foreground mb-1 block">nombre_cliente:</label>
             <Input value={clientName} onChange={e => setClientName(e.target.value)}
-              placeholder="Juan Pérez" className="bg-background border-border font-mono-code text-xs h-8" />
+              placeholder="Juan Pérez" className="bg-background border-border font-mono text-xs h-8" />
           </div>
           <div>
-            <label className="font-display text-[10px] text-muted-foreground mb-1 block">email_cliente:</label>
+            <label className="font-mono text-[10px] text-muted-foreground mb-1 block">email_cliente:</label>
             <Input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)}
-              placeholder="juan@email.com" className="bg-background border-border font-mono-code text-xs h-8" />
+              placeholder="juan@email.com" className="bg-background border-border font-mono text-xs h-8" />
           </div>
         </div>
         <Button onClick={handleGenerate} disabled={loading} size="sm"
-          className="font-display text-[10px] bg-primary text-primary-foreground hover:bg-primary/90">
+          className="font-mono text-[10px] bg-primary text-primary-foreground hover:bg-primary/90">
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           {loading ? "Generando..." : activeToken ? "[ REGENERAR ENLACE ]" : "[ GENERAR ENLACE ]"}
         </Button>
@@ -111,10 +111,10 @@ export default function ClientAccessSection({ projectId, tokens, onRefresh }: Pr
       {/* History */}
       {tokens.filter(t => !t.active).length > 0 && (
         <div>
-          <p className="font-display text-[10px] text-muted-foreground mb-2">historial:</p>
+          <p className="font-mono text-[10px] text-muted-foreground mb-2">historial:</p>
           <div className="space-y-1">
             {tokens.filter(t => !t.active).map(t => (
-              <div key={t.id} className="flex items-center justify-between text-[10px] text-muted-foreground/50 font-mono-code px-2 py-1 border border-border/30 rounded">
+              <div key={t.id} className="flex items-center justify-between text-[10px] text-muted-foreground/50 font-mono px-2 py-1 border border-border/30 rounded">
                 <span>{t.token.slice(0, 16)}…</span>
                 <span>{new Date(t.created_at).toLocaleDateString("es-HN")} · inactivo</span>
               </div>

@@ -88,14 +88,14 @@ export default function ServiceForm({ projectId, open, onClose, onSaved }: Props
         <div className="space-y-3">
           <FieldRow label="tipo">
             <select value={form.service_type} onChange={set("service_type")}
-              className="w-full rounded-md border border-border bg-background font-mono-code text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
+              className="w-full rounded-md border border-border bg-background font-mono text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
               {SERVICE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </FieldRow>
 
           <FieldRow label="proveedor *">
             <select value={form.provider} onChange={set("provider")}
-              className="w-full rounded-md border border-border bg-background font-mono-code text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
+              className="w-full rounded-md border border-border bg-background font-mono text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
               <option value="">Seleccionar...</option>
               {PROVIDERS.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -103,26 +103,26 @@ export default function ServiceForm({ projectId, open, onClose, onSaved }: Props
 
           <FieldRow label="nombre *">
             <Input value={form.name} onChange={set("name")} placeholder="confeccionesmatys.com"
-              className="bg-background border-border font-mono-code text-sm" />
+              className="bg-background border-border font-mono text-sm" />
           </FieldRow>
 
           <FieldRow label="url">
             <Input value={form.url} onChange={set("url")} placeholder="https://..."
-              className="bg-background border-border font-mono-code text-sm" />
+              className="bg-background border-border font-mono text-sm" />
           </FieldRow>
 
           <div className="grid grid-cols-3 gap-2">
             <FieldRow label="costo_mensual">
               <Input type="number" value={form.cost_monthly} onChange={set("cost_monthly")} placeholder="0.00"
-                className="bg-background border-border font-mono-code text-sm" />
+                className="bg-background border-border font-mono text-sm" />
             </FieldRow>
             <FieldRow label="costo_anual">
               <Input type="number" value={form.cost_yearly} onChange={set("cost_yearly")} placeholder="0.00"
-                className="bg-background border-border font-mono-code text-sm" />
+                className="bg-background border-border font-mono text-sm" />
             </FieldRow>
             <FieldRow label="moneda">
               <select value={form.currency} onChange={set("currency")}
-                className="w-full rounded-md border border-border bg-background font-mono-code text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
+                className="w-full rounded-md border border-border bg-background font-mono text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
                 <option>USD</option>
                 <option>HNL</option>
               </select>
@@ -131,12 +131,12 @@ export default function ServiceForm({ projectId, open, onClose, onSaved }: Props
 
           <FieldRow label="fecha_renovacion">
             <Input type="date" value={form.renewal_date} onChange={set("renewal_date")}
-              className="bg-background border-border font-mono-code text-sm" />
+              className="bg-background border-border font-mono text-sm" />
           </FieldRow>
 
           <FieldRow label="notas">
             <Textarea value={form.notes} onChange={set("notes")}
-              className="bg-background border-border font-mono-code text-sm resize-none" rows={2} />
+              className="bg-background border-border font-mono text-sm resize-none" rows={2} />
           </FieldRow>
 
           <div className="flex gap-2 pt-4 border-t border-border">
