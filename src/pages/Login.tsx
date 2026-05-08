@@ -28,6 +28,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, userType, loading: authLoading } = useAuth();
@@ -49,6 +50,18 @@ const Login = () => {
     if (error) {
       toast({ title: "Error de autenticación", description: error.message, variant: "destructive" });
       setLoading(false);
+    }
+  };
+
+  const handleOAuth = async (provider: "google" | "github") => {
+    setOauthLoading(provider);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) {
+      toast({ title: "Error de autenticación", description: error.message, variant: "destructive" });
+      setOauthLoading(null);
     }
   };
 
@@ -85,17 +98,21 @@ const Login = () => {
             <Button
               variant="outline"
               type="button"
-              className="h-11 border-border text-foreground font-medium gap-2.5 hover:bg-foreground/5 hover:border-border/80"
+              disabled={!!oauthLoading}
+              onClick={() => handleOAuth("google")}
+              className="h-11 border-border text-foreground font-medium gap-2.5 hover:bg-foreground/5 hover:border-border/80 disabled:opacity-60"
             >
-              <GoogleIcon />
+              {oauthLoading === "google" ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
               Google
             </Button>
             <Button
               variant="outline"
               type="button"
-              className="h-11 border-border text-foreground font-medium gap-2.5 hover:bg-foreground/5 hover:border-border/80"
+              disabled={!!oauthLoading}
+              onClick={() => handleOAuth("github")}
+              className="h-11 border-border text-foreground font-medium gap-2.5 hover:bg-foreground/5 hover:border-border/80 disabled:opacity-60"
             >
-              <GitHubIcon />
+              {oauthLoading === "github" ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitHubIcon />}
               GitHub
             </Button>
           </div>
@@ -129,9 +146,9 @@ const Login = () => {
                 <label htmlFor="password" className="block text-xs font-medium text-muted-foreground">
                   Contraseña
                 </label>
-                <a href="#" className="text-xs text-primary hover:underline">
+                <Link to="/auth/reset-password" className="text-xs text-primary hover:underline">
                   ¿Olvidaste tu contraseña?
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <Input

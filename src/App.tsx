@@ -13,6 +13,8 @@ import ProjectDetail from "./pages/ProjectDetail.tsx";
 import TicketsGlobal from "./pages/TicketsGlobal.tsx";
 import MisSolicitudes from "./pages/MisSolicitudes.tsx";
 import ClientPortal from "./pages/ClientPortal.tsx";
+import AuthCallback from "./pages/AuthCallback.tsx";
+import ResetPassword from "./pages/ResetPassword.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -61,6 +63,8 @@ const App = () => (
               }
             />
             <Route path="/client/:token" element={<ClientPortal />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/reset-password" element={<ResetPassword />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
