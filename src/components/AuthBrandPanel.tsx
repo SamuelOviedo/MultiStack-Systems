@@ -7,9 +7,9 @@ const FEATURES = [
 ];
 
 const LOG_LINES = [
-  { time: "14:23", icon: "✓", iconClass: "text-success",     text: <>deploy <span className="text-foreground">cooperativa-sagrada</span> completado</> },
-  { time: "14:19", icon: "↻", iconClass: "text-primary",     text: <>ticket <span className="text-foreground">#t-142</span> asignado a samuel</> },
-  { time: "14:11", icon: "⚠", iconClass: "text-warning",     text: <>hosting-vercel vence en <span className="text-foreground">12d</span></> },
+  { time: "14:23", icon: "✓", iconClass: "text-success",     text: <>deploy <span className="text-foreground">proyecto-matys</span> completado</> },
+  { time: "14:19", icon: "↻", iconClass: "text-primary",     text: <>ticket <span className="text-foreground">#t-089</span> asignado a dev-01</> },
+  { time: "14:11", icon: "⚠", iconClass: "text-warning",     text: <>ssl-cert vence en <span className="text-foreground">12d</span></> },
 ];
 
 export default function AuthBrandPanel() {
