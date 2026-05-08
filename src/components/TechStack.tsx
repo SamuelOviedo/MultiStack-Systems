@@ -1,10 +1,20 @@
 import { motion } from "framer-motion";
 
 const techs = [
-  "React", "Next.js", "TypeScript", "Python", "Node.js",
-  "TailwindCSS", "PostgreSQL", "Docker", "AWS", "OpenAI",
-  "Supabase", "Vercel", "Linux", "Git", "Figma",
-  "Kaspersky", "Windows Server", "Cloudflare",
+  // Frontend
+  "React", "TypeScript", "Vite", "TailwindCSS", "Claude design",
+  // Backend & DB
+  "Supabase", "PostgreSQL", "Node.js", "AWS",
+  // Deploy & DevOps
+  "Vercel", "Render", "Git", "GitHub",
+  // AI & Design
+  "Claude", "Figma",
+  // Seguridad
+  "Kali Linux", "Kaspersky",
+  // Software & Licenciamiento
+  "Windows Server", "Linux",
+  // Comunicación & Gestión
+  "Flutter", "Discord", "Notion", "Trello",
 ];
 
 const TechStack = () => (
