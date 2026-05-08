@@ -1,0 +1,127 @@
+/* ============================================================================
+ * MultiStack Systems — globals.css
+ * ----------------------------------------------------------------------------
+ * Drop-in para `src/index.css` (Vite) o `app/globals.css` (Next).
+ * Sustituye al archivo actual completo.
+ *
+ * Cambios respecto al sistema anterior (terminal verde):
+ *   - Paleta movida a "professional dark tech": sky-blue primary, cyan accent.
+ *   - Sin verde en ningún lado (excepto `--success` por convención semántica).
+ *   - Tipografía: Inter (body) + Space Grotesk (headers) + JetBrains Mono (UI/code).
+ *   - Radii canónicos: sm 4 / md 8 / lg 12 / xl 16. Sin pill buttons.
+ *   - Glows reservados para focus + hero CTA (no en cada card).
+ * ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* === Surfaces ====================================================== */
+    --background: 222 43% 7%;          /* #080F1E — deep navy, body */
+    --foreground: 216 100% 97%;        /* #F0F6FF — cool white, headings */
+    --card: 218 56% 14%;               /* #0F1C35 — lifted surface */
+    --card-foreground: 216 100% 97%;
+    --popover: 218 56% 14%;
+    --popover-foreground: 216 100% 97%;
+
+    /* === Brand ========================================================= */
+    --primary: 199 89% 48%;            /* #0EA5E9 — sky-500, lead CTA */
+    --primary-foreground: 222 43% 7%;  /* #080F1E — texto sobre primary */
+    --accent: 187 92% 43%;             /* #06B6D4 — cyan-500, accent CTA */
+    --accent-foreground: 222 43% 7%;
+
+    /* === Neutral ======================================================= */
+    --secondary: 213 52% 24%;          /* #1E3A5F — same as border */
+    --secondary-foreground: 216 100% 97%;
+    --muted: 213 52% 24%;
+    --muted-foreground: 215 16% 47%;   /* #64748B — slate-500, chrome / metadata */
+    --body-foreground: 215 20% 65%;    /* #94A3B8 — slate-400, párrafos */
+
+    /* === Borders & inputs ============================================== */
+    --border: 213 52% 24%;             /* #1E3A5F — solid 1px hairline */
+    --input: 213 52% 24%;
+    --ring: 199 89% 48%;               /* #0EA5E9 — focus ring */
+
+    /* === Status (semánticos) =========================================== */
+    --success: 158 84% 39%;            /* #10B981 — emerald 500 */
+    --success-foreground: 222 43% 7%;
+    --warning: 38 92% 50%;             /* #F59E0B — amber 500 */
+    --warning-foreground: 222 43% 7%;
+    --destructive: 0 84% 60%;          /* #EF4444 — red 500 */
+    --destructive-foreground: 216 100% 97%;
+    --info: 199 89% 48%;               /* same as primary */
+
+    /* === Radii ========================================================= */
+    --radius: 0.5rem;                  /* 8px — md, default for buttons/inputs */
+    /* sm 4 / md 8 / lg 12 / xl 16. `full` solo para dots/progress/avatars. */
+
+    /* === Glows (sparingly!) ============================================ */
+    --glow-focus:   0 0 0 3px rgba(14,165,233,0.25);
+    --glow-primary: 0 0 16px rgba(14,165,233,0.30);
+    --glow-primary-light: 0 0 12px rgba(14,165,233,0.20);
+    --glow-cyan:    0 0 16px rgba(6,182,212,0.22);
+
+    /* === Motion ======================================================== */
+    --ease-brand: cubic-bezier(0.2, 0, 0, 1);
+    --dur-fast:   150ms;
+    --dur-base:   300ms;
+    --dur-slow:   500ms;
+  }
+}
+
+/* ============================================================================
+ * Element defaults
+ * ========================================================================== */
+@layer base {
+  * { @apply border-border; }
+
+  html, body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    @apply font-semibold tracking-tight text-foreground;
+    letter-spacing: -0.02em;
+  }
+
+  h1 { @apply text-4xl md:text-5xl;   line-height: 1.05; }
+  h2 { @apply text-2xl md:text-3xl;   line-height: 1.10; }
+  h3 { @apply text-xl;                line-height: 1.20; }
+  h4 { @apply text-sm;                line-height: 1.30; }
+
+  p  { @apply text-[15px] leading-[1.7] text-[hsl(var(--body-foreground))]; }
+
+  code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+  ::selection { @apply bg-primary/30 text-foreground; }
+}
+
+/* ============================================================================
+ * Utilities
+ * ========================================================================== */
+@layer utilities {
+  .glow-focus         { box-shadow: var(--glow-focus); }
+  .glow-primary       { box-shadow: var(--glow-primary); }
+  .glow-primary-light { box-shadow: var(--glow-primary-light); }
+  .glow-cyan          { box-shadow: var(--glow-cyan); }
+
+  /* Eyebrow — section label que va arriba de un heading */
+  .eyebrow {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    @apply text-xs font-semibold uppercase text-accent;
+    letter-spacing: 0.08em;
+  }
+
+  /* Bracket label — para botones secundarios estilo [ LOGIN ] */
+  .bracket {
+    font-family: 'JetBrains Mono', monospace;
+    @apply text-xs font-medium uppercase;
+    letter-spacing: 0.02em;
+  }
+}
