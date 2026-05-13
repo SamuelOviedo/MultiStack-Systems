@@ -16,6 +16,6 @@ export function getSiteOrigin(): string {
 
 export function getAuthEmailRedirectUrl(): string {
   const base = getSiteOrigin();
-  if (!base) return "/login";
-  return `${base}/login`;
+  if (!base) return "/solicitudes";
+  return `${base}/solicitudes`;
 }

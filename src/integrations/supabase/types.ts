@@ -17,7 +17,7 @@ export type Database = {
       proyectos_clientes: {
         Row: {
           descripcion: string | null
-          estado: Database["public"]["Enums"]["estado_proyecto"]
+          estado: string
           fecha_creacion: string
           id: string
           nombre_proyecto: string
@@ -25,7 +25,7 @@ export type Database = {
         }
         Insert: {
           descripcion?: string | null
-          estado?: Database["public"]["Enums"]["estado_proyecto"]
+          estado?: string
           fecha_creacion?: string
           id?: string
           nombre_proyecto: string
@@ -33,7 +33,7 @@ export type Database = {
         }
         Update: {
           descripcion?: string | null
-          estado?: Database["public"]["Enums"]["estado_proyecto"]
+          estado?: string
           fecha_creacion?: string
           id?: string
           nombre_proyecto?: string
@@ -49,7 +49,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      estado_proyecto: "En análisis" | "Desarrollo" | "Finalizado"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -176,8 +176,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      estado_proyecto: ["En análisis", "Desarrollo", "Finalizado"],
-    },
+    Enums: {},
   },
 } as const

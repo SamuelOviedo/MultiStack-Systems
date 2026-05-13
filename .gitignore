@@ -1,3 +1,12 @@
+# Claude Code — local settings may contain tokens/credentials
+.claude/settings.local.json
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.production
+.env.*.local
+
 # Logs
 logs
 *.log
@@ -7,9 +16,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+node_modules/
+dist/
+dist-ssr/
+.vercel/
 *.local
 
 # Editor directories and files

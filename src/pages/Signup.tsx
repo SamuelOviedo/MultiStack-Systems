@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import Navbar from "@/components/Navbar";
-import { Terminal, UserPlus, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { getAuthEmailRedirectUrl } from "@/lib/siteUrl";
+import AuthBrandPanel from "@/components/AuthBrandPanel";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -40,95 +40,103 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Navbar />
-      <div className="flex-1 flex items-center justify-center px-4 pt-20 pb-10">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <Terminal className="h-6 w-6 text-primary" />
-            <span className="font-display text-lg font-semibold tracking-tighter text-foreground">
-              MultiStack<span className="text-primary">.</span>
-            </span>
+    <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] min-h-screen">
+      {/* Left: brand panel */}
+      <AuthBrandPanel />
+
+      {/* Right: form panel */}
+      <div className="bg-background flex flex-col px-12 py-8 min-h-screen">
+        {/* Top row */}
+        <div className="flex justify-end items-center gap-4">
+          <span className="text-[13px] text-muted-foreground">¿Ya tienes cuenta?</span>
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Iniciar sesión
           </Link>
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-1">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-            <div className="flex gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-destructive/70" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
-              <div className="w-3 h-3 rounded-full bg-primary/70" />
-            </div>
-            <span className="font-display text-xs text-muted-foreground ml-2">~/auth/signup</span>
-          </div>
+        {/* Center: form */}
+        <div className="flex-1 flex flex-col justify-center max-w-[400px] mx-auto w-full py-8">
+          <h2 className="font-display text-3xl font-semibold tracking-tight text-foreground mb-2">
+            Crear cuenta
+          </h2>
+          <p className="text-sm text-[hsl(var(--body-foreground))] leading-relaxed mb-8">
+            Únete a la plataforma MultiStack.
+          </p>
 
-          <div className="p-6">
-            <div className="mb-6">
-              <p className="font-display text-xs text-primary mb-1">$ multistack register --new-user</p>
-              <h1 className="text-xl font-display font-bold text-foreground">Crear Cuenta</h1>
-              <p className="text-sm text-muted-foreground mt-1">Únete a la plataforma MultiStack</p>
+          <form onSubmit={handleSignup} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Email de trabajo
+              </label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@empresa.com"
+                className="h-[42px] bg-background/60 border-border text-foreground text-sm font-sans rounded-md focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-0"
+                required
+                maxLength={255}
+              />
             </div>
-
-            <form onSubmit={handleSignup} className="space-y-4">
-              <div>
-                <label className="font-display text-xs text-muted-foreground mb-1.5 block">email:</label>
+            <div>
+              <label htmlFor="password" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Contraseña
+              </label>
+              <div className="relative">
                 <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@email.com"
-                  className="bg-background border-border font-mono-code text-sm"
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  className="h-[42px] bg-background/60 border-border text-foreground text-sm font-sans rounded-md focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-0 pr-10"
                   required
-                  maxLength={255}
+                  minLength={6}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-              <div>
-                <label className="font-display text-xs text-muted-foreground mb-1.5 block">password:</label>
-                <div className="relative">
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
-                    className="bg-background border-border font-mono-code text-sm pr-10"
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full font-display text-sm bg-primary text-primary-foreground hover:bg-primary/90 glow-green"
-              >
-                {loading ? (
-                  <span className="animate-pulse">Creando cuenta...</span>
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4" />
-                    [ CREAR CUENTA ]
-                  </>
-                )}
-              </Button>
-            </form>
-
-            <p className="text-center text-sm text-muted-foreground mt-6">
-              ¿Ya tienes cuenta?{" "}
-              <Link to="/login" className="text-primary hover:underline font-display">
-                Iniciar sesión
-              </Link>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Al crear tu cuenta aceptas los términos del servicio.
             </p>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-11 bg-primary text-primary-foreground font-sans font-medium text-sm rounded-md mt-2 hover:bg-primary/90 hover:shadow-[0_0_16px_rgba(14,165,233,0.30)] focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all disabled:opacity-70"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creando cuenta…
+                </>
+              ) : (
+                "Crear cuenta"
+              )}
+            </Button>
+          </form>
+        </div>
+
+        {/* Bottom: footer */}
+        <div className="flex justify-between items-center text-xs text-muted-foreground">
+          <span className="font-mono">© 2026 multistack.dev</span>
+          <div className="flex gap-3.5">
+            <a href="#" className="hover:text-foreground transition-colors">Soporte</a>
+            <a href="#" className="hover:text-foreground transition-colors">Estado</a>
+            <a href="#" className="hover:text-foreground transition-colors">Docs</a>
           </div>
         </div>
-      </div>
       </div>
     </div>
   );

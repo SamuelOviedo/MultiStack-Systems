@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Terminal, LayoutDashboard, LogOut } from "lucide-react";
+import { Terminal, LayoutDashboard, LogOut, Ticket } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { getOpenTicketsCount } from "@/lib/tickets";
 import { cn } from "@/lib/utils";
 
 const cmdBtn =
@@ -9,10 +10,17 @@ const cmdBtn =
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
-  const { user, loading, signOut } = useAuth();
+  const [openTickets, setOpenTickets] = useState(0);
+  const { user, userType, loading, signOut } = useAuth();
+  const isClient = userType === 2;
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
+
+  useEffect(() => {
+    if (!user || isClient) return;
+    getOpenTicketsCount().then(setOpenTickets).catch(() => {});
+  }, [user, isClient, location.pathname]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -98,15 +106,34 @@ const Navbar = () => {
               </span>
             ) : user ? (
               <>
+                {!isClient && (
+                  <Link
+                    to="/dashboard"
+                    className={cn(
+                      cmdBtn,
+                      "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary"
+                    )}
+                  >
+                    <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
+                    [ DASHBOARD ]
+                  </Link>
+                )}
                 <Link
-                  to="/dashboard"
+                  to={isClient ? "/solicitudes" : "/dashboard/tickets"}
                   className={cn(
                     cmdBtn,
-                    "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-green"
+                    isClient
+                      ? "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary"
+                      : "relative inline-flex items-center gap-1.5 bg-background/80 text-muted-foreground border-border hover:text-primary hover:border-primary/40 hover:bg-primary/5"
                   )}
                 >
-                  <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
-                  [ DASHBOARD ]
+                  <Ticket className="h-3.5 w-3.5 shrink-0" />
+                  {isClient ? "[ SOLICITUDES ]" : "[ TICKETS ]"}
+                  {!isClient && openTickets > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-primary text-background text-[9px] font-display font-bold rounded-full h-4 w-4 flex items-center justify-center leading-none">
+                      {openTickets > 99 ? "99" : openTickets}
+                    </span>
+                  )}
                 </Link>
                 <button
                   type="button"
@@ -135,7 +162,7 @@ const Navbar = () => {
                   to="/signup"
                   className={cn(
                     cmdBtn,
-                    "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-green"
+                    "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary"
                   )}
                 >
                   [ SIGN UP ]
