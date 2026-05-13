@@ -113,6 +113,36 @@ Estrategia y estructura de tests: [`docs/testing-strategy.md`](docs/testing-stra
 
 ---
 
+## AI-First Workflow
+
+Este proyecto está optimizado para trabajar con Claude Code. Guía completa: [`CONTRIBUTING_AI.md`](CONTRIBUTING_AI.md)
+
+**Antes de implementar, siempre analizar:**
+```
+Lee QUICK_CONTEXT.md antes de empezar.
+Área: [componente / módulo concreto].
+Objetivo: [una sola cosa].
+No tocar: [archivos fuera de scope].
+```
+
+**Reglas clave:**
+- Supabase solo desde `src/lib/` — nunca directo en componentes
+- Un cambio = un archivo principal — si toca 5+ archivos no relacionados, está mal encuadrado
+- Migraciones SQL solo hacia adelante — nunca editar las existentes
+- `npm run build` antes de commitear — atrapa errores reales
+- Cambio mínimo — no refactorizar alrededor del fix
+
+**Zonas peligrosas — confirmar antes de tocar:**
+
+| Archivo | Riesgo |
+|---|---|
+| `src/hooks/useAuth.tsx` | Auth global, race conditions |
+| `src/types/projects.ts` | Cambiar enums rompe en cascada |
+| `src/pages/ProjectDetail.tsx` | 686 líneas entrelazadas |
+| `supabase/migrations/` | Irreversible en producción |
+
+---
+
 ## Documentación
 
 | Archivo | Contenido |
