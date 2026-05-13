@@ -1,84 +1,127 @@
-# 🚀 Bienvenido a tu proyecto en Lovable
+# MultiStack Systems
 
-## 📌 Información del proyecto
+Plataforma de gestión de proyectos para agencia de desarrollo web. Permite al equipo gestionar el ciclo de vida de proyectos (pipeline, servicios, mantenimiento, tickets) y a los clientes acceder a un portal público sin cuenta.
 
-**URL del proyecto:**\
-https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+---
 
-------------------------------------------------------------------------
+## Inicio rápido
 
-## 🛠️ ¿Cómo puedo editar este proyecto?
-
-Tienes varias opciones para trabajar en la aplicación según tu flujo de
-trabajo:
-
-### 🔹 Usar Lovable (recomendado)
-
-Accede directamente al proyecto desde Lovable:
-
-👉 https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
-
-Puedes realizar cambios mediante prompts, y estos se guardarán
-automáticamente en el repositorio.
-
-------------------------------------------------------------------------
-
-### 🔹 Usar tu IDE (trabajo local)
-
-Si prefieres trabajar localmente con tu propio entorno de desarrollo:
-
-#### Requisitos
-
--   Tener instalado **Node.js** y **npm**\
--   Recomendado: instalar con nvm\
-    👉 https://github.com/nvm-sh/nvm#installing-and-updating
-
-#### Pasos
-
-``` bash
-# 1. Clonar el repositorio
-git clone <YOUR_GIT_URL>
-
-# 2. Entrar al proyecto
-cd <YOUR_PROJECT_NAME>
-
-# 3. Instalar dependencias
+```bash
+# 1. Clonar e instalar
+git clone <repo-url>
+cd MultiStack-Systems
 npm install
 
-# 4. Iniciar servidor de desarrollo
+# 2. Configurar variables de entorno
+cp .env.example .env
+# Editar .env con las credenciales de Supabase
+
+# 3. Levantar servidor de desarrollo
 npm run dev
+# → http://localhost:8080
 ```
 
-Esto iniciará el servidor con recarga automática y vista previa
-instantánea.
+---
 
-------------------------------------------------------------------------
+## Stack
 
-### 🔹 Editar directamente en GitHub
+| Capa | Tecnología |
+|---|---|
+| Frontend | React 18 + TypeScript + Vite |
+| Estilos | Tailwind CSS + shadcn-ui |
+| Routing | React Router 6 |
+| Backend / DB | Supabase (PostgreSQL + Auth + Edge Functions) |
+| Deploy | Vercel |
 
-1.  Ve al archivo que deseas modificar\
-2.  Haz clic en el ícono de ✏️ (editar)\
-3.  Realiza los cambios\
-4.  Confirma el commit
+---
 
-------------------------------------------------------------------------
+## Comandos
 
-### 🔹 Usar GitHub Codespaces
+```bash
+npm run dev          # Servidor de desarrollo (puerto 8080)
+npm run build        # Build de producción
+npm run lint         # ESLint
 
-1.  Ve a la página principal del repositorio\
-2.  Haz clic en el botón **Code**\
-3.  Selecciona la pestaña **Codespaces**\
-4.  Crea un nuevo Codespace\
-5.  Edita y guarda tus cambios directamente en la nube
+npm run test         # Tests unitarios (Vitest)
+npm run test:watch   # Tests en modo watch
+npm run test:e2e     # Tests end-to-end (Playwright) — requiere dev server activo
 
-------------------------------------------------------------------------
+# Supabase
+supabase start       # Levantar DB local
+supabase db push     # Aplicar migraciones pendientes
+supabase db reset    # Reset completo y re-run de migraciones
+supabase gen types   # Regenerar src/integrations/supabase/types.ts
+```
 
-## ⚙️ Tecnologías utilizadas
+Para correr Playwright por primera vez:
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
 
-Este proyecto está construido con:
+---
 
--   ⚡ Vite\
--   🟦 TypeScript\
--   ⚛️ React\
--   🎨 shadcn-ui\
--   💨 Tailwind CSS
+## Estructura principal
+
+```
+src/
+  pages/       — páginas de la app
+  components/  — componentes UI reutilizables
+  hooks/       — useAuth, use-toast
+  lib/         — acceso a Supabase (projects, tickets, portal)
+  types/       — tipos y enums de dominio
+
+supabase/
+  migrations/  — schema SQL + RLS + RPC
+  functions/   — Edge Functions (email con Resend)
+```
+
+---
+
+## Roles de usuario
+
+| user_type | Rol | Acceso |
+|---|---|---|
+| `0` | Admin | Dashboard completo |
+| `1` | Staff | Dashboard completo |
+| `2` | Client | Solo `/solicitudes` |
+
+Los usuarios nuevos (incluyendo OAuth) empiezan con `user_type: 2`. Los admin/staff se actualizan manualmente en Supabase Dashboard → Table Editor → profiles.
+
+---
+
+## Autenticación
+
+Soporta email/password, GitHub OAuth y Google OAuth vía Supabase Auth.
+
+Para activar OAuth en un entorno nuevo: ver [`docs/oauth-setup.md`](docs/oauth-setup.md).
+
+---
+
+## Testing
+
+```bash
+# Unitarios (Vitest + Testing Library)
+npm run test
+
+# E2E (Playwright)
+npx playwright install chromium   # primera vez
+npm run test:e2e
+```
+
+Estrategia y estructura de tests: [`docs/testing-strategy.md`](docs/testing-strategy.md)
+
+---
+
+## Documentación
+
+| Archivo | Contenido |
+|---|---|
+| [`QUICK_CONTEXT.md`](QUICK_CONTEXT.md) | Resumen del proyecto en 5 minutos |
+| [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) | Referencia técnica completa |
+| [`ARCHITECTURE_MAP.md`](ARCHITECTURE_MAP.md) | Flujos, dependencias y capas |
+| [`CONTRIBUTING_AI.md`](CONTRIBUTING_AI.md) | Cómo trabajar con Claude Code |
+| [`PROMPTS.md`](PROMPTS.md) | Prompts reutilizables para Claude Code |
+| [`docs/auth-flow.md`](docs/auth-flow.md) | Auth flow completo |
+| [`docs/oauth-setup.md`](docs/oauth-setup.md) | Setup de GitHub y Google OAuth |
+| [`docs/testing-strategy.md`](docs/testing-strategy.md) | Estrategia de tests |

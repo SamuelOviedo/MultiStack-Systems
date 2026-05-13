@@ -56,7 +56,7 @@ const ProtectedRoute = ({ children, allowedTypes = [0, 1] }: ProtectedRouteProps
   }
 
   if (userType !== null && !allowedTypes.includes(userType)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={userType === 2 ? "/solicitudes" : "/"} replace />;
   }
 
   return <>{children}</>;
