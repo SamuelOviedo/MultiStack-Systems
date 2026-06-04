@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Navbar from "@/components/Navbar";
 import { getAllTickets } from "@/lib/tickets";
 import { useToast } from "@/hooks/use-toast";
 import TicketDrawer from "@/components/dashboard/TicketDrawer";
@@ -75,7 +76,9 @@ export default function TicketsGlobal() {
   const selectClass = "bg-background border border-border rounded px-2 py-1 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary";
 
   return (
-    <div className="min-h-screen bg-background p-6 space-y-6">
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="pt-24 px-6 pb-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -219,6 +222,7 @@ export default function TicketsGlobal() {
         onUpdated={() => { load(); }}
         portalBaseUrl={window.location.origin}
       />
+      </div>
     </div>
   );
 }

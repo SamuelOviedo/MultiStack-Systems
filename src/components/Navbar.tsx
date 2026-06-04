@@ -16,6 +16,11 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
+  const isDashboard = location.pathname.startsWith("/dashboard");
+  const isTickets = location.pathname === "/dashboard/tickets";
+
+  const activeCmd = "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary";
+  const inactiveCmd = "bg-background/80 text-muted-foreground border-border hover:text-primary hover:border-primary/40 hover:bg-primary/5";
 
   useEffect(() => {
     if (!user || isClient) return;
@@ -111,7 +116,8 @@ const Navbar = () => {
                     to="/dashboard"
                     className={cn(
                       cmdBtn,
-                      "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary"
+                      "inline-flex items-center gap-1.5",
+                      isDashboard ? activeCmd : inactiveCmd
                     )}
                   >
                     <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
@@ -123,8 +129,8 @@ const Navbar = () => {
                   className={cn(
                     cmdBtn,
                     isClient
-                      ? "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary"
-                      : "relative inline-flex items-center gap-1.5 bg-background/80 text-muted-foreground border-border hover:text-primary hover:border-primary/40 hover:bg-primary/5"
+                      ? "inline-flex items-center gap-1.5 " + activeCmd
+                      : cn("relative inline-flex items-center gap-1.5", isTickets ? activeCmd : inactiveCmd)
                   )}
                 >
                   <Ticket className="h-3.5 w-3.5 shrink-0" />

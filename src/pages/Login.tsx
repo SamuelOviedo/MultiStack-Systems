@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -73,15 +73,24 @@ const Login = () => {
       {/* Right: form panel */}
       <div className="bg-background flex flex-col px-12 py-8 min-h-screen">
         {/* Top row */}
-        <div className="flex justify-end items-center gap-4">
-          <span className="text-[13px] text-muted-foreground">¿Aún no tienes cuenta?</span>
+        <div className="flex justify-between items-center gap-4">
           <Link
-            to="/signup"
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
+            to="/"
+            className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors"
           >
-            Regístrate
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Volver al inicio
           </Link>
+          <div className="flex items-center gap-4">
+            <span className="text-[13px] text-muted-foreground">¿Aún no tienes cuenta?</span>
+            <Link
+              to="/signup"
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
+            >
+              Regístrate
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
         {/* Center: form */}
