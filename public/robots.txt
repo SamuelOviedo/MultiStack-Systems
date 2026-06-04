@@ -1,14 +1,19 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# robots.txt — MultiStack Systems (https://multistacksystems.com)
+# Software Engineering & Tech Solutions — Siguatepeque, Honduras
 
 User-agent: *
 Allow: /
+
+# Block authenticated/internal application routes
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /solicitudes
+Disallow: /login
+Disallow: /signup
+Disallow: /auth/
+Disallow: /client/
+
+# Block build artifacts
+Disallow: /assets/
+
+Sitemap: https://multistacksystems.com/sitemap.xml

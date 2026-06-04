@@ -63,7 +63,7 @@ const ServicesSection = () => (
           services.map()
         </p>
         <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tighter text-foreground">
-          Lo que construimos
+          Servicios de Software y Tecnología
         </h2>
       </motion.div>
 

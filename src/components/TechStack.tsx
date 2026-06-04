@@ -29,7 +29,7 @@ const TechStack = () => (
           tech.stack
         </p>
         <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tighter text-foreground">
-          Nuestro Arsenal
+          Stack Tecnológico
         </h2>
       </motion.div>
     </div>
