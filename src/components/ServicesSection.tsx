@@ -7,6 +7,7 @@ interface ServiceCard {
   title: string;
   description: string;
   tag: string;
+  comingSoon?: boolean;
 }
 
 const services: ServiceCard[] = [
@@ -37,6 +38,7 @@ const services: ServiceCard[] = [
     description:
       "Implementación de flujos de trabajo inteligentes, chatbots personalizados y automatización de procesos empresariales.",
     tag: "Workflow AI",
+    comingSoon: true,
   },
   {
     icon: ShieldCheck,
@@ -44,6 +46,7 @@ const services: ServiceCard[] = [
     description:
       "Análisis de vulnerabilidades, blindaje de activos digitales y consultoría en seguridad informática.",
     tag: "Vulnerability Analysis",
+    comingSoon: true,
   },
 ];
 
@@ -75,20 +78,29 @@ const ServicesSection = () => (
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className={`${span} group relative rounded-lg p-6 bg-card glow-border hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] hover:shadow-[0_0_30px_hsla(187,100%,42%,0.08)]`}
+              className={`${span} group relative rounded-lg p-6 bg-card glow-border transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${
+                service.comingSoon
+                  ? "opacity-50 cursor-default"
+                  : "hover:-translate-y-1 hover:shadow-[0_0_30px_hsla(187,100%,42%,0.08)]"
+              }`}
             >
               <div className="flex items-start gap-4">
                 <div className="shrink-0 rounded-md bg-primary/10 p-2.5">
                   <Icon className="h-5 w-5 text-primary" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="w-full">
+                  <div className="flex items-center flex-wrap gap-2 mb-2">
                     <h3 className="font-display text-sm font-semibold tracking-tight text-foreground">
                       {service.title}
                     </h3>
                     <span className="font-mono text-[10px] text-accent/70 bg-accent/10 px-2 py-0.5 rounded-sm">
                       {service.tag}
                     </span>
+                    {service.comingSoon && (
+                      <span className="font-mono text-[10px] text-amber-400/80 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-sm">
+                        Próximamente
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {service.description}
