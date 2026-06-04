@@ -1,6 +1,6 @@
 /**
  * Origen público del sitio para redirecciones de auth (confirmación de email, etc.).
- * En producción define VITE_SITE_URL (ej. https://graystackdev.com) en el build/hosting.
+ * En producción define VITE_SITE_URL=https://multistacksystems.com en el build/hosting.
  * Sin variable: usa el origen actual del navegador (útil en local).
  */
 export function getSiteOrigin(): string {

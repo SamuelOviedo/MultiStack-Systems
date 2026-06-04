@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getSiteOrigin } from "@/lib/siteUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,7 @@ const Login = () => {
     setOauthLoading(provider);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${getSiteOrigin()}/auth/callback` },
     });
     if (error) {
       toast({ title: "Error de autenticación", description: error.message, variant: "destructive" });

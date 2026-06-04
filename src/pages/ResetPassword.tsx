@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getSiteOrigin } from "@/lib/siteUrl";
 import { Terminal, ArrowLeft, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ const ResetPassword = () => {
 
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: `${getSiteOrigin()}/auth/callback`,
     });
 
     if (error) {
