@@ -4,16 +4,12 @@
 User-agent: *
 Allow: /
 
-# Block authenticated/internal application routes
+# Block authenticated and internal application routes
 Disallow: /dashboard
-Disallow: /dashboard/
 Disallow: /solicitudes
 Disallow: /login
 Disallow: /signup
 Disallow: /auth/
 Disallow: /client/
-
-# Block build artifacts
-Disallow: /assets/
 
 Sitemap: https://multistacksystems.com/sitemap.xml
