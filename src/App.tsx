@@ -20,8 +20,10 @@ const TicketsGlobal  = lazy(() => import("./pages/TicketsGlobal.tsx"));
 const MisSolicitudes = lazy(() => import("./pages/MisSolicitudes.tsx"));
 const ClientPortal   = lazy(() => import("./pages/ClientPortal.tsx"));
 const AuthCallback   = lazy(() => import("./pages/AuthCallback.tsx"));
-const ResetPassword  = lazy(() => import("./pages/ResetPassword.tsx"));
-const NotFound       = lazy(() => import("./pages/NotFound.tsx"));
+const ResetPassword         = lazy(() => import("./pages/ResetPassword.tsx"));
+const PoliticaDePrivacidad  = lazy(() => import("./pages/PoliticaDePrivacidad.tsx"));
+const TerminosDelServicio   = lazy(() => import("./pages/TerminosDelServicio.tsx"));
+const NotFound              = lazy(() => import("./pages/NotFound.tsx"));
 
 const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
@@ -78,6 +80,8 @@ const App = () => (
               <Route path="/client/:token" element={<ClientPortal />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />
+              <Route path="/politica-de-privacidad" element={<PoliticaDePrivacidad />} />
+              <Route path="/terminos-del-servicio" element={<TerminosDelServicio />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

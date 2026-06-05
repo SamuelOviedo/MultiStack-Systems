@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { Terminal, Mail, MessageCircle, Github } from "lucide-react";
 
 const FacebookIcon = ({ className }: { className?: string }) => (
@@ -27,8 +28,8 @@ const NAV_LINKS = [
 ];
 
 const LEGAL_LINKS = [
-  { label: "Política de Privacidad", href: "/legal/privacidad" },
-  { label: "Términos del Servicio",  href: "/legal/terminos" },
+  { label: "Política de Privacidad", href: "/politica-de-privacidad" },
+  { label: "Términos del Servicio",  href: "/terminos-del-servicio" },
 ];
 
 const SOCIAL_LINKS = [
@@ -113,9 +114,9 @@ const Footer = () => (
           <p className={colLabel}>Legal</p>
           <nav className="flex flex-col gap-2.5">
             {LEGAL_LINKS.map(({ label, href }) => (
-              <a key={label} href={href} className={navItem}>
+              <Link key={label} to={href} className={navItem}>
                 {label}
-              </a>
+              </Link>
             ))}
           </nav>
         </div>
