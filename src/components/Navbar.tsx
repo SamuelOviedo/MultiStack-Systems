@@ -54,7 +54,7 @@ const Navbar = () => {
 
   const sectionNav = [
     { label: "Inicio", id: "hero" as const },
-    { label: "Servicios principales", id: "services" as const },
+    { label: "Servicios", id: "servicios" as const },
     { label: "Stack", id: "stack" as const },
     { label: "Contacto", id: "footer" as const },
   ];
