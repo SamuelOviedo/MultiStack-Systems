@@ -121,7 +121,7 @@ const Navbar = () => {
                     )}
                   >
                     <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
-                    [ DASHBOARD ]
+                    [ PANEL ]
                   </Link>
                 )}
                 <Link
@@ -134,7 +134,7 @@ const Navbar = () => {
                   )}
                 >
                   <Ticket className="h-3.5 w-3.5 shrink-0" />
-                  {isClient ? "[ SOLICITUDES ]" : "[ TICKETS ]"}
+                  {isClient ? "[ SOLICITUDES ]" : "[ SOPORTE ]"}
                   {!isClient && openTickets > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 bg-primary text-background text-[9px] font-display font-bold rounded-full h-4 w-4 flex items-center justify-center leading-none">
                       {openTickets > 99 ? "99" : openTickets}
@@ -150,7 +150,7 @@ const Navbar = () => {
                   )}
                 >
                   <LogOut className="h-3.5 w-3.5 shrink-0" />
-                  [ LOGOUT ]
+                  [ SALIR ]
                 </button>
               </>
             ) : (
@@ -162,7 +162,7 @@ const Navbar = () => {
                     "inline-flex items-center gap-1.5 bg-background/80 text-muted-foreground border-border hover:text-primary hover:border-primary/40 hover:bg-primary/5"
                   )}
                 >
-                  [ LOGIN ]
+                  [ ACCEDER ]
                 </Link>
                 <Link
                   to="/signup"
@@ -171,7 +171,7 @@ const Navbar = () => {
                     "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary"
                   )}
                 >
-                  [ SIGN UP ]
+                  [ REGISTRARSE ]
                 </Link>
               </>
             )}
