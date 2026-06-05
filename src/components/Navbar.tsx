@@ -53,7 +53,8 @@ const Navbar = () => {
     "text-sm text-muted-foreground hover:text-foreground transition-colors font-sans";
 
   const sectionNav = [
-    { label: "Servicios", id: "services" as const },
+    { label: "Inicio", id: "hero" as const },
+    { label: "Servicios principales", id: "services" as const },
     { label: "Stack", id: "stack" as const },
     { label: "Contacto", id: "footer" as const },
   ];
