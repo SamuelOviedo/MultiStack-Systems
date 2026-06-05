@@ -1,7 +1,11 @@
+const PRODUCTION_ORIGIN = "https://multistacksystems.com";
+
 /**
- * Origen público del sitio para redirecciones de auth (confirmación de email, etc.).
- * En producción define VITE_SITE_URL=https://multistacksystems.com en el build/hosting.
- * Sin variable: usa el origen actual del navegador (útil en local).
+ * Origen público del sitio para redirecciones de auth.
+ * Orden de prioridad:
+ *   1. VITE_SITE_URL (env var en Vercel / build)
+ *   2. window.location.origin — sólo en localhost / 127.0.0.1 (desarrollo local)
+ *   3. PRODUCTION_ORIGIN como fallback duro — evita que *.vercel.app active el SSO de Vercel
  */
 export function getSiteOrigin(): string {
   const fromEnv = import.meta.env.VITE_SITE_URL;
@@ -9,9 +13,12 @@ export function getSiteOrigin(): string {
     return fromEnv.trim().replace(/\/$/, "");
   }
   if (typeof window !== "undefined") {
-    return window.location.origin;
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return window.location.origin;
+    }
   }
-  return "";
+  return PRODUCTION_ORIGIN;
 }
 
 export function getAuthEmailRedirectUrl(): string {
