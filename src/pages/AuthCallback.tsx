@@ -33,6 +33,15 @@ const AuthCallback = () => {
   // Step 2: once the session and userType are fully loaded, redirect
   useEffect(() => {
     if (loading || !user || userType === null) return;
+
+    // Consume sessionStorage intent set by HookSection CTA (OAuth path)
+    const storedIntent = sessionStorage.getItem("postLoginIntent");
+    if (storedIntent && (userType === 0 || userType === 1)) {
+      sessionStorage.removeItem("postLoginIntent");
+      navigate(`/dashboard/new-request${storedIntent}`, { replace: true });
+      return;
+    }
+
     if (userType === 0 || userType === 1) {
       navigate("/dashboard", { replace: true });
     } else {

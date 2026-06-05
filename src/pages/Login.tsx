@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getSiteOrigin } from "@/lib/siteUrl";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,17 +31,35 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user, userType, loading: authLoading } = useAuth();
 
   useEffect(() => {
     if (authLoading || !user || userType === null) return;
+
+    // Consume sessionStorage intent set by HookSection CTA
+    const storedIntent = sessionStorage.getItem("postLoginIntent");
+    if (storedIntent && (userType === 0 || userType === 1)) {
+      sessionStorage.removeItem("postLoginIntent");
+      navigate(`/dashboard/new-request${storedIntent}`, { replace: true });
+      return;
+    }
+
+    // Honour ?redirect= param (safe: must start with /)
+    const params = new URLSearchParams(location.search);
+    const redirectTo = params.get("redirect");
+    if (redirectTo?.startsWith("/") && (userType === 0 || userType === 1)) {
+      navigate(redirectTo, { replace: true });
+      return;
+    }
+
     if (userType === 0 || userType === 1) {
       navigate("/dashboard", { replace: true });
     } else {
       navigate("/solicitudes", { replace: true });
     }
-  }, [user, userType, authLoading, navigate]);
+  }, [user, userType, authLoading, navigate, location.search]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

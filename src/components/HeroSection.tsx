@@ -54,7 +54,7 @@ const HeroSection = () => {
           className="mt-8"
         >
           <button
-            onClick={() => scrollTo("services")}
+            onClick={() => scrollTo("servicios")}
             className="rounded-sm bg-primary/10 px-6 py-3 font-display text-sm font-medium text-primary border border-primary/20 hover:bg-primary/20 hover:shadow-[0_0_20px_hsla(142,70%,50%,0.3)] transition-all duration-300"
           >
             [ EXPLORAR_SERVICIOS ]
