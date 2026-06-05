@@ -81,7 +81,7 @@ const ServicesSection = () => {
   const [active, setActive] = useState(0);
 
   return (
-    <section id="services" className="py-24 px-6">
+    <section id="services" className="py-24 px-6 scroll-mt-20">
       <div className="container mx-auto max-w-6xl">
 
         {/* Header */}

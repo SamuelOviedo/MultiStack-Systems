@@ -18,7 +18,7 @@ const techs = [
 ];
 
 const TechStack = () => (
-  <section id="stack" className="py-24 overflow-hidden">
+  <section id="stack" className="pt-24 pb-48 overflow-hidden scroll-mt-20">
     <div className="container mx-auto px-6 max-w-6xl mb-12 text-center">
       <motion.div
         initial={{ opacity: 0, y: 20 }}

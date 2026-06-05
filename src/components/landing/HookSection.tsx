@@ -54,7 +54,7 @@ export function HookSection() {
   return (
     <section
       id="servicios"
-      className="relative py-24 px-6 overflow-hidden"
+      className="relative py-24 px-6 overflow-hidden scroll-mt-20"
     >
       {/* Ambient depth glow */}
       <div className="pointer-events-none absolute inset-0">

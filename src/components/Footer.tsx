@@ -1,9 +1,20 @@
+import { motion } from "framer-motion";
 import { Terminal, Mail, MessageCircle } from "lucide-react";
 
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  whileInView: { opacity: 1, y: 0 } as const,
+  viewport: { once: true },
+};
+
 const Footer = () => (
-  <footer id="footer" className="border-t border-foreground/5 py-16 px-6">
+  <footer id="footer" className="border-t border-foreground/5 pt-24 pb-16 px-6 scroll-mt-20">
     <div className="container mx-auto max-w-6xl">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+      <motion.div
+        {...fadeUp}
+        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+        className="flex flex-col md:flex-row items-center justify-between gap-8"
+      >
         <div className="text-center md:text-left">
           <div className="flex items-center gap-2 justify-center md:justify-start mb-3">
             <Terminal className="h-4 w-4 text-primary" />
@@ -16,7 +27,11 @@ const Footer = () => (
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <motion.div
+          {...fadeUp}
+          transition={{ duration: 0.5, delay: 0.12, ease: [0.4, 0, 0.2, 1] }}
+          className="flex items-center gap-4"
+        >
           <a
             href="mailto:contacto@multistacksystems.com"
             className="flex items-center gap-2 rounded-sm bg-primary/10 px-4 py-2.5 font-display text-xs text-primary border border-primary/20 hover:bg-primary/20 hover:shadow-[0_0_20px_hsla(142,70%,50%,0.3)] transition-all duration-300"
@@ -33,15 +48,21 @@ const Footer = () => (
             <MessageCircle className="h-3.5 w-3.5" />
             [ WHATSAPP_INIT ]
           </a>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className="mt-12 pt-6 border-t border-foreground/5 text-center">
+      <motion.div
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6, delay: 0.25, ease: [0.4, 0, 0.2, 1] }}
+        className="mt-12 pt-6 border-t border-foreground/5 text-center"
+      >
         <p className="font-mono text-[10px] text-muted-foreground/60 tracking-wider">
           © {new Date().getFullYear()} MultiStack Systems. All rights reserved.
           <span className="animate-blink ml-1">_</span>
         </p>
-      </div>
+      </motion.div>
     </div>
   </footer>
 );

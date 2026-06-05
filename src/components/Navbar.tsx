@@ -16,8 +16,8 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
-  const isDashboard = location.pathname.startsWith("/dashboard");
   const isTickets = location.pathname === "/dashboard/tickets";
+  const isDashboard = location.pathname.startsWith("/dashboard") && !isTickets;
 
   const activeCmd = "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary";
   const inactiveCmd = "bg-background/80 text-muted-foreground border-border hover:text-primary hover:border-primary/40 hover:bg-primary/5";
