@@ -24,6 +24,20 @@ const GitHubIcon = () => (
   </svg>
 );
 
+const AuthLoadingScreen = () => (
+  <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6">
+    <div className="text-center space-y-1">
+      <p className="font-mono text-[11px] text-muted-foreground tracking-[0.1em]">
+        multistack-auth@secure:~$
+      </p>
+      <p className="text-[17px] font-semibold text-foreground tracking-tight">
+        MultiStack<span className="text-primary">.</span>
+      </p>
+    </div>
+    <div className="h-5 w-5 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+  </div>
+);
+
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -83,6 +97,10 @@ const Login = () => {
       setOauthLoading(null);
     }
   };
+
+  // Hold the loading screen while Supabase resolves the session, and keep it
+  // up while user is set so the redirect useEffect fires without a form flash.
+  if (authLoading || user) return <AuthLoadingScreen />;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] min-h-screen">
