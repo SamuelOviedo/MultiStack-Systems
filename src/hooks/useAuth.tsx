@@ -62,6 +62,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (session?.user) {
           const userId = session.user.id;
+
+          // Fire welcome email on first sign-in; edge function handles idempotency
+          if (_event === "SIGNED_IN") {
+            supabase.functions.invoke("send-welcome-email").catch(() => {});
+          }
+
           // setTimeout(0) avoids Supabase deadlock when querying inside this callback
           setTimeout(() => {
             fetchUserType(userId).then((type) => {
