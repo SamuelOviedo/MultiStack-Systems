@@ -40,53 +40,45 @@ export function ServiceCard({
     typeof window !== "undefined" &&
     window.matchMedia("(hover: hover)").matches;
 
-  const handleMouseEnter = () => {
-    if (isHoverDevice()) onExpand();
-  };
-  const handleMouseLeave = () => {
-    if (isHoverDevice()) onCollapse();
-  };
-  const handleClick = () => {
-    if (!isHoverDevice()) onToggle();
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 28 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.13, ease: [0.4, 0, 0.2, 1] }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onClick={handleClick}
+      onMouseEnter={() => { if (isHoverDevice()) onExpand(); }}
+      onMouseLeave={() => { if (isHoverDevice()) onCollapse(); }}
+      onClick={() => { if (!isHoverDevice()) onToggle(); }}
       className={cn(
         "relative flex flex-col rounded-sm border bg-card/50 backdrop-blur-md cursor-pointer",
-        "transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
         isOpen
-          ? "border-primary/30 shadow-[0_4px_40px_hsl(var(--primary)/0.07)]"
+          ? "border-primary/25 shadow-[0_4px_40px_hsl(var(--primary)/0.07)]"
           : "border-border/50 hover:border-primary/20"
       )}
     >
-      {/* Left accent line */}
+      {/* Left accent bar */}
       <div
         className={cn(
-          "absolute left-0 top-5 bottom-5 w-[2px] rounded-full transition-all duration-300",
+          "absolute left-0 top-5 bottom-5 w-[2px] rounded-full",
+          "transition-[background-color,box-shadow] duration-300",
           isOpen
-            ? "bg-accent shadow-[-3px_0_10px_hsl(var(--accent)/0.35)]"
+            ? "bg-accent shadow-[-3px_0_10px_hsl(var(--accent)/0.4)]"
             : "bg-primary/15"
         )}
       />
 
       <div className="px-7 py-6">
-        {/* Icon row + chevron */}
+        {/* Icon + chevron row */}
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="shrink-0 rounded-sm bg-primary/10 border border-primary/15 p-2.5">
             {icon}
           </div>
           <ChevronDown
             className={cn(
-              "h-4 w-4 mt-0.5 text-muted-foreground transition-transform duration-300",
-              isOpen && "rotate-180 text-accent"
+              "h-4 w-4 mt-0.5 shrink-0",
+              "transition-[transform,color] duration-300",
+              isOpen ? "rotate-180 text-accent" : "text-muted-foreground/50"
             )}
           />
         </div>
@@ -100,20 +92,34 @@ export function ServiceCard({
         </h3>
 
         {/* Teaser — always visible */}
-        <p className="text-sm text-muted-foreground leading-relaxed">{teaser}</p>
+        <p
+          className={cn(
+            "text-sm leading-relaxed transition-colors duration-300",
+            isOpen ? "text-muted-foreground/80" : "text-muted-foreground"
+          )}
+        >
+          {teaser}
+        </p>
 
-        {/* Expandable body */}
+        {/* Expandable content */}
         <AnimatePresence initial={false}>
           {isOpen && (
             <motion.div
-              key="body"
+              key="expanded"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+              transition={{
+                height:  { duration: 0.35, ease: [0.4, 0, 0.2, 1] },
+                opacity: { duration: 0.25, ease: "easeOut" },
+              }}
               className="overflow-hidden"
             >
-              <ul className="mt-5 space-y-2.5">
+              {/* Divider */}
+              <div className="mt-5 mb-4 h-px bg-border/40" />
+
+              {/* Benefits */}
+              <ul className="space-y-2.5">
                 {benefits.map((benefit, i) => (
                   <li
                     key={i}
@@ -124,7 +130,11 @@ export function ServiceCard({
                   </li>
                 ))}
               </ul>
-              <ServiceCTA label={ctaLabel} intent={ctaIntent} />
+
+              {/* CTA */}
+              <div className="mt-5">
+                <ServiceCTA label={ctaLabel} intent={ctaIntent} />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
