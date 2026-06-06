@@ -86,9 +86,9 @@ export default function TerminosDelServicio() {
             </p>
             <p className="mt-4">
               Estos términos constituyen un acuerdo legalmente vinculante entre usted (el "Cliente" o
-              "Usuario") y <strong className="text-foreground">Samuel Oviedo</strong>, operando como{" "}
-              <strong className="text-foreground">MultiStack Systems</strong> (el "Proveedor"),
-              conforme a las leyes de la República de Honduras.
+              "Usuario") y <strong className="text-foreground">MultiStack Systems</strong> (el
+              "Proveedor"), plataforma digital de tecnología e ingeniería de software, conforme a las
+              leyes de la República de Honduras.
             </p>
           </section>
 
@@ -171,7 +171,7 @@ export default function TerminosDelServicio() {
             <SubHeading>5.1 Plataforma y código base</SubHeading>
             <p>
               Todos los derechos sobre la plataforma MultiStack Systems, su diseño, arquitectura,
-              código fuente y marca son propiedad exclusiva de Samuel Oviedo / MultiStack Systems.
+              código fuente y marca son propiedad exclusiva de MultiStack Systems.
               Queda prohibida su reproducción, distribución o modificación sin autorización expresa
               y por escrito.
             </p>

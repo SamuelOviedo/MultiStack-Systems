@@ -5,11 +5,12 @@ import Navbar from "@/components/Navbar";
 
 const CANONICAL = "https://multi-stack-systems.vercel.app/politica-de-privacidad";
 const META_DESC  =
-  "Conoce cómo MultiStack Systems recopila, usa y protege tus datos personales. Plataforma tecnológica hondureña registrada ante el SAR.";
+  "Conoce cómo MultiStack Systems recopila, usa y protege tus datos personales. Plataforma digital de tecnología e ingeniería de software con sede en Honduras.";
 
 const providers = [
-  { name: "Vercel Inc.",   role: "Hosting y despliegue de la plataforma",                     url: "vercel.com/legal/privacy-policy" },
-  { name: "Supabase Inc.", role: "Base de datos (PostgreSQL), auth y almacenamiento",          url: "supabase.com/privacy" },
+  { name: "Vercel Inc.",   role: "Hosting y despliegue de la plataforma web",                  url: "vercel.com/legal/privacy-policy" },
+  { name: "Render Inc.",   role: "Despliegue y hosting de servicios backend",                  url: "render.com/privacy" },
+  { name: "Supabase Inc.", role: "Base de datos (PostgreSQL), autenticación y almacenamiento", url: "supabase.com/privacy" },
   { name: "Google LLC",    role: "Autenticación OAuth 2.0",                                    url: "policies.google.com/privacy" },
 ];
 
@@ -77,11 +78,9 @@ export default function PoliticaDePrivacidad() {
             <SectionTitle num="01" title="Responsable del Tratamiento de Datos" />
             <p>
               El responsable del tratamiento de los datos personales recopilados a través de esta
-              plataforma es <strong className="text-foreground">Samuel Oviedo</strong>, operando bajo
-              el nombre comercial <strong className="text-foreground">MultiStack Systems</strong>,
-              debidamente inscrito como Comerciante Individual ante el Servicio de Administración de
-              Rentas (SAR) de la República de Honduras, con domicilio en Siguatepeque, Comayagua,
-              Honduras.
+              plataforma es <strong className="text-foreground">MultiStack Systems</strong>,
+              plataforma digital de tecnología e ingeniería de software, con operaciones en
+              Siguatepeque, Comayagua, Honduras.
             </p>
             <p className="mt-4">
               Para consultas relacionadas con esta Política, puede contactarnos a través de nuestro
