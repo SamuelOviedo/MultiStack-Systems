@@ -1,5 +1,8 @@
 project_id = "ckyqrdemgssbrqfnkxsr"
 
+[edge_runtime]
+deno_version = 2
+
 [functions.send-auth-email]
 verify_jwt = false
 

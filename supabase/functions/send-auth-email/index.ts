@@ -1,5 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "onboarding@resend.dev";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -166,7 +164,7 @@ function passwordRecoveryHtml(email: string, confirmUrl: string): string {
 </html>`;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (!RESEND_API_KEY) {
     return new Response(JSON.stringify({ error: "RESEND_API_KEY not set" }), {
       status: 500,
