@@ -10,6 +10,13 @@ export type ProjectStatus =
 export type ServiceType = 'domain' | 'hosting' | 'database' | 'cdn' | 'other';
 export type MaintenanceStatus = 'pendiente' | 'en_proceso' | 'completado';
 
+export interface ProjectRequirements {
+  stack?: string;
+  alcance?: string;
+  entregables?: string;
+  [key: string]: unknown;
+}
+
 export interface Project {
   id: string;
   user_id: string;
@@ -21,6 +28,11 @@ export interface Project {
   client_name: string | null;
   client_email: string | null;
   client_phone: string | null;
+  client_id: string | null;
+  lead_developer_id: string | null;
+  requirements: ProjectRequirements;
+  deadline: string | null;
+  source_ticket_id: string | null;
 }
 
 export interface ProjectStage {

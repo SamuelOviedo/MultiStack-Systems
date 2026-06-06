@@ -50,6 +50,31 @@ export async function updateProject(
   if (error) throw error;
 }
 
+// ── Conversion engine ─────────────────────────────────────────────────────────
+
+export interface ConversionPayload {
+  ticketId: string;
+  title: string;
+  description: string;
+  leadDeveloperId: string | null;
+  deadline: string | null;      // ISO date (yyyy-mm-dd)
+  requirements: Record<string, unknown>;
+}
+
+/** Atomic ticket→project conversion via SECURITY DEFINER RPC (admin-only). */
+export async function convertTicketToProject(p: ConversionPayload): Promise<string> {
+  const { data, error } = await db.rpc('convert_ticket_to_project', {
+    p_ticket_id:         p.ticketId,
+    p_title:             p.title,
+    p_description:       p.description,
+    p_lead_developer_id: p.leadDeveloperId,
+    p_deadline:          p.deadline,
+    p_requirements:      p.requirements,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 // ── Stages ────────────────────────────────────────────────────────────────────
 
 export async function getProjectStages(projectId: string): Promise<ProjectStage[]> {

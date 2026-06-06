@@ -1,6 +1,6 @@
 export type TicketType = 'modificacion' | 'bug' | 'consulta' | 'pago' | 'mantenimiento' | 'otro' | 'solicitud';
 export type TicketPriority = 'baja' | 'media' | 'alta' | 'urgente';
-export type TicketStatus = 'abierto' | 'en_revision' | 'asignado' | 'en_progreso' | 'resuelto' | 'cerrado';
+export type TicketStatus = 'abierto' | 'en_revision' | 'asignado' | 'en_progreso' | 'resuelto' | 'cerrado' | 'convertido';
 export type SenderType = 'client' | 'team';
 
 export interface Ticket {
@@ -70,6 +70,7 @@ export const TICKET_STATUS_CONFIG: Record<TicketStatus, { label: string; color: 
   en_progreso: { label: 'En progreso',  color: 'text-primary border-primary/30 bg-primary/10' },
   resuelto:    { label: 'Resuelto',     color: 'text-muted-foreground border-border bg-muted/10' },
   cerrado:     { label: 'Cerrado',      color: 'text-muted-foreground/50 border-border/50 bg-transparent' },
+  convertido:  { label: 'Convertido a Proyecto', color: 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10' },
 };
 
 export const TICKET_PRIORITY_CONFIG: Record<TicketPriority, { label: string; color: string; pulse?: boolean }> = {

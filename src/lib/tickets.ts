@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { Ticket, TicketMessage, TicketStatus, TicketPriority, ClientAccessToken, TeamMember } from '@/types/tickets';
+import type { Ticket, TicketMessage, TicketStatus, TicketType, TicketPriority, ClientAccessToken, TeamMember } from '@/types/tickets';
 
 const db = supabase as any;
 
@@ -105,6 +105,20 @@ export async function getOpenTicketsCount(): Promise<number> {
     .in('status', ['abierto', 'en_revision', 'en_progreso']);
   if (error) return 0;
   return count ?? 0;
+}
+
+// ── Sub-tickets (micro-tasks inside a project) ────────────────────────────────
+
+export async function createProjectTicket(
+  projectId: string,
+  payload: { type: TicketType; priority: TicketPriority; title: string; description?: string },
+): Promise<void> {
+  const { error } = await db.from('tickets').insert({
+    project_id: projectId,
+    status: 'abierto',
+    ...payload,
+  });
+  if (error) throw error;
 }
 
 // ── Solicitudes (type-2 authenticated clients) ────────────────────────────────

@@ -8,7 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, CheckCircle2, Loader2, UserCheck } from "lucide-react";
+import { Send, CheckCircle2, Loader2, UserCheck, FolderGit2 } from "lucide-react";
+import ProjectScopingModal from "@/components/dashboard/ProjectScopingModal";
 import {
   TICKET_TYPE_LABELS, TICKET_STATUS_CONFIG, TICKET_PRIORITY_CONFIG, ROLE_LABELS,
   type Ticket, type TicketMessage, type TicketStatus, type TicketPriority, type TeamMember,
@@ -49,6 +50,7 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
   const [sending, setSending] = useState(false);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [updating, setUpdating] = useState<"status" | "priority" | "assign" | null>(null);
+  const [showScoping, setShowScoping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const loadMessages = async () => {
@@ -192,6 +194,19 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
             )}
           </div>
 
+          {/* Conversion CTA — admin only, tickets under review, not yet linked */}
+          {isAdmin && ticket.status === "en_revision" && !ticket.project_id && (
+            <Button
+              onClick={() => setShowScoping(true)}
+              disabled={updating !== null}
+              size="sm"
+              className="w-full font-display text-xs bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 hover:shadow-[0_0_16px_hsl(var(--primary)/0.25)]"
+            >
+              <FolderGit2 className="h-3.5 w-3.5" />
+              [ CONVERTIR A PROYECTO OFICIAL ]
+            </Button>
+          )}
+
           {/* Assignment selector — admin (role 0) only */}
           {isAdmin && (
             <div className="flex items-center gap-1.5">
@@ -257,6 +272,13 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
           </div>
         </div>
       </SheetContent>
+
+      <ProjectScopingModal
+        ticket={ticket}
+        open={showScoping}
+        onClose={() => setShowScoping(false)}
+        onConverted={() => { onUpdated(); onClose(); }}
+      />
     </Sheet>
   );
 }
