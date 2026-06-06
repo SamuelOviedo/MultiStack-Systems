@@ -200,7 +200,7 @@ const ServicesSection = () => {
                     </div>
                   ) : (
                     <ServiceCTA
-                      label="Solicitar este servicio →"
+                      label="Solicitar este servicio"
                       intent={CATALOG[active].ctaIntent}
                     />
                   )}

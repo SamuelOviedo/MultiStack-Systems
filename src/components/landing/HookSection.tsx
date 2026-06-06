@@ -15,7 +15,7 @@ const SERVICES: ServiceCardData[] = [
       "Plataformas web y móviles listas para escalar",
       "Entrega por fases: pagas por resultados, no por promesas",
     ],
-    ctaLabel: "Comenzar mi proyecto →",
+    ctaLabel: "Comenzar mi proyecto",
     ctaIntent: "?intent=software-development",
   },
   {
@@ -29,7 +29,7 @@ const SERVICES: ServiceCardData[] = [
       "Soporte técnico remoto y presencial en Honduras",
       "SLA con tiempo de respuesta garantizado",
     ],
-    ctaLabel: "Solicitar soporte ahora →",
+    ctaLabel: "Solicitar soporte ahora",
     ctaIntent: "?intent=tech-support",
   },
   {
@@ -43,7 +43,7 @@ const SERVICES: ServiceCardData[] = [
       "Flujos automáticos que reducen carga operativa",
       "Integración con herramientas que ya usas",
     ],
-    ctaLabel: "Ver cómo funciona →",
+    ctaLabel: "Ver cómo funciona",
     ctaIntent: "?intent=ai-automation",
   },
 ];
