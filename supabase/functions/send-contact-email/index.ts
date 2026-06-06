@@ -29,13 +29,18 @@ const corsHeaders = {
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
-function contactHtml(message: string): string {
-  const ts = new Date().toLocaleString("es-HN", { timeZone: "America/Tegucigalpa" });
-  // Escape HTML entities to prevent injection in the email body
-  const safe = message
+function escape(str: string): string {
+  return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function contactHtml(senderEmail: string, message: string): string {
+  const ts = new Date().toLocaleString("es-HN", { timeZone: "America/Tegucigalpa" });
+  const safeMsg   = escape(message);
+  const safeEmail = escape(senderEmail);
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -69,14 +74,29 @@ function contactHtml(message: string): string {
               <p style="margin:0 0 16px;font-size:13px;color:#94a3b8;">
                 Recibiste un nuevo mensaje a través del formulario de contacto:
               </p>
+
+              <!-- Sender row -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-                     style="background:#0b1120;border:1px solid #0ea5e922;border-radius:4px;margin:0 0 20px;">
+                     style="background:#0b1120;border:1px solid #0ea5e922;border-radius:4px 4px 0 0;margin:0;border-bottom:none;">
                 <tr>
-                  <td style="padding:16px 20px;">
-                    <p style="margin:0;font-size:14px;color:#cbd5e1;line-height:1.7;white-space:pre-wrap;">${safe}</p>
+                  <td style="padding:10px 20px;">
+                    <p style="margin:0;font-size:11px;color:#475569;letter-spacing:0.06em;">DE</p>
+                    <a href="mailto:${safeEmail}"
+                       style="font-size:13px;color:#0ea5e9;text-decoration:none;">${safeEmail}</a>
                   </td>
                 </tr>
               </table>
+
+              <!-- Message row -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                     style="background:#0b1120;border:1px solid #0ea5e922;border-radius:0 0 4px 4px;margin:0 0 20px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0;font-size:14px;color:#cbd5e1;line-height:1.7;white-space:pre-wrap;">${safeMsg}</p>
+                  </td>
+                </tr>
+              </table>
+
               <p style="margin:0;font-size:11px;color:#475569;">
                 Enviado el ${ts} (HN)
               </p>
@@ -119,22 +139,24 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const message: string = typeof body?.message === "string" ? body.message.trim() : "";
+    const message: string     = typeof body?.message === "string" ? body.message.trim() : "";
+    const senderEmail: string = typeof body?.email   === "string" ? body.email.trim().toLowerCase() : "";
+    const emailValid          = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(senderEmail);
 
-    if (message.length < 5) {
-      console.warn("[contact] Rejected — message too short");
-      return new Response(JSON.stringify({ error: "El mensaje es demasiado corto" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!emailValid || message.length < 5) {
+      console.warn(`[contact] Rejected — email ok: ${emailValid}, message chars: ${message.length}`);
+      return new Response(
+        JSON.stringify({ error: "Se requiere un email válido y un mensaje de al menos 5 caracteres" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     await sendEmail({
       from:    FROM_ADDRESS,
-      replyTo: REPLY_TO,
+      replyTo: senderEmail,
       to:      DEST,
-      subject: "Nuevo mensaje desde el sitio web — MultiStack Systems",
-      html:    contactHtml(message),
+      subject: `Nuevo mensaje de ${senderEmail} — MultiStack Systems`,
+      html:    contactHtml(senderEmail, message),
     });
 
     return new Response(JSON.stringify({ ok: true }), {

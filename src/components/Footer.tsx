@@ -51,24 +51,36 @@ const navItem  = "font-display text-sm text-muted-foreground hover:text-foregrou
 
 type FormStatus = "idle" | "loading" | "success" | "error";
 
+const inputCls = cn(
+  "w-full rounded-sm border bg-background/40 px-3 py-2.5",
+  "font-mono text-xs text-foreground placeholder:text-muted-foreground/40",
+  "border-border/40 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20",
+  "transition-colors duration-200 disabled:opacity-50",
+);
+
 function ContactForm() {
+  const [email, setEmail]     = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus]   = useState<FormStatus>("idle");
   const [errMsg, setErrMsg]   = useState("");
 
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const canSubmit  = emailValid && message.trim().length >= 5 && status !== "loading";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (status === "loading" || message.trim().length < 5) return;
+    if (!canSubmit) return;
 
     setStatus("loading");
     setErrMsg("");
 
     try {
       const { error } = await supabase.functions.invoke("send-contact-email", {
-        body: { message: message.trim() },
+        body: { email: email.trim().toLowerCase(), message: message.trim() },
       });
       if (error) throw error;
       setStatus("success");
+      setEmail("");
       setMessage("");
     } catch {
       setStatus("error");
@@ -93,19 +105,22 @@ function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="tu@email.com"
+        required
+        disabled={status === "loading"}
+        className={inputCls}
+      />
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Escribe tu mensaje o consulta aquí..."
         rows={4}
         disabled={status === "loading"}
-        className={cn(
-          "w-full resize-none rounded-sm border bg-background/40 px-3 py-2.5",
-          "font-mono text-xs text-foreground placeholder:text-muted-foreground/40",
-          "border-border/40 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20",
-          "transition-colors duration-200 disabled:opacity-50",
-          "leading-relaxed"
-        )}
+        className={cn(inputCls, "resize-none leading-relaxed")}
       />
 
       {status === "error" && (
@@ -114,7 +129,7 @@ function ContactForm() {
 
       <button
         type="submit"
-        disabled={status === "loading" || message.trim().length < 5}
+        disabled={!canSubmit}
         className={cn(
           "group/contact inline-flex items-center gap-2 self-start rounded-sm",
           "bg-primary/10 border border-primary/30 px-4 py-2.5",
