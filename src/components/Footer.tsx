@@ -163,9 +163,9 @@ const Footer = () => (
           <div>
             <div className="mb-3">
               <img
-                src="/newLogoEnterprise.png"
+                src="/emblem-white.png"
                 alt="MultiStack Systems Logo"
-                className="h-8 w-auto object-contain"
+                className="h-7 w-auto object-contain"
               />
             </div>
             <p className="font-mono text-[11px] text-muted-foreground leading-relaxed">

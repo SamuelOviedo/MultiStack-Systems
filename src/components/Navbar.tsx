@@ -70,13 +70,16 @@ const Navbar = () => {
         <Link
           to="/"
           onClick={handleLogoClick}
-          className="flex items-center gap-2 group"
+          className="flex items-center gap-2.5 group"
         >
           <img
-            src="/newLogoEnterprise.png"
+            src="/emblem-white.png"
             alt="MultiStack Systems Logo"
-            className="h-8 w-auto object-contain"
+            className="h-7 w-auto object-contain shrink-0"
           />
+          <span className="font-display text-sm font-semibold tracking-tight text-foreground whitespace-nowrap">
+            MultiStack Systems
+          </span>
         </Link>
 
         <div className="flex flex-1 flex-wrap items-center justify-end gap-x-6 gap-y-2 md:flex-nowrap md:justify-end">
