@@ -18,11 +18,17 @@ export async function getProjectTickets(projectId: string): Promise<(Ticket & { 
   }));
 }
 
-export async function getAllTickets(): Promise<(Ticket & { nombre_proyecto: string; message_count: number })[]> {
-  const { data, error } = await db
+export async function getAllTickets(
+  opts?: { assignedTo?: string },
+): Promise<(Ticket & { nombre_proyecto: string; message_count: number })[]> {
+  let query = db
     .from('tickets')
     .select('*, proyectos_clientes(nombre_proyecto), ticket_messages(count), assignee:profiles!tickets_assigned_to_fkey(email)')
     .order('updated_at', { ascending: false });
+  // Explicit assignee filter (defense-in-depth on top of RLS) — used for
+  // collaborator views so the query intent is visible in code, not only in policy
+  if (opts?.assignedTo) query = query.eq('assigned_to', opts.assignedTo);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((t: any) => ({
     ...t,

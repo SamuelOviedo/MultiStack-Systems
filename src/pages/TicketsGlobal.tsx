@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import { getAllTickets } from "@/lib/tickets";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import TicketDrawer from "@/components/dashboard/TicketDrawer";
 import {
@@ -18,6 +19,8 @@ const ALL = "__all__";
 
 export default function TicketsGlobal() {
   const { toast } = useToast();
+  const { user, userType } = useAuth();
+  const isCollaborator = userType === 1;
   const [tickets, setTickets] = useState<(Ticket & { nombre_proyecto: string; message_count: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Ticket | null>(null);
@@ -27,13 +30,18 @@ export default function TicketsGlobal() {
   const [filterType, setFilterType] = useState<TicketType | typeof ALL>(ALL);
   const [filterPriority, setFilterPriority] = useState<TicketPriority | typeof ALL>(ALL);
   const [filterProject, setFilterProject] = useState<string>(ALL);
+  const [filterAssignee, setFilterAssignee] = useState<string>(ALL);
 
   const [sortKey, setSortKey] = useState<SortKey>("updated_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const load = async () => {
     try {
-      const data = await getAllTickets();
+      // Collaborators: explicit assigned_to filter (RLS enforces the same
+      // boundary — this makes the intent visible and survives policy edits)
+      const data = await getAllTickets(
+        isCollaborator && user ? { assignedTo: user.id } : undefined,
+      );
       setTickets(data);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -42,15 +50,23 @@ export default function TicketsGlobal() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  // Re-run once auth resolves — userType arrives async after mount
+  useEffect(() => {
+    if (userType !== null) load();
+  }, [userType, user?.id]);
 
   const projects = Array.from(new Set(tickets.map(t => t.nombre_proyecto))).filter(Boolean).sort();
+  const assignees = Array.from(new Set(tickets.map(t => t.assignee_email).filter(Boolean) as string[])).sort();
+
+  const UNASSIGNED = "__none__";
 
   const filtered = tickets.filter(t =>
     (filterStatus === ALL || t.status === filterStatus) &&
     (filterType === ALL || t.type === filterType) &&
     (filterPriority === ALL || t.priority === filterPriority) &&
-    (filterProject === ALL || t.nombre_proyecto === filterProject)
+    (filterProject === ALL || t.nombre_proyecto === filterProject) &&
+    (filterAssignee === ALL ||
+      (filterAssignee === UNASSIGNED ? !t.assigned_to : t.assignee_email === filterAssignee))
   ).sort((a, b) => {
     let cmp = 0;
     if (sortKey === "priority") {
@@ -126,6 +142,17 @@ export default function TicketsGlobal() {
             <select value={filterProject} onChange={e => setFilterProject(e.target.value)} className={selectClass}>
               <option value={ALL}>todos</option>
               {projects.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+        )}
+        {/* Assignee filter — admins only; collaborators already see only theirs */}
+        {!isCollaborator && (
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-[10px] text-muted-foreground">asignado:</span>
+            <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className={selectClass}>
+              <option value={ALL}>todos</option>
+              <option value={UNASSIGNED}>sin asignar</option>
+              {assignees.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
         )}
