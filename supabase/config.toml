@@ -3,6 +3,19 @@ project_id = "ckyqrdemgssbrqfnkxsr"
 [edge_runtime]
 deno_version = 2
 
+# ── Dev-only auth rate limits (apply to the LOCAL stack via `supabase start`;
+#    the hosted project is configured in Dashboard → Auth → Rate Limits) ──────
+[auth.rate_limit]
+email_sent         = 100   # emails per hour (default 2 — kills E2E testing)
+sign_in_sign_ups   = 100   # per 5 min per IP
+token_verifications = 100  # OTP/magiclink verifications per 5 min per IP
+token_refresh      = 300
+
+# Seed test users (roles 0/1/2) on `supabase db reset` — local only
+[db.seed]
+enabled   = true
+sql_paths = ["./seed.sql"]
+
 [functions.send-auth-email]
 verify_jwt = false
 
