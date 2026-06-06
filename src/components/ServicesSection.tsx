@@ -9,9 +9,8 @@ interface CatalogEntry {
   icon: LucideIcon;
   title: string;
   description: string;
-  badge: string;
-  badgeVariant: "partner" | "tech" | "soon";
-  techStack: string[];
+  badge?: string;
+  badgeVariant?: "partner";
   ctaIntent: string;
   comingSoon?: boolean;
 }
@@ -24,7 +23,6 @@ const CATALOG: CatalogEntry[] = [
       "Proveedor oficial de Windows, Office 365 y Kaspersky. Gestionamos la adquisición, activación y renovación de licencias empresariales, garantizando cumplimiento legal y continuidad operativa para su organización.",
     badge: "Socio Oficial",
     badgeVariant: "partner",
-    techStack: ["Windows", "Office 365", "Kaspersky", "Licencias OEM"],
     ctaIntent: "?intent=software-licensing",
   },
   {
@@ -32,9 +30,6 @@ const CATALOG: CatalogEntry[] = [
     title: "Desarrollo Web a Medida",
     description:
       "Plataformas web y sistemas internos desarrollados con las tecnologías más sólidas del ecosistema moderno. Diseñados para escalar, optimizados para el rendimiento y orientados a experiencias de usuario excepcionales.",
-    badge: "Next.js / React",
-    badgeVariant: "tech",
-    techStack: ["Next.js", "React", "TypeScript", "Supabase", "Tailwind CSS"],
     ctaIntent: "?intent=web-development",
   },
   {
@@ -42,9 +37,6 @@ const CATALOG: CatalogEntry[] = [
     title: "Soporte Técnico 2.0",
     description:
       "Soporte técnico especializado para laptops, equipos de escritorio e impresoras. Atención presencial en Siguatepeque y asistencia remota a nivel nacional, con tiempos de respuesta definidos y garantizados.",
-    badge: "Presencial & Remoto",
-    badgeVariant: "tech",
-    techStack: ["Hardware", "Redes", "Diagnóstico", "Mantenimiento Preventivo"],
     ctaIntent: "?intent=tech-support",
   },
   {
@@ -52,9 +44,6 @@ const CATALOG: CatalogEntry[] = [
     title: "IA y Automatización",
     description:
       "Implementación de flujos de trabajo inteligentes, chatbots corporativos y automatización de procesos empresariales. Reducimos la carga operativa para que su equipo se concentre en decisiones de alto impacto.",
-    badge: "Próximamente",
-    badgeVariant: "soon",
-    techStack: ["OpenAI", "Workflows", "Chatbots", "Integraciones API"],
     ctaIntent: "?intent=ai-automation",
     comingSoon: true,
   },
@@ -63,19 +52,12 @@ const CATALOG: CatalogEntry[] = [
     title: "Auditoría en Ciberseguridad",
     description:
       "Análisis de vulnerabilidades, blindaje de activos digitales y consultoría estratégica en seguridad informática. Protegemos su infraestructura con metodologías de clase mundial adaptadas al contexto regional.",
-    badge: "Próximamente",
-    badgeVariant: "soon",
-    techStack: ["Kali Linux", "Pentesting", "OWASP", "Análisis de Riesgos"],
     ctaIntent: "?intent=cybersecurity",
     comingSoon: true,
   },
 ];
 
-const badgeCls: Record<CatalogEntry["badgeVariant"], string> = {
-  partner: "text-primary/80 bg-primary/10 border border-primary/20",
-  tech:    "text-accent/80 bg-accent/10 border border-accent/20",
-  soon:    "text-amber-400/80 bg-amber-400/10 border border-amber-400/20",
-};
+const partnerBadgeCls = "text-primary/80 bg-primary/10 border border-primary/20";
 
 const ServicesSection = () => {
   const [active, setActive] = useState(0);
@@ -158,15 +140,15 @@ const ServicesSection = () => {
                       {entry.title}
                     </span>
 
-                    {/* Badge */}
-                    <span
-                      className={cn(
+                    {/* Badge — partner only */}
+                    {entry.badgeVariant === "partner" && (
+                      <span className={cn(
                         "shrink-0 hidden sm:inline font-mono text-[9px] px-1.5 py-0.5 rounded-sm whitespace-nowrap",
-                        badgeCls[entry.badgeVariant]
-                      )}
-                    >
-                      {entry.badge}
-                    </span>
+                        partnerBadgeCls
+                      )}>
+                        {entry.badge}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -196,14 +178,11 @@ const ServicesSection = () => {
                     <h3 className="font-display text-lg font-semibold text-foreground tracking-tight leading-tight">
                       {CATALOG[active].title}
                     </h3>
-                    <span
-                      className={cn(
-                        "font-mono text-[10px] px-2 py-0.5 rounded-sm w-fit",
-                        badgeCls[CATALOG[active].badgeVariant]
-                      )}
-                    >
-                      {CATALOG[active].badge}
-                    </span>
+                    {CATALOG[active].badgeVariant === "partner" && (
+                      <span className={cn("font-mono text-[10px] px-2 py-0.5 rounded-sm w-fit", partnerBadgeCls)}>
+                        {CATALOG[active].badge}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -211,18 +190,6 @@ const ServicesSection = () => {
                 <p className="text-sm text-[hsl(var(--body-foreground))] leading-relaxed">
                   {CATALOG[active].description}
                 </p>
-
-                {/* Tech stack chips */}
-                <div className="flex flex-wrap gap-2">
-                  {CATALOG[active].techStack.map((tag) => (
-                    <span
-                      key={tag}
-                      className="font-mono text-[10px] px-2.5 py-1 rounded-sm bg-secondary/60 text-muted-foreground border border-border/50"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
 
                 {/* CTA */}
                 <div className="mt-auto pt-2">
