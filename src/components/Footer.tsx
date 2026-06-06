@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Terminal, Mail, MessageCircle, Github } from "lucide-react";
+import { Terminal, Mail, MessageCircle } from "lucide-react";
 
 const FacebookIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -42,11 +42,6 @@ const SOCIAL_LINKS = [
     label: "Instagram",
     href: "https://www.instagram.com/multistacksystems/",
     icon: InstagramIcon,
-  },
-  {
-    label: "GitHub",
-    href: "https://github.com/multistacksystems",
-    icon: Github,
   },
 ];
 
@@ -130,16 +125,16 @@ const Footer = () => (
               className="inline-flex items-center gap-2 rounded-sm bg-primary/10 px-4 py-2.5 font-display text-xs text-primary border border-primary/20 hover:bg-primary/20 hover:shadow-[0_0_20px_hsla(199,89%,48%,0.25)] transition-all duration-300 w-fit"
             >
               <Mail className="h-3.5 w-3.5 shrink-0" />
-              [ EMAIL_INIT ]
+              Contáctanos por Correo
             </a>
             <a
-              href="https://wa.me/50494000000"
+              href="https://wa.me/50433023042"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-sm bg-accent/10 px-4 py-2.5 font-display text-xs text-accent border border-accent/20 hover:bg-accent/20 hover:shadow-[0_0_20px_hsla(187,100%,42%,0.2)] transition-all duration-300 w-fit"
             >
               <MessageCircle className="h-3.5 w-3.5 shrink-0" />
-              [ WHATSAPP_INIT ]
+              Escríbenos por WhatsApp
             </a>
           </div>
         </div>
