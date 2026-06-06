@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowUp } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
-const CANONICAL = "https://multi-stack-systems.vercel.app/politica-de-privacidad";
+const CANONICAL = "https://multistacksystems.com/politica-de-privacidad";
 const META_DESC  =
   "Conoce cómo MultiStack Systems recopila, usa y protege tus datos personales. Plataforma digital de tecnología e ingeniería de software con sede en Honduras.";
 
@@ -84,16 +84,28 @@ export default function PoliticaDePrivacidad() {
             </p>
             <p className="mt-4">
               Para consultas relacionadas con esta Política, puede contactarnos a través de nuestro
-              canal oficial de WhatsApp Business o mediante el formulario de contacto en{" "}
+              canal oficial de{" "}
               <a
-                href="https://multi-stack-systems.vercel.app/"
+                href="https://wa.me/50433023042"
                 className="text-primary hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                multi-stack-systems.vercel.app
+                WhatsApp Business
               </a>
-              .
+              , o bien ingresando a nuestra plataforma en{" "}
+              <a
+                href="https://multistacksystems.com"
+                className="text-primary hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                multistacksystems.com
+              </a>{" "}
+              donde, una vez autenticado, podrá enviarnos una solicitud directamente desde su cuenta
+              seleccionando el tipo de solicitud{" "}
+              <strong className="text-foreground">«Otro»</strong> e incluyendo sus observaciones,
+              notas o recomendaciones en el campo de comentarios.
             </p>
           </section>
 

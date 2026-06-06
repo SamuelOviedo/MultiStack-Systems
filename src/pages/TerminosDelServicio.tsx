@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowUp } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
-const CANONICAL = "https://multi-stack-systems.vercel.app/terminos-del-servicio";
+const CANONICAL = "https://multistacksystems.com/terminos-del-servicio";
 const META_DESC  =
   "Términos y condiciones de uso de MultiStack Systems. Conoce tus derechos, obligaciones y la jurisdicción aplicable como usuario de nuestra plataforma.";
 
@@ -73,12 +73,12 @@ export default function TerminosDelServicio() {
               Al acceder, registrarse o utilizar cualquier servicio ofrecido a través de la
               plataforma de MultiStack Systems (
               <a
-                href="https://multi-stack-systems.vercel.app/"
+                href="https://multistacksystems.com"
                 className="text-primary hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                multi-stack-systems.vercel.app
+                multistacksystems.com
               </a>
               ), usted declara haber leído, comprendido y aceptado íntegramente los presentes
               Términos del Servicio. Si no está de acuerdo con alguna de estas condiciones, deberá
