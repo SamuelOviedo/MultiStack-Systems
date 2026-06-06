@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Terminal, LayoutDashboard, LogOut, Ticket } from "lucide-react";
+import { LayoutDashboard, LogOut, Ticket } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { getOpenTicketsCount } from "@/lib/tickets";
 import { cn } from "@/lib/utils";
@@ -72,10 +72,11 @@ const Navbar = () => {
           onClick={handleLogoClick}
           className="flex items-center gap-2 group"
         >
-          <Terminal className="h-5 w-5 text-primary" />
-          <span className="font-display text-sm font-semibold tracking-tighter text-foreground">
-            MultiStack<span className="text-primary">.</span>
-          </span>
+          <img
+            src="/newLogoEnterprise.png"
+            alt="MultiStack Systems Logo"
+            className="h-8 w-auto object-contain"
+          />
         </Link>
 
         <div className="flex flex-1 flex-wrap items-center justify-end gap-x-6 gap-y-2 md:flex-nowrap md:justify-end">

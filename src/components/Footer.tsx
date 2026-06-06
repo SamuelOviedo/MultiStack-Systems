@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Terminal, MessageCircle, ArrowRight, CheckCircle2 } from "lucide-react";
+import { MessageCircle, ArrowRight, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -161,11 +161,12 @@ const Footer = () => (
         {/* Col 1 — Brand & Identity */}
         <div className="flex flex-col gap-6">
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Terminal className="h-4 w-4 text-primary shrink-0" />
-              <span className="font-display text-sm font-semibold tracking-tighter text-foreground">
-                MultiStack<span className="text-primary">.</span>
-              </span>
+            <div className="mb-3">
+              <img
+                src="/newLogoEnterprise.png"
+                alt="MultiStack Systems Logo"
+                className="h-8 w-auto object-contain"
+              />
             </div>
             <p className="font-mono text-[11px] text-muted-foreground leading-relaxed">
               Siguatepeque, HN

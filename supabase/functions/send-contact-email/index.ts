@@ -61,11 +61,11 @@ function contactHtml(senderEmail: string, message: string): string {
 
           <!-- Header -->
           <tr>
-            <td style="padding:20px 24px;border-bottom:1px solid #0ea5e922;background:#0b1120;">
-              <p style="margin:0;font-size:18px;font-weight:700;color:#e2e8f0;letter-spacing:-0.02em;">
-                MultiStack<span style="color:#0ea5e9;">.</span>
-              </p>
-              <p style="margin:4px 0 0;font-size:11px;color:#0ea5e9;letter-spacing:0.1em;">
+            <td style="padding:20px 24px;border-bottom:1px solid #0ea5e922;background:#0b1120;text-align:center;">
+              <img src="https://multistacksystems.com/newLogoEnterprise.png"
+                   alt="MultiStack Systems Logo"
+                   width="180" style="height:auto;display:block;margin:0 auto 12px;" />
+              <p style="margin:0;font-size:11px;color:#0ea5e9;letter-spacing:0.1em;">
                 NUEVO MENSAJE DESDE EL SITIO WEB
               </p>
             </td>
