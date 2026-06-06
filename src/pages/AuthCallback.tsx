@@ -34,13 +34,8 @@ const AuthCallback = () => {
   useEffect(() => {
     if (loading || !user || userType === null) return;
 
-    // Consume sessionStorage intent set by HookSection CTA (OAuth path)
-    const storedIntent = sessionStorage.getItem("postLoginIntent");
-    if (storedIntent && (userType === 0 || userType === 1)) {
-      sessionStorage.removeItem("postLoginIntent");
-      navigate(`/dashboard/new-request${storedIntent}`, { replace: true });
-      return;
-    }
+    // Clean up any stored service intent from landing CTA
+    sessionStorage.removeItem("postLoginIntent");
 
     if (userType === 0 || userType === 1) {
       navigate("/dashboard", { replace: true });

@@ -52,13 +52,8 @@ const Login = () => {
   useEffect(() => {
     if (authLoading || !user || userType === null) return;
 
-    // Consume sessionStorage intent set by HookSection CTA
-    const storedIntent = sessionStorage.getItem("postLoginIntent");
-    if (storedIntent && (userType === 0 || userType === 1)) {
-      sessionStorage.removeItem("postLoginIntent");
-      navigate(`/dashboard/new-request${storedIntent}`, { replace: true });
-      return;
-    }
+    // Clean up any stored service intent from landing CTA
+    sessionStorage.removeItem("postLoginIntent");
 
     // Honour ?redirect= param (safe: must start with /)
     const params = new URLSearchParams(location.search);

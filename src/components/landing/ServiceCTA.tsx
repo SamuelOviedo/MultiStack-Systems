@@ -10,16 +10,16 @@ interface ServiceCTAProps {
 
 export function ServiceCTA({ label, intent }: ServiceCTAProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userType } = useAuth();
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const targetPath = `/dashboard/new-request${intent}`;
     if (user) {
-      navigate(targetPath);
+      const dest = (userType === 0 || userType === 1) ? "/dashboard" : "/solicitudes";
+      navigate(dest);
     } else {
       sessionStorage.setItem("postLoginIntent", intent);
-      navigate(`/login?redirect=${encodeURIComponent(targetPath)}`);
+      navigate("/login");
     }
   };
 
