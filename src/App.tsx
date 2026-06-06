@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { Terminal } from "lucide-react";
+import BrandLoader from "@/components/BrandLoader";
 
 // Pages cargadas al inicio (rutas públicas críticas — no se lazy-load)
 import Index from "./pages/Index.tsx";
@@ -27,7 +27,7 @@ const NotFound              = lazy(() => import("./pages/NotFound.tsx"));
 
 const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
-    <Terminal className="h-7 w-7 text-primary animate-pulse" />
+    <BrandLoader className="h-7" />
   </div>
 );
 

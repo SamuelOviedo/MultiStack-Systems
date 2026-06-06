@@ -63,7 +63,7 @@ function contactHtml(senderEmail: string, message: string): string {
           <!-- Header -->
           <tr>
             <td style="padding:20px 24px;border-bottom:1px solid #0ea5e922;background:#0b1120;text-align:center;">
-              <img src="https://multistacksystems.com/emblem-white.png"
+              <img src="https://multistacksystems.com/logo-white.png"
                    alt="MultiStack Systems Logo"
                    width="48" style="height:auto;display:block;margin:0 auto 10px;" />
               <p style="margin:0;font-size:11px;color:#0ea5e9;letter-spacing:0.1em;">

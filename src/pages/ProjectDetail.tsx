@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import BrandLoader from "@/components/BrandLoader";
 
 const SERVICE_ICON: Record<string, React.ReactNode> = {
   domain:   <Globe className="h-3.5 w-3.5" />,
@@ -607,7 +608,7 @@ export default function ProjectDetail() {
 
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
-      <Terminal className="h-8 w-8 text-primary animate-pulse" />
+      <BrandLoader />
     </div>
   );
 

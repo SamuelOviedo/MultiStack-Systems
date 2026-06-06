@@ -5,9 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import NewProjectModal from "@/components/dashboard/NewProjectModal";
 import {
-  Terminal, FolderKanban, Plus, AlertTriangle, ChevronRight,
+  FolderKanban, Plus, AlertTriangle, ChevronRight,
   Activity, Clock, CheckCircle2, PauseCircle,
 } from "lucide-react";
+import BrandLoader from "@/components/BrandLoader";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getProjects, getUpcomingRenewals, daysUntil } from "@/lib/projects";
@@ -160,7 +161,7 @@ export default function Dashboard() {
         {/* Projects grid */}
         {loading ? (
           <div className="flex justify-center py-20">
-            <Terminal className="h-8 w-8 text-primary animate-pulse" />
+            <BrandLoader />
           </div>
         ) : projects.length === 0 ? (
           <div className="text-center py-20 border border-dashed border-border rounded-lg">

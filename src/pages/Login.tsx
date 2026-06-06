@@ -26,13 +26,20 @@ const GitHubIcon = () => (
 
 const AuthLoadingScreen = () => (
   <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6">
-    <div className="text-center space-y-1">
-      <p className="font-mono text-[11px] text-muted-foreground tracking-[0.1em]">
-        multistack-auth@secure:~$
-      </p>
-      <p className="text-[17px] font-semibold text-foreground tracking-tight">
-        MultiStack<span className="text-primary">.</span>
-      </p>
+    <div className="flex flex-col items-center gap-3">
+      <img
+        src="/logo-white.png"
+        alt="MultiStack Systems Logo"
+        className="h-9 w-auto object-contain"
+      />
+      <div className="text-center space-y-1">
+        <p className="font-mono text-[11px] text-muted-foreground tracking-[0.1em]">
+          multistack-auth@secure:~$
+        </p>
+        <p className="text-[17px] font-semibold text-foreground tracking-tight">
+          MultiStack Systems
+        </p>
+      </div>
     </div>
     <div className="h-5 w-5 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
   </div>

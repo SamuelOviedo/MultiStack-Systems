@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Terminal, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, X, ChevronDown, ChevronUp } from "lucide-react";
+import BrandLoader from "@/components/BrandLoader";
 import { useAuth } from "@/hooks/useAuth";
 import { createSolicitud, getSolicitudesByEmail } from "@/lib/tickets";
 import { useToast } from "@/hooks/use-toast";
@@ -82,7 +83,7 @@ export default function MisSolicitudes() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Terminal className="h-5 w-5 text-primary" />
+            <img src="/logo-white.png" alt="MultiStack Systems Logo" className="h-5 w-auto object-contain" />
             <h1 className="font-display text-lg font-semibold tracking-tight text-foreground">
               MIS SOLICITUDES
             </h1>
@@ -162,7 +163,7 @@ export default function MisSolicitudes() {
         {/* List */}
         {loading ? (
           <div className="flex justify-center py-16">
-            <Terminal className="h-6 w-6 text-primary animate-pulse" />
+            <BrandLoader className="h-6" />
           </div>
         ) : solicitudes.length === 0 ? (
           <div className="border border-border rounded p-10 text-center space-y-2">

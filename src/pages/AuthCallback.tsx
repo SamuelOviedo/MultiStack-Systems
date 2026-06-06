@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Terminal } from "lucide-react";
+import BrandLoader from "@/components/BrandLoader";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -46,7 +46,7 @@ const AuthCallback = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
-      <Terminal className="h-8 w-8 text-primary animate-pulse" />
+      <BrandLoader />
     </div>
   );
 };

@@ -73,7 +73,7 @@ const Navbar = () => {
           className="flex items-center gap-2.5 group"
         >
           <img
-            src="/emblem-white.png"
+            src="/logo-white.png"
             alt="MultiStack Systems Logo"
             className="h-7 w-auto object-contain shrink-0"
           />

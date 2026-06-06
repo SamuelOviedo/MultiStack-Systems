@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Terminal, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
+import BrandLoader from "@/components/BrandLoader";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -13,7 +14,7 @@ const ProtectedRoute = ({ children, allowedTypes = [0, 1] }: ProtectedRouteProps
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Terminal className="h-8 w-8 text-primary animate-pulse" />
+        <BrandLoader />
       </div>
     );
   }

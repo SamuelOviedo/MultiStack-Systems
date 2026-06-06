@@ -28,14 +28,13 @@ export default function AuthBrandPanel() {
       {/* Header: logo + status pill */}
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div
-            className="w-7 h-7 rounded-[6px] flex items-center justify-center shrink-0"
-            style={{ background: "linear-gradient(135deg, #0EA5E9 0%, #06B6D4 100%)" }}
-          >
-            <span className="font-mono font-bold text-[13px] text-[#080F1E] leading-none">M</span>
-          </div>
+          <img
+            src="/logo-white.png"
+            alt="MultiStack Systems Logo"
+            className="h-7 w-auto object-contain shrink-0"
+          />
           <span className="font-display font-bold text-[18px] tracking-[-0.01em] text-foreground">
-            MultiStack<span className="text-primary">.</span>
+            MultiStack Systems
           </span>
         </div>
         <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-sm border border-success/30 bg-success/12 text-success text-[10px] font-mono font-medium uppercase tracking-[0.05em]">
