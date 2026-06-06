@@ -20,7 +20,10 @@ const FROM_ADDRESS =
     ? "MultiStack Systems <soporte@multistacksystems.com>"
     : FROM_DEV;
 
-const DEST = "samuel.oviedo@multistacksystems.com";
+// RESEND_DEST (optional): override delivery address.
+// In sandbox mode Resend only delivers to the account owner — set this to
+// isaaccoviedo@gmail.com for testing, remove once domain is verified.
+const DEST = Deno.env.get("RESEND_DEST") ?? "samuel.oviedo@multistacksystems.com";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
