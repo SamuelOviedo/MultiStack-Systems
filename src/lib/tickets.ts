@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { Ticket, TicketMessage, TicketStatus, TicketPriority, ClientAccessToken } from '@/types/tickets';
+import type { Ticket, TicketMessage, TicketStatus, TicketPriority, ClientAccessToken, TeamMember } from '@/types/tickets';
 
 const db = supabase as any;
 
@@ -21,14 +21,42 @@ export async function getProjectTickets(projectId: string): Promise<(Ticket & { 
 export async function getAllTickets(): Promise<(Ticket & { nombre_proyecto: string; message_count: number })[]> {
   const { data, error } = await db
     .from('tickets')
-    .select('*, proyectos_clientes(nombre_proyecto), ticket_messages(count)')
+    .select('*, proyectos_clientes(nombre_proyecto), ticket_messages(count), assignee:profiles!tickets_assigned_to_fkey(email)')
     .order('updated_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map((t: any) => ({
     ...t,
     nombre_proyecto: t.proyectos_clientes?.nombre_proyecto ?? '',
+    assignee_email: t.assignee?.email ?? null,
     message_count: t.ticket_messages?.[0]?.count ?? 0,
   }));
+}
+
+// ── Assignment workflow (admin role 0) ────────────────────────────────────────
+
+export async function getTeamMembers(): Promise<TeamMember[]> {
+  const { data, error } = await db
+    .from('profiles')
+    .select('id, email, user_type')
+    .in('user_type', [0, 1])
+    .order('user_type', { ascending: true });
+  if (error) throw error;
+  return data as TeamMember[];
+}
+
+export async function assignTicket(
+  ticketId: string,
+  assigneeId: string | null,
+  currentStatus?: TicketStatus,
+): Promise<void> {
+  const patch: any = { assigned_to: assigneeId, updated_at: new Date().toISOString() };
+  // Assigning auto-advances early-stage tickets to 'asignado'; never regresses
+  // tickets already in progress or resolved.
+  if (assigneeId && (currentStatus === 'abierto' || currentStatus === 'en_revision')) {
+    patch.status = 'asignado';
+  }
+  const { error } = await db.from('tickets').update(patch).eq('id', ticketId);
+  if (error) throw error;
 }
 
 export async function getTicketMessages(ticketId: string): Promise<TicketMessage[]> {

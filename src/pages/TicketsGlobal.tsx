@@ -140,6 +140,7 @@ export default function TicketsGlobal() {
               <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">título</th>
               <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">tipo</th>
               <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">estado</th>
+              <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">asignado</th>
               <th className="px-4 py-2.5 font-mono text-[10px] text-muted-foreground">
                 <button onClick={() => toggleSort("priority")} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   prioridad <SortIcon k="priority" />
@@ -161,13 +162,13 @@ export default function TicketsGlobal() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground font-mono text-xs">
+                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground font-mono text-xs">
                   cargando...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground font-mono text-xs">
+                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground font-mono text-xs">
                   sin tickets.
                 </td>
               </tr>
@@ -193,6 +194,9 @@ export default function TicketsGlobal() {
                     <span className={`font-mono text-[10px] px-2 py-0.5 rounded border ${statusCfg.color}`}>
                       {statusCfg.label}
                     </span>
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-muted-foreground text-[10px] truncate max-w-[140px]">
+                    {t.assignee_email ?? "—"}
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={`font-mono text-[10px] px-2 py-0.5 rounded border ${priorityCfg.color} ${priorityCfg.pulse ? "animate-pulse" : ""}`}>

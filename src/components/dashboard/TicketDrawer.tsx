@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import {
   getTicketMessages, addTeamMessage, updateTicketStatus, updateTicketPriority,
-  notifyTeamReply,
+  notifyTeamReply, getTeamMembers, assignTicket,
 } from "@/lib/tickets";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, CheckCircle2 } from "lucide-react";
+import { Send, CheckCircle2, Loader2, UserCheck } from "lucide-react";
 import {
-  TICKET_TYPE_LABELS, TICKET_STATUS_CONFIG, TICKET_PRIORITY_CONFIG,
-  type Ticket, type TicketMessage, type TicketStatus, type TicketPriority,
+  TICKET_TYPE_LABELS, TICKET_STATUS_CONFIG, TICKET_PRIORITY_CONFIG, ROLE_LABELS,
+  type Ticket, type TicketMessage, type TicketStatus, type TicketPriority, type TeamMember,
 } from "@/types/tickets";
 
 interface Props {
@@ -41,9 +42,13 @@ function ChatBubble({ msg }: { msg: TicketMessage }) {
 
 export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalBaseUrl }: Props) {
   const { toast } = useToast();
+  const { userType } = useAuth();
+  const isAdmin = userType === 0;
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
+  const [team, setTeam] = useState<TeamMember[]>([]);
+  const [updating, setUpdating] = useState<"status" | "priority" | "assign" | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const loadMessages = async () => {
@@ -60,23 +65,55 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
     else setMessages([]);
   }, [open, ticket?.id]);
 
+  // Admin-only: load assignable team members (roles 0 + 1) once per open
+  useEffect(() => {
+    if (open && isAdmin && team.length === 0) {
+      getTeamMembers().then(setTeam).catch(() => {});
+    }
+  }, [open, isAdmin]);
+
   const handleStatusChange = async (status: TicketStatus) => {
     if (!ticket) return;
+    setUpdating("status");
     try {
       await updateTicketStatus(ticket.id, status);
+      toast({ title: "Estado actualizado", description: TICKET_STATUS_CONFIG[status].label });
       onUpdated();
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setUpdating(null);
     }
   };
 
   const handlePriorityChange = async (priority: TicketPriority) => {
     if (!ticket) return;
+    setUpdating("priority");
     try {
       await updateTicketPriority(ticket.id, priority);
       onUpdated();
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleAssign = async (assigneeId: string) => {
+    if (!ticket) return;
+    setUpdating("assign");
+    try {
+      await assignTicket(ticket.id, assigneeId || null, ticket.status);
+      const member = team.find(m => m.id === assigneeId);
+      toast({
+        title: assigneeId ? "Ticket asignado" : "Asignación removida",
+        description: assigneeId ? `Responsable: ${member?.email ?? "—"}` : undefined,
+      });
+      onUpdated();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setUpdating(null);
     }
   };
 
@@ -127,28 +164,55 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-[10px] text-muted-foreground">estado:</span>
               <select value={ticket.status} onChange={e => handleStatusChange(e.target.value as TicketStatus)}
-                className="bg-background border border-border rounded px-2 py-0.5 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+                disabled={updating !== null}
+                className="bg-background border border-border rounded px-2 py-0.5 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50">
                 {Object.entries(TICKET_STATUS_CONFIG).map(([v, c]) => (
                   <option key={v} value={v}>{c.label}</option>
                 ))}
               </select>
+              {updating === "status" && <Loader2 className="h-3 w-3 text-primary animate-spin" />}
             </div>
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-[10px] text-muted-foreground">prioridad:</span>
               <select value={ticket.priority} onChange={e => handlePriorityChange(e.target.value as TicketPriority)}
-                className="bg-background border border-border rounded px-2 py-0.5 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+                disabled={updating !== null}
+                className="bg-background border border-border rounded px-2 py-0.5 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50">
                 {Object.entries(TICKET_PRIORITY_CONFIG).map(([v, c]) => (
                   <option key={v} value={v}>{c.label}</option>
                 ))}
               </select>
+              {updating === "priority" && <Loader2 className="h-3 w-3 text-primary animate-spin" />}
             </div>
             {ticket.status !== "resuelto" && (
               <Button onClick={() => handleStatusChange("resuelto")} size="sm" variant="outline"
+                disabled={updating !== null}
                 className="font-mono text-[10px] border-primary/30 text-primary hover:bg-primary/10 ml-auto">
                 <CheckCircle2 className="h-3.5 w-3.5" /> Resolver
               </Button>
             )}
           </div>
+
+          {/* Assignment selector — admin (role 0) only */}
+          {isAdmin && (
+            <div className="flex items-center gap-1.5">
+              <UserCheck className="h-3 w-3 text-muted-foreground shrink-0" />
+              <span className="font-mono text-[10px] text-muted-foreground">asignar a:</span>
+              <select
+                value={ticket.assigned_to ?? ""}
+                onChange={e => handleAssign(e.target.value)}
+                disabled={updating !== null}
+                className="bg-background border border-border rounded px-2 py-0.5 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 max-w-[240px] truncate"
+              >
+                <option value="">— sin asignar —</option>
+                {team.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.email ?? m.id.slice(0, 8)} ({ROLE_LABELS[m.user_type] ?? m.user_type})
+                  </option>
+                ))}
+              </select>
+              {updating === "assign" && <Loader2 className="h-3 w-3 text-primary animate-spin" />}
+            </div>
+          )}
 
           {/* Description */}
           {ticket.description && (

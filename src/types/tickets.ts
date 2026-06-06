@@ -1,6 +1,6 @@
 export type TicketType = 'modificacion' | 'bug' | 'consulta' | 'pago' | 'mantenimiento' | 'otro' | 'solicitud';
 export type TicketPriority = 'baja' | 'media' | 'alta' | 'urgente';
-export type TicketStatus = 'abierto' | 'en_revision' | 'en_progreso' | 'resuelto' | 'cerrado';
+export type TicketStatus = 'abierto' | 'en_revision' | 'asignado' | 'en_progreso' | 'resuelto' | 'cerrado';
 export type SenderType = 'client' | 'team';
 
 export interface Ticket {
@@ -16,8 +16,22 @@ export interface Ticket {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+  assigned_to: string | null;
+  assignee_email?: string | null;
   message_count?: number;
 }
+
+export interface TeamMember {
+  id: string;
+  email: string | null;
+  user_type: number;
+}
+
+export const ROLE_LABELS: Record<number, string> = {
+  0: 'Admin',
+  1: 'Colaborador',
+  2: 'Cliente',
+};
 
 export interface TicketMessage {
   id: string;
@@ -50,8 +64,9 @@ export const TICKET_TYPE_LABELS: Record<TicketType, string> = {
 };
 
 export const TICKET_STATUS_CONFIG: Record<TicketStatus, { label: string; color: string }> = {
-  abierto:     { label: 'Abierto',      color: 'text-accent border-accent/30 bg-accent/10' },
+  abierto:     { label: 'Recibido',     color: 'text-accent border-accent/30 bg-accent/10' },
   en_revision: { label: 'En revisión',  color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10' },
+  asignado:    { label: 'Asignado',     color: 'text-violet-400 border-violet-400/30 bg-violet-400/10' },
   en_progreso: { label: 'En progreso',  color: 'text-primary border-primary/30 bg-primary/10' },
   resuelto:    { label: 'Resuelto',     color: 'text-muted-foreground border-border bg-muted/10' },
   cerrado:     { label: 'Cerrado',      color: 'text-muted-foreground/50 border-border/50 bg-transparent' },

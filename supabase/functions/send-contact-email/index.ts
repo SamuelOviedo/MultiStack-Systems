@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail, FROM_DEV, REPLY_TO } from "../_shared/resend.ts";
 
 // ── Runtime config ────────────────────────────────────────────────────────────
@@ -152,6 +153,28 @@ serve(async (req) => {
         JSON.stringify({ error: "Se requiere un email válido y un mensaje de al menos 5 caracteres" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    // Persist the lead as a 'received' ticket (service role bypasses RLS).
+    // Non-fatal: a DB hiccup must never lose the email notification.
+    try {
+      const admin = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const { error: dbError } = await admin.from("tickets").insert({
+        project_id:   null,
+        client_email: senderEmail,
+        type:         "consulta",
+        priority:     "media",
+        status:       "abierto",
+        title:        `Mensaje web de ${senderEmail}`,
+        description:  message,
+      });
+      if (dbError) console.error(`[contact] ⚠ ticket insert failed: ${dbError.message}`);
+      else console.log("[contact] ✅ ticket row created");
+    } catch (e) {
+      console.error(`[contact] ⚠ ticket insert threw: ${e instanceof Error ? e.message : e}`);
     }
 
     await sendEmail({
