@@ -1,8 +1,8 @@
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 
-export const FROM_VERIFIED = "MultiStack Systems <soporte@multistacksystems.com>";
+export const FROM_VERIFIED = "MultiStack Systems <soporte@mail.multistacksystems.com>";
 export const FROM_DEV      = "onboarding@resend.dev";
-export const REPLY_TO      = "soporte@multistacksystems.com";
+export const REPLY_TO      = "soporte@mail.multistacksystems.com";
 
 export interface SendEmailOptions {
   to: string;
