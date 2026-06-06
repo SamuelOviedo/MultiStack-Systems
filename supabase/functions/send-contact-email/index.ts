@@ -154,13 +154,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Persist the lead as a 'received' ticket (service role bypasses RLS).
+    // Persist the lead as a 'received' ticket.
+    // Preferred: service role (bypasses RLS). Fallback: anon key — covered by
+    // the "public inserts contact lead" RLS policy.
     // Non-fatal: a DB hiccup must never lose the email notification.
     try {
-      const admin = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      );
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+      const anonKey    = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+      const dbKey      = serviceKey || anonKey;
+      console.log(`[contact] db client: ${serviceKey ? "service_role" : anonKey ? "anon (fallback)" : "NO KEY"}`);
+
+      const admin = createClient(Deno.env.get("SUPABASE_URL")!, dbKey);
       const { error: dbError } = await admin.from("tickets").insert({
         project_id:   null,
         client_email: senderEmail,
