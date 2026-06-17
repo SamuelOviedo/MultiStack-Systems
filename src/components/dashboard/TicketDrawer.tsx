@@ -19,7 +19,12 @@ interface Props {
   ticket: Ticket | null;
   open: boolean;
   onClose: () => void;
-  onUpdated: () => void;
+  /**
+   * Called after any mutation. Receives the optimistically-patched ticket so
+   * parents can splice it into their list/selection without a refetch. Called
+   * with no argument when a full reload is required (e.g. after conversion).
+   */
+  onUpdated: (updated?: Ticket) => void;
   portalBaseUrl: string;
 }
 
@@ -45,6 +50,9 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
   const { toast } = useToast();
   const { userType } = useAuth();
   const isAdmin = userType === 0;
+  // Local synced copy so selectors/badges reflect mutations immediately —
+  // no need to close & reopen the drawer or reload the page to see new state.
+  const [local, setLocal] = useState<Ticket | null>(ticket);
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
@@ -62,10 +70,22 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
     } catch { /* silent */ }
   };
 
+  // Re-sync the local copy whenever the parent hands us a (different) ticket
+  useEffect(() => { setLocal(ticket); }, [ticket]);
+
   useEffect(() => {
     if (open && ticket) loadMessages();
     else setMessages([]);
   }, [open, ticket?.id]);
+
+  // Apply an optimistic patch locally and bubble the merged ticket upward
+  const applyPatch = (patch: Partial<Ticket>) => {
+    setLocal(prev => {
+      const merged = prev ? { ...prev, ...patch } : prev;
+      if (merged) onUpdated(merged);
+      return merged;
+    });
+  };
 
   // Admin-only: load assignable team members (roles 0 + 1) once per open
   useEffect(() => {
@@ -75,12 +95,16 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
   }, [open, isAdmin]);
 
   const handleStatusChange = async (status: TicketStatus) => {
-    if (!ticket) return;
+    if (!local) return;
     setUpdating("status");
     try {
-      await updateTicketStatus(ticket.id, status);
+      await updateTicketStatus(local.id, status);
       toast({ title: "Estado actualizado", description: TICKET_STATUS_CONFIG[status].label });
-      onUpdated();
+      applyPatch({
+        status,
+        updated_at: new Date().toISOString(),
+        ...(status === "resuelto" ? { resolved_at: new Date().toISOString() } : {}),
+      });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
@@ -89,11 +113,11 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
   };
 
   const handlePriorityChange = async (priority: TicketPriority) => {
-    if (!ticket) return;
+    if (!local) return;
     setUpdating("priority");
     try {
-      await updateTicketPriority(ticket.id, priority);
-      onUpdated();
+      await updateTicketPriority(local.id, priority);
+      applyPatch({ priority, updated_at: new Date().toISOString() });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
@@ -102,16 +126,26 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
   };
 
   const handleAssign = async (assigneeId: string) => {
-    if (!ticket) return;
+    if (!local) return;
     setUpdating("assign");
     try {
-      await assignTicket(ticket.id, assigneeId || null, ticket.status);
+      await assignTicket(local.id, assigneeId || null, local.status);
       const member = team.find(m => m.id === assigneeId);
       toast({
         title: assigneeId ? "Ticket asignado" : "Asignación removida",
         description: assigneeId ? `Responsable: ${member?.email ?? "—"}` : undefined,
       });
-      onUpdated();
+      // Mirror assignTicket's auto-advance: early-stage tickets jump to 'asignado'
+      const autoStatus: TicketStatus | undefined =
+        assigneeId && (local.status === "abierto" || local.status === "en_revision")
+          ? "asignado"
+          : undefined;
+      applyPatch({
+        assigned_to: assigneeId || null,
+        assignee_email: member?.email ?? null,
+        updated_at: new Date().toISOString(),
+        ...(autoStatus ? { status: autoStatus } : {}),
+      });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
@@ -120,14 +154,14 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
   };
 
   const handleSend = async () => {
-    if (!ticket || !reply.trim()) return;
+    if (!local || !reply.trim()) return;
     setSending(true);
     try {
-      await addTeamMessage(ticket.id, "MultiStack Team", reply.trim());
-      await notifyTeamReply(ticket, reply.trim(), `${portalBaseUrl}/client/[token]`);
+      await addTeamMessage(local.id, "MultiStack Team", reply.trim());
+      await notifyTeamReply(local, reply.trim(), `${portalBaseUrl}/client/[token]`);
       setReply("");
       loadMessages();
-      onUpdated();
+      applyPatch({ updated_at: new Date().toISOString() });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
@@ -135,21 +169,21 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
     }
   };
 
-  if (!ticket) return null;
+  if (!local) return null;
 
-  const statusCfg = TICKET_STATUS_CONFIG[ticket.status];
-  const priorityCfg = TICKET_PRIORITY_CONFIG[ticket.priority];
+  const statusCfg = TICKET_STATUS_CONFIG[local.status];
+  const priorityCfg = TICKET_PRIORITY_CONFIG[local.priority];
 
   return (
     <Sheet open={open} onOpenChange={v => !v && onClose()}>
       <SheetContent className="bg-card border-border w-full sm:max-w-lg flex flex-col p-0 overflow-hidden">
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
           <SheetTitle className="font-display text-sm text-foreground leading-snug">
-            {ticket.title}
+            {local.title}
           </SheetTitle>
           <div className="flex flex-wrap gap-2 mt-2">
             <span className="font-mono text-[10px] px-2 py-0.5 rounded border text-muted-foreground border-border">
-              {TICKET_TYPE_LABELS[ticket.type]}
+              {TICKET_TYPE_LABELS[local.type]}
             </span>
             <span className={`font-mono text-[10px] px-2 py-0.5 rounded border ${statusCfg.color}`}>
               {statusCfg.label}
@@ -165,7 +199,7 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
           <div className="flex gap-3 items-center flex-wrap">
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-[10px] text-muted-foreground">estado:</span>
-              <select value={ticket.status} onChange={e => handleStatusChange(e.target.value as TicketStatus)}
+              <select value={local.status} onChange={e => handleStatusChange(e.target.value as TicketStatus)}
                 disabled={updating !== null}
                 className="bg-background border border-border rounded px-2 py-0.5 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50">
                 {Object.entries(TICKET_STATUS_CONFIG).map(([v, c]) => (
@@ -176,7 +210,7 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
             </div>
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-[10px] text-muted-foreground">prioridad:</span>
-              <select value={ticket.priority} onChange={e => handlePriorityChange(e.target.value as TicketPriority)}
+              <select value={local.priority} onChange={e => handlePriorityChange(e.target.value as TicketPriority)}
                 disabled={updating !== null}
                 className="bg-background border border-border rounded px-2 py-0.5 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50">
                 {Object.entries(TICKET_PRIORITY_CONFIG).map(([v, c]) => (
@@ -185,7 +219,7 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
               </select>
               {updating === "priority" && <Loader2 className="h-3 w-3 text-primary animate-spin" />}
             </div>
-            {ticket.status !== "resuelto" && (
+            {local.status !== "resuelto" && (
               <Button onClick={() => handleStatusChange("resuelto")} size="sm" variant="outline"
                 disabled={updating !== null}
                 className="font-mono text-[10px] border-primary/30 text-primary hover:bg-primary/10 ml-auto">
@@ -195,7 +229,7 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
           </div>
 
           {/* Conversion CTA — admin only, tickets under review, not yet linked */}
-          {isAdmin && ticket.status === "en_revision" && !ticket.project_id && (
+          {isAdmin && local.status === "en_revision" && !local.project_id && (
             <Button
               onClick={() => setShowScoping(true)}
               disabled={updating !== null}
@@ -213,7 +247,7 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
               <UserCheck className="h-3 w-3 text-muted-foreground shrink-0" />
               <span className="font-mono text-[10px] text-muted-foreground">asignar a:</span>
               <select
-                value={ticket.assigned_to ?? ""}
+                value={local.assigned_to ?? ""}
                 onChange={e => handleAssign(e.target.value)}
                 disabled={updating !== null}
                 className="bg-background border border-border rounded px-2 py-0.5 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 max-w-[240px] truncate"
@@ -230,14 +264,14 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
           )}
 
           {/* Description */}
-          {ticket.description && (
+          {local.description && (
             <p className="text-xs text-muted-foreground bg-background/50 rounded p-2 border border-border">
-              {ticket.description}
+              {local.description}
             </p>
           )}
-          {ticket.client_name && (
+          {local.client_name && (
             <p className="text-[10px] text-muted-foreground font-mono">
-              cliente: {ticket.client_name}{ticket.client_email ? ` · ${ticket.client_email}` : ""}
+              cliente: {local.client_name}{local.client_email ? ` · ${local.client_email}` : ""}
             </p>
           )}
         </div>
@@ -274,7 +308,7 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
       </SheetContent>
 
       <ProjectScopingModal
-        ticket={ticket}
+        ticket={local}
         open={showScoping}
         onClose={() => setShowScoping(false)}
         onConverted={() => { onUpdated(); onClose(); }}

@@ -38,6 +38,26 @@ export async function getAllTickets(
   }));
 }
 
+/**
+ * Project requests awaiting conversion — surfaced in the Projects panel so the
+ * admin can confirm/populate/save a project straight from there. These are
+ * 'solicitud' tickets not yet linked to a project and not in a terminal state.
+ */
+export async function getProjectRequests(): Promise<(Ticket & { message_count: number })[]> {
+  const { data, error } = await db
+    .from('tickets')
+    .select('*, ticket_messages(count)')
+    .eq('type', 'solicitud')
+    .is('project_id', null)
+    .not('status', 'in', '(convertido,cerrado)')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((t: any) => ({
+    ...t,
+    message_count: t.ticket_messages?.[0]?.count ?? 0,
+  }));
+}
+
 // ── Assignment workflow (admin role 0) ────────────────────────────────────────
 
 export async function getTeamMembers(): Promise<TeamMember[]> {

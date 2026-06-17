@@ -250,7 +250,17 @@ export default function TicketsGlobal() {
         ticket={selected}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        onUpdated={() => { load(); }}
+        onUpdated={(u) => {
+          // Optimistic: splice the patched ticket into the list + selection so
+          // the table reflects new state instantly, no refetch. Falls back to a
+          // full reload when no patch is supplied (e.g. after conversion).
+          if (u) {
+            setTickets(ts => ts.map(t => (t.id === u.id ? { ...t, ...u } : t)));
+            setSelected(s => (s && s.id === u.id ? { ...s, ...u } : s));
+          } else {
+            load();
+          }
+        }}
         portalBaseUrl={window.location.origin}
       />
       </div>

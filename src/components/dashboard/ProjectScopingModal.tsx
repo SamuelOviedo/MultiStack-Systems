@@ -34,6 +34,7 @@ export default function ProjectScopingModal({ ticket, open, onClose, onConverted
   const [stack, setStack] = useState("");
   const [alcance, setAlcance] = useState("");
   const [entregables, setEntregables] = useState("");
+  const [googleDocs, setGoogleDocs] = useState("");
 
   useEffect(() => {
     if (open && ticket) {
@@ -44,6 +45,7 @@ export default function ProjectScopingModal({ ticket, open, onClose, onConverted
       setStack("");
       setAlcance("");
       setEntregables("");
+      setGoogleDocs("");
       getTeamMembers().then(setTeam).catch(() => {});
     }
   }, [open, ticket?.id]);
@@ -66,6 +68,7 @@ export default function ProjectScopingModal({ ticket, open, onClose, onConverted
           alcance: alcance.trim() || undefined,
           entregables: entregables.trim() || undefined,
         },
+        googleDocsUrl: googleDocs.trim() || null,
       });
       toast({ title: "Proyecto creado", description: "Ticket convertido a proyecto oficial." });
       onConverted();
@@ -120,6 +123,13 @@ export default function ProjectScopingModal({ ticket, open, onClose, onConverted
               <label className={fieldLabel}>Fecha límite</label>
               <Input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} className={inputCls} />
             </div>
+          </div>
+
+          {/* Google Docs requirements link */}
+          <div className="space-y-1.5">
+            <label className={fieldLabel}>Google Docs de requerimientos</label>
+            <Input type="url" value={googleDocs} onChange={e => setGoogleDocs(e.target.value)}
+              placeholder="https://docs.google.com/document/d/..." className={inputCls} />
           </div>
 
           {/* Requirements (→ jsonb) */}

@@ -59,6 +59,7 @@ export interface ConversionPayload {
   leadDeveloperId: string | null;
   deadline: string | null;      // ISO date (yyyy-mm-dd)
   requirements: Record<string, unknown>;
+  googleDocsUrl: string | null;
 }
 
 /** Atomic ticket→project conversion via SECURITY DEFINER RPC (admin-only). */
@@ -70,6 +71,7 @@ export async function convertTicketToProject(p: ConversionPayload): Promise<stri
     p_lead_developer_id: p.leadDeveloperId,
     p_deadline:          p.deadline,
     p_requirements:      p.requirements,
+    p_google_docs_url:   p.googleDocsUrl,
   });
   if (error) throw error;
   return data as string;

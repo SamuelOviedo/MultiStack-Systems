@@ -4,16 +4,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import NewProjectModal from "@/components/dashboard/NewProjectModal";
+import ProjectScopingModal from "@/components/dashboard/ProjectScopingModal";
 import {
   FolderKanban, Plus, AlertTriangle, ChevronRight,
-  Activity, Clock, CheckCircle2, PauseCircle,
+  Activity, Clock, CheckCircle2, PauseCircle, Inbox, FolderGit2,
 } from "lucide-react";
 import BrandLoader from "@/components/BrandLoader";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getProjects, getUpcomingRenewals, daysUntil } from "@/lib/projects";
 import { getProjectStages } from "@/lib/projects";
+import { getProjectRequests } from "@/lib/tickets";
 import { PIPELINE_STAGES, STATUS_CONFIG, type Project, type ProjectService } from "@/types/projects";
+import { type Ticket } from "@/types/tickets";
 
 const TOTAL_STAGES = PIPELINE_STAGES.length;
 
@@ -46,11 +49,14 @@ function PipelineBar({ completedCount }: { completedCount: number }) {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, userType } = useAuth();
+  const isAdmin = userType === 0;
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [stagesMap, setStagesMap] = useState<Record<string, number>>({});
   const [renewals, setRenewals] = useState<(ProjectService & { nombre_proyecto: string })[]>([]);
+  const [requests, setRequests] = useState<(Ticket & { message_count: number })[]>([]);
+  const [scopingTicket, setScopingTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [nombreUsuario, setNombreUsuario] = useState<string | null>(null);
@@ -77,6 +83,14 @@ export default function Dashboard() {
 
       const ren = await getUpcomingRenewals(30);
       setRenewals(ren);
+
+      // Admin-only: project requests ('solicitud') awaiting conversion
+      if (isAdmin) {
+        const reqs = await getProjectRequests();
+        setRequests(reqs);
+      } else {
+        setRequests([]);
+      }
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
@@ -84,7 +98,9 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  // userType resolves async after mount — re-run once it lands so the
+  // admin-only requests query fires with the correct role.
+  useEffect(() => { if (userType !== null) load(); }, [userType]);
 
   const statCounts = {
     total:       projects.length,
@@ -158,6 +174,43 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Project requests awaiting conversion — admin only */}
+        {isAdmin && requests.length > 0 && (
+          <div className="rounded-lg border border-primary/30 bg-primary/[0.03] p-4 mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <Inbox className="h-4 w-4 text-primary" />
+              <span className="font-mono text-xs text-primary">
+                Solicitudes de proyecto pendientes ({requests.length})
+              </span>
+            </div>
+            <div className="space-y-2">
+              {requests.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-display text-xs text-foreground truncate">{r.title}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate">
+                      {r.client_name || "—"}
+                      {r.client_email ? ` · ${r.client_email}` : ""}
+                      {` · ${new Date(r.created_at).toLocaleDateString("es-HN")}`}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setScopingTicket(r)}
+                    size="sm"
+                    className="shrink-0 font-display text-[10px] bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20"
+                  >
+                    <FolderGit2 className="h-3.5 w-3.5" />
+                    [ CONFIRMAR PROYECTO ]
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Projects grid */}
         {loading ? (
           <div className="flex justify-center py-20">
@@ -214,6 +267,15 @@ export default function Dashboard() {
         open={showModal}
         onClose={() => setShowModal(false)}
         onCreated={load}
+      />
+
+      {/* Confirm/populate/save a project from a pending request.
+          On success the modal navigates to the new project detail view. */}
+      <ProjectScopingModal
+        ticket={scopingTicket}
+        open={!!scopingTicket}
+        onClose={() => setScopingTicket(null)}
+        onConverted={load}
       />
     </div>
   );

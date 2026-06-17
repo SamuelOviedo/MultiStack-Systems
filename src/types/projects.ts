@@ -33,6 +33,7 @@ export interface Project {
   requirements: ProjectRequirements;
   deadline: string | null;
   source_ticket_id: string | null;
+  google_docs_requirements_url: string | null;
 }
 
 export interface ProjectStage {

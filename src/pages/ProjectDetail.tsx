@@ -25,7 +25,7 @@ import {
   Terminal, ArrowLeft, CheckCircle2, Circle, ChevronRight,
   Globe, Server, Database, Plus, Trash2, Edit2, X, Save,
   Ticket as TicketIcon, Link2, ChevronDown, ChevronUp,
-  User, Mail, Phone, Activity,
+  User, Mail, Phone, Activity, FileText, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -302,6 +302,38 @@ function ProjectIdentityCard({
               <span className="text-xs text-muted-foreground italic font-mono">Sin datos de cliente registrados</span>
             )}
           </div>
+        )}
+      </div>
+
+      {/* Google Docs requirements link */}
+      <div className="border-t border-border px-6 py-3">
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <Input
+              type="url"
+              value={editForm.google_docs_requirements_url}
+              onChange={e => setEditForm((f: any) => ({ ...f, google_docs_requirements_url: e.target.value }))}
+              placeholder="https://docs.google.com/document/d/..."
+              className="bg-background border-border font-mono text-xs h-8"
+            />
+          </div>
+        ) : project.google_docs_requirements_url ? (
+          <a
+            href={project.google_docs_requirements_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 font-mono text-xs text-primary hover:underline"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Documento de requerimientos
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+            <FileText className="h-3.5 w-3.5" />
+            Sin documento de requerimientos vinculado
+          </span>
         )}
       </div>
     </div>
@@ -617,6 +649,7 @@ export default function ProjectDetail() {
   const [editForm, setEditForm] = useState({
     nombre_proyecto: "", descripcion: "", client_name: "",
     client_email: "", client_phone: "", estado: "" as ProjectStatus,
+    google_docs_requirements_url: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -659,6 +692,7 @@ export default function ProjectDetail() {
       client_email: project.client_email ?? "",
       client_phone: project.client_phone ?? "",
       estado: project.estado,
+      google_docs_requirements_url: project.google_docs_requirements_url ?? "",
     });
     setEditing(true);
   };
@@ -674,6 +708,7 @@ export default function ProjectDetail() {
         client_email: editForm.client_email || null,
         client_phone: editForm.client_phone || null,
         estado: editForm.estado,
+        google_docs_requirements_url: editForm.google_docs_requirements_url.trim() || null,
       });
       toast({ title: "Proyecto actualizado" });
       setEditing(false);
