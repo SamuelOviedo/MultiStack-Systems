@@ -1,75 +1,113 @@
-import { motion } from "framer-motion";
 import TerminalHero from "./TerminalHero";
 
 const HeroSection = () => {
-  const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const scrollToServicios = () => {
+    const el = document.getElementById("servicios");
+    if (el) window.scrollTo({ top: el.offsetTop - 60, behavior: "smooth" });
   };
 
   return (
     <section
       id="hero"
-      className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-20 overflow-hidden"
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        padding: "72px 0 40px",
+        background: "var(--page-bg)",
+      }}
     >
-      {/* Radial glow — dark mode only (neon blobs read as a smudge on white) */}
-      <div className="absolute inset-0 pointer-events-none hidden dark:block">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-accent/5 blur-3xl" />
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-primary/5 blur-3xl" />
-      </div>
-
-      <div className="relative z-10 text-center max-w-4xl mx-auto mb-12">
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="font-mono text-xs text-accent tracking-widest uppercase mb-6"
+      {/* Grid overlay — dense dots (light) / faint lines (dark), masked radially */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          backgroundImage: "var(--grid-image)",
+          backgroundSize: "var(--grid-size)",
+          WebkitMaskImage: "var(--grid-mask)",
+          maskImage: "var(--grid-mask)",
+        }}
+      />
+      <div
+        style={{
+          position: "relative",
+          maxWidth: "1240px",
+          margin: "0 auto",
+          padding: "0 32px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            animation: "ms-rise .6s ease both",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: "13px",
+            fontWeight: 500,
+            letterSpacing: "0.3em",
+            color: "var(--accent)",
+            margin: "72px 0 28px",
+            textTransform: "uppercase",
+          }}
         >
           Siguatepeque, HN — Remote First
-        </motion.p>
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="font-display text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tighter text-foreground leading-tight"
+        </div>
+        <h1
+          style={{
+            animation: "ms-rise .6s ease .06s both",
+            fontFamily: "'Sora', sans-serif",
+            fontWeight: 600,
+            fontSize: "clamp(38px,6vw,64px)",
+            lineHeight: 1.05,
+            letterSpacing: "-0.025em",
+            color: "var(--text)",
+            maxWidth: "15ch",
+            textWrap: "balance",
+          }}
         >
-          MultiStack Systems:
-          <br />
-          <span className="text-primary">High-Level Engineering</span>{" "}
-          Solutions.
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="mt-6 text-lg text-muted-foreground font-sans max-w-2xl mx-auto leading-relaxed"
+          MultiStack Systems: <span style={{ color: "var(--primary)" }}>High-Level Engineering</span> Solutions.
+        </h1>
+        <p
+          style={{
+            animation: "ms-rise .6s ease .12s both",
+            marginTop: "26px",
+            fontSize: "clamp(16px,1.4vw,19px)",
+            lineHeight: 1.65,
+            color: "var(--text2)",
+            maxWidth: "40ch",
+            textWrap: "balance",
+          }}
         >
-          Desarrollo, Soporte y Licenciamiento con ADN de Ingeniero.
-          <br />
-          Construimos la infraestructura que tu crecimiento exige.
-        </motion.p>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mt-8"
+          Desarrollo, Soporte y Licenciamiento con ADN de Ingeniero. Construimos la infraestructura que tu crecimiento exige.
+        </p>
+        <button
+          type="button"
+          onClick={scrollToServicios}
+          className="ms-cta"
+          style={{
+            animation: "ms-rise .6s ease .18s both",
+            marginTop: "38px",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: "14px",
+            fontWeight: 600,
+            letterSpacing: "0.05em",
+            color: "var(--btn-text)",
+            background: "var(--btn-bg)",
+            padding: "15px 28px",
+            borderRadius: "11px",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            border: "1px solid var(--btn-border)",
+            boxShadow: "var(--btn-shadow)",
+          }}
         >
-          <button
-            onClick={() => scrollTo("servicios")}
-            className="rounded-sm bg-primary/10 px-6 py-3 font-display text-sm font-medium text-primary border border-primary/20 hover:bg-primary/20 dark:hover:shadow-[0_0_20px_hsl(var(--primary)/0.25)] transition-all duration-300"
-          >
-            [ EXPLORAR_SERVICIOS ]
-          </button>
-        </motion.div>
-      </div>
+          [ EXPLORAR_SERVICIOS ]
+        </button>
 
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-        className="relative z-10 w-full flex justify-center"
-      >
         <TerminalHero />
-      </motion.div>
+      </div>
     </section>
   );
 };

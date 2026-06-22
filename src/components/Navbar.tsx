@@ -1,42 +1,77 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, LogOut, Ticket } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
 import { getOpenTicketsCount } from "@/lib/tickets";
-import { cn } from "@/lib/utils";
 import Logo from "@/components/Logo";
-import ThemeToggle from "@/components/ThemeToggle";
+import { useMsThemeVars } from "@/lib/msTokens";
 
-const cmdBtn =
-  "rounded-sm px-3 py-1.5 text-xs font-display font-medium border transition-all whitespace-nowrap";
+const MONO = "'JetBrains Mono', monospace";
+
+const cmdGhost: CSSProperties = {
+  fontFamily: MONO,
+  fontSize: "12px",
+  fontWeight: 500,
+  letterSpacing: "0.04em",
+  color: "var(--text2)",
+  background: "none",
+  cursor: "pointer",
+  padding: "8px 13px",
+  borderRadius: "8px",
+  whiteSpace: "nowrap",
+  border: "1px solid transparent",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  textDecoration: "none",
+};
+
+const cmdPrimary: CSSProperties = {
+  fontFamily: MONO,
+  fontSize: "12px",
+  fontWeight: 500,
+  letterSpacing: "0.04em",
+  color: "var(--primary)",
+  cursor: "pointer",
+  padding: "8px 14px",
+  borderRadius: "8px",
+  whiteSpace: "nowrap",
+  border: "1px solid var(--border-accent)",
+  background: "var(--primary-soft)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  textDecoration: "none",
+};
 
 const Navbar = () => {
-  const [scrolled, setScrolled] = useState(false);
   const [openTickets, setOpenTickets] = useState(0);
   const { user, userType, loading, signOut } = useAuth();
+  const { setTheme, resolvedTheme } = useTheme();
+  const msVars = useMsThemeVars();
   const isClient = userType === 2;
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
-  const isTickets = location.pathname === "/dashboard/tickets";
-  const isDashboard = location.pathname.startsWith("/dashboard") && !isTickets;
-
-  const activeCmd = "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary";
-  const inactiveCmd = "bg-background/80 text-muted-foreground border-border hover:text-primary hover:border-primary/40 hover:bg-primary/5";
 
   useEffect(() => {
     if (!user || isClient) return;
     getOpenTicketsCount().then(setOpenTickets).catch(() => {});
   }, [user, isClient, location.pathname]);
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    if (!isHome) {
+      navigate("/");
+      requestAnimationFrame(() =>
+        setTimeout(() => {
+          const el = document.getElementById(id);
+          if (el) window.scrollTo({ top: el.offsetTop - 60, behavior: "smooth" });
+        }, 60)
+      );
+      return;
+    }
+    const el = document.getElementById(id);
+    if (el) window.scrollTo({ top: el.offsetTop - 60, behavior: "smooth" });
   };
 
   const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -51,135 +86,170 @@ const Navbar = () => {
     navigate("/");
   };
 
-  const navLinkClass =
-    "text-sm text-muted-foreground hover:text-foreground transition-colors font-sans";
+  const toggleTheme = () => setTheme(resolvedTheme === "light" ? "dark" : "light");
 
   const sectionNav = [
-    { label: "Inicio", id: "hero" as const },
-    { label: "Servicios", id: "servicios" as const },
-    { label: "Stack", id: "stack" as const },
-    { label: "Contacto", id: "footer" as const },
+    { label: "Inicio", id: "hero" },
+    { label: "Servicios", id: "servicios" },
+    { label: "Stack", id: "stack" },
+    { label: "Contacto", id: "footer" },
   ];
 
   return (
     <nav
-      className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-        scrolled ? "bg-background/60 backdrop-blur-md glow-border" : "bg-transparent"
-      )}
+      style={{
+        ...msVars,
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        height: "72px",
+        background: "var(--nav-bg)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        borderBottom: "1px solid var(--border-soft)",
+        transition: "border-color .45s, background .45s",
+      }}
     >
-      <div className="container mx-auto flex flex-wrap items-center justify-between gap-y-3 px-6 py-4">
+      <div
+        style={{
+          maxWidth: "1240px",
+          margin: "0 auto",
+          padding: "0 32px",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "24px",
+        }}
+      >
         <Link
           to="/"
           onClick={handleLogoClick}
-          className="flex items-center gap-2.5 group"
+          style={{ display: "flex", alignItems: "center", gap: "11px", textDecoration: "none" }}
         >
           <Logo className="h-7" />
-          <span className="font-display text-sm font-semibold tracking-tight text-foreground whitespace-nowrap">
-            MultiStack Systems
+          <span
+            style={{
+              fontFamily: "'Sora', sans-serif",
+              fontWeight: 700,
+              fontSize: "16.5px",
+              letterSpacing: "-0.02em",
+              color: "var(--text)",
+            }}
+          >
+            MultiStack <span style={{ color: "var(--text2)", fontWeight: 600 }}>Systems</span>
           </span>
         </Link>
 
-        <div className="flex flex-1 flex-wrap items-center justify-end gap-x-6 gap-y-2 md:flex-nowrap md:justify-end">
-          <div className="hidden md:flex items-center gap-8">
-            {sectionNav.map((item) =>
-              isHome ? (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => scrollTo(item.id)}
-                  className={navLinkClass}
-                >
-                  {item.label}
-                </button>
-              ) : (
-                <Link
-                  key={item.id}
-                  to={`/#${item.id}`}
-                  className={navLinkClass}
-                >
-                  {item.label}
-                </Link>
-              )
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            {loading ? (
-              <span
-                className="font-display text-xs text-muted-foreground animate-pulse border border-border/60 px-3 py-1.5 rounded-sm"
-                aria-hidden
+        {isHome && (
+          <div className="hidden md:flex" style={{ alignItems: "center", gap: "2px" }}>
+            {sectionNav.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => scrollTo(item.id)}
+                className="ms-navlink"
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  fontSize: "14.5px",
+                  fontWeight: 500,
+                  color: "var(--text2)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
               >
-                [ ... ]
-              </span>
-            ) : user ? (
-              <>
-                {!isClient && (
-                  <Link
-                    to="/dashboard"
-                    className={cn(
-                      cmdBtn,
-                      "inline-flex items-center gap-1.5",
-                      isDashboard ? activeCmd : inactiveCmd
-                    )}
-                  >
-                    <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
-                    [ PANEL ]
-                  </Link>
-                )}
-                <Link
-                  to={isClient ? "/solicitudes" : "/dashboard/tickets"}
-                  className={cn(
-                    cmdBtn,
-                    isClient
-                      ? "inline-flex items-center gap-1.5 " + activeCmd
-                      : cn("relative inline-flex items-center gap-1.5", isTickets ? activeCmd : inactiveCmd)
-                  )}
-                >
-                  <Ticket className="h-3.5 w-3.5 shrink-0" />
-                  {isClient ? "[ SOLICITUDES ]" : "[ SOPORTE ]"}
-                  {!isClient && openTickets > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-primary text-background text-[9px] font-display font-bold rounded-full h-4 w-4 flex items-center justify-center leading-none">
-                      {openTickets > 99 ? "99" : openTickets}
-                    </span>
-                  )}
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className={cn(
-                    cmdBtn,
-                    "inline-flex items-center gap-1.5 bg-background/80 text-muted-foreground border-border hover:text-foreground hover:border-primary/40 hover:bg-primary/5"
-                  )}
-                >
-                  <LogOut className="h-3.5 w-3.5 shrink-0" />
-                  [ SALIR ]
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className={cn(
-                    cmdBtn,
-                    "inline-flex items-center gap-1.5 bg-background/80 text-muted-foreground border-border hover:text-primary hover:border-primary/40 hover:bg-primary/5"
-                  )}
-                >
-                  [ ACCEDER ]
-                </Link>
-                <Link
-                  to="/signup"
-                  className={cn(
-                    cmdBtn,
-                    "inline-flex items-center gap-1.5 bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:glow-primary"
-                  )}
-                >
-                  [ REGISTRARSE ]
-                </Link>
-              </>
-            )}
+                {item.label}
+              </button>
+            ))}
           </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {/* Theme toggle — track + knob (Notion light ⟷ Kiro dark) */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label="Cambiar tema"
+            style={{
+              position: "relative",
+              width: "56px",
+              height: "29px",
+              borderRadius: "999px",
+              border: "1px solid var(--track-border)",
+              background: "var(--track-bg)",
+              cursor: "pointer",
+              padding: 0,
+              transition: "background .4s, border-color .4s",
+              flex: "none",
+            }}
+          >
+            <span style={{ position: "absolute", left: "8px", top: "50%", transform: "translateY(-50%)", fontSize: "10px", opacity: "var(--sun-op)", transition: "opacity .4s" }}>☀</span>
+            <span style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", fontSize: "10px", opacity: "var(--moon-op)", transition: "opacity .4s" }}>☾</span>
+            <span
+              style={{
+                position: "absolute",
+                top: "3px",
+                left: 0,
+                width: "21px",
+                height: "21px",
+                borderRadius: "50%",
+                background: "var(--knob-bg)",
+                boxShadow: "var(--knob-shadow)",
+                transform: "translateX(var(--knob-x))",
+                transition: "transform .35s cubic-bezier(.4,1.3,.5,1), background .4s, box-shadow .4s",
+              }}
+            />
+          </button>
+
+          {loading ? (
+            <span style={{ ...cmdGhost, border: "1px solid var(--border-soft)" }} aria-hidden>
+              [ ... ]
+            </span>
+          ) : !user ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Link to="/login" className="ms-cmd ms-cmd-ghost" style={cmdGhost}>[ ACCEDER ]</Link>
+              <Link to="/signup" className="ms-cmd ms-cmd-primary" style={cmdPrimary}>[ REGISTRARSE ]</Link>
+            </div>
+          ) : isClient ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Link to="/solicitudes" className="ms-cmd ms-cmd-primary" style={cmdPrimary}>[ SOLICITUDES ]</Link>
+              <button type="button" onClick={handleLogout} className="ms-cmd ms-cmd-danger" style={cmdGhost}>[ SALIR ]</button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Link to="/dashboard" className="ms-cmd ms-cmd-primary" style={cmdPrimary}>[ PANEL ]</Link>
+              <Link to="/dashboard/tickets" className="ms-cmd ms-cmd-ghost" style={{ ...cmdGhost, position: "relative" }}>
+                [ SOPORTE ]
+                {openTickets > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: "-4px",
+                      right: "-4px",
+                      minWidth: "16px",
+                      height: "16px",
+                      padding: "0 4px",
+                      borderRadius: "8px",
+                      background: "var(--accent)",
+                      color: "#001018",
+                      fontSize: "9px",
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {openTickets > 99 ? "99" : openTickets}
+                  </span>
+                )}
+              </Link>
+              <button type="button" onClick={handleLogout} className="ms-cmd ms-cmd-danger" style={cmdGhost}>[ SALIR ]</button>
+            </div>
+          )}
         </div>
       </div>
     </nav>

@@ -210,3 +210,69 @@
 .animate-blink {
   animation: blink 1s step-end infinite;
 }
+
+/* ====================================================================
+   Claude Design landing — animations + scoped hover helpers.
+   These hover classes are used ONLY inside the MS design-token scope
+   (the landing subtree / Navbar), so var(--…) resolve to the dc tokens.
+   ==================================================================== */
+@keyframes ms-loadbar { 0%{width:0} 8%{width:8%} 60%{width:96%} 74%{width:100%} 100%{width:100%} }
+@keyframes ms-blink   { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+@keyframes ms-rise    { 0%{opacity:0;transform:translateY(14px)} 100%{opacity:1;transform:translateY(0)} }
+@keyframes ms-pulse   { 0%,100%{opacity:1} 50%{opacity:0.35} }
+@keyframes ms-spin    { to{transform:rotate(360deg)} }
+
+/* Nav section links + ghost command buttons */
+.ms-navlink { transition: color .2s, background .2s; }
+.ms-navlink:hover { color: var(--text); background: var(--hover-bg); }
+
+.ms-cmd { transition: all .2s; }
+.ms-cmd-ghost:hover { color: var(--text); background: var(--hover-bg); border-color: var(--border); }
+.ms-cmd-danger:hover { color: var(--danger); background: var(--hover-bg); }
+.ms-cmd-primary:hover { box-shadow: var(--glow-soft); }
+
+/* Hero / dashboard CTA */
+.ms-cta { transition: all .25s; }
+.ms-cta:hover { transform: translateY(-2px); background: var(--btn-bg-hover); }
+
+/* Hairline service rows (servicios) */
+.ms-hook-row { transition: background .2s; }
+.ms-hook-row:hover { background: var(--hover-bg); }
+
+/* Bento cards (catálogo) */
+.ms-bento { transition: border-color .25s, box-shadow .25s, transform .25s; }
+.ms-bento:hover { border-color: var(--border-accent); box-shadow: var(--glow-soft); transform: translateY(-3px); }
+
+/* Stack layer rows + tech chips */
+.ms-stack-row { transition: background .2s; }
+.ms-stack-row:hover { background: var(--hover-bg); }
+.ms-techchip { transition: border-color .2s, color .2s; }
+.ms-techchip:hover { border-color: var(--border-accent); color: var(--text); }
+
+/* Footer links */
+.ms-foot-link { transition: color .2s; }
+.ms-foot-link:hover { color: var(--primary); }
+
+/* Inline text-link CTA (arrow) */
+.ms-linkcta { transition: gap .2s; }
+.ms-linkcta:hover { gap: 11px; }
+
+/* Responsive landing grids (inline styles can't carry media queries) */
+.ms-grid-servicios { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: 60px; align-items: start; }
+.ms-sticky { position: sticky; top: 108px; }
+.ms-bento-a { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; margin-bottom: 18px; }
+.ms-bento-b { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.ms-stack-rowgrid { display: grid; grid-template-columns: 0.9fr 2.1fr; gap: 24px; align-items: center; }
+.ms-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; gap: 40px; }
+
+@media (max-width: 920px) {
+  .ms-grid-servicios { grid-template-columns: 1fr; gap: 36px; }
+  .ms-sticky { position: static; }
+  .ms-bento-a { grid-template-columns: 1fr; }
+  .ms-bento-b { grid-template-columns: 1fr; }
+  .ms-stack-rowgrid { grid-template-columns: 1fr; gap: 14px; }
+  .ms-footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+}
+@media (max-width: 560px) {
+  .ms-footer-grid { grid-template-columns: 1fr; }
+}

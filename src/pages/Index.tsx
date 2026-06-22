@@ -6,9 +6,11 @@ import { HookSection } from "@/components/landing/HookSection";
 import ServicesSection from "@/components/ServicesSection";
 import TechStack from "@/components/TechStack";
 import Footer from "@/components/Footer";
+import { useMsThemeVars } from "@/lib/msTokens";
 
 const Index = () => {
   const location = useLocation();
+  const msVars = useMsThemeVars();
 
   useEffect(() => {
     const id = location.hash.replace(/^#/, "");
@@ -19,14 +21,25 @@ const Index = () => {
   }, [location]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
       <Navbar />
-      <HeroSection />
-      <HookSection />
-      <ServicesSection />
-      <TechStack />
-      <Footer />
-    </div>
+      <div
+        style={{
+          ...msVars,
+          minHeight: "100vh",
+          width: "100%",
+          fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+          background: "var(--bg)",
+          color: "var(--text)",
+        }}
+      >
+        <HeroSection />
+        <HookSection />
+        <ServicesSection />
+        <TechStack />
+        <Footer />
+      </div>
+    </>
   );
 };
 
