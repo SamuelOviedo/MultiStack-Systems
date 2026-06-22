@@ -91,13 +91,13 @@ export const PIPELINE_STAGES: PipelineStage[] = [
 ];
 
 export const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string }> = {
-  en_analisis:    { label: 'En análisis',    color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10' },
+  en_analisis:    { label: 'En análisis',    color: 'text-warning border-warning/30 bg-warning/10' },
   en_desarrollo:  { label: 'En desarrollo',  color: 'text-accent border-accent/30 bg-accent/10' },
-  en_despliegue:  { label: 'En despliegue',  color: 'text-blue-400 border-blue-400/30 bg-blue-400/10' },
+  en_despliegue:  { label: 'En despliegue',  color: 'text-blue-600 dark:text-blue-400 border-blue-500/30 bg-blue-500/10' },
   activo:         { label: 'Activo',         color: 'text-primary border-primary/30 bg-primary/10' },
   mantenimiento:  { label: 'Mantenimiento',  color: 'text-primary border-primary/30 bg-primary/10' },
   pausado:        { label: 'Pausado',        color: 'text-muted-foreground border-border bg-muted/10' },
-  cancelado:      { label: 'Cancelado',      color: 'text-red-400 border-red-400/30 bg-red-400/10' },
+  cancelado:      { label: 'Cancelado',      color: 'text-destructive border-destructive/30 bg-destructive/10' },
 };
 
 export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {

@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { createSolicitud, getSolicitudesByEmail } from "@/lib/tickets";
 import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
+import Logo from "@/components/Logo";
 import {
   TICKET_STATUS_CONFIG,
   type Ticket,
@@ -83,7 +84,7 @@ export default function MisSolicitudes() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo-white.png" alt="MultiStack Systems Logo" className="h-5 w-auto object-contain" />
+            <Logo className="h-5" />
             <h1 className="font-display text-lg font-semibold tracking-tight text-foreground">
               MIS SOLICITUDES
             </h1>

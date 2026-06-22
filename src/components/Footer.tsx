@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { MessageCircle, ArrowRight, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import Logo from "@/components/Logo";
 
 /* ── Inline SVG brand icons ──────────────────────────────────────────────── */
 
@@ -162,11 +163,7 @@ const Footer = () => (
         <div className="flex flex-col gap-6">
           <div>
             <div className="mb-3">
-              <img
-                src="/logo-white.png"
-                alt="MultiStack Systems Logo"
-                className="h-7 w-auto object-contain"
-              />
+              <Logo className="h-7" />
             </div>
             <p className="font-mono text-[11px] text-muted-foreground leading-relaxed">
               Siguatepeque, HN
@@ -225,7 +222,7 @@ const Footer = () => (
               href="https://wa.me/50433023042"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-sm bg-accent/10 px-4 py-2.5 font-display text-xs text-accent border border-accent/20 hover:bg-accent/20 hover:shadow-[0_0_20px_hsla(187,100%,42%,0.2)] transition-all duration-300 w-fit"
+              className="inline-flex items-center gap-2 rounded-sm bg-accent/10 px-4 py-2.5 font-display text-xs text-accent border border-accent/20 hover:bg-accent/20 dark:hover:shadow-[0_0_20px_hsla(187,100%,42%,0.2)] transition-all duration-300 w-fit"
             >
               <MessageCircle className="h-3.5 w-3.5 shrink-0" />
               Escríbenos por WhatsApp

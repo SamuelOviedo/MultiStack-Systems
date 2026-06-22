@@ -1,0 +1,398 @@
+================================================================================
+INSTRUCCIONES PARA CLAUDE CODE — PÁGINAS LEGALES MULTISTACK SYSTEMS
+================================================================================
+
+Eres un Senior Software Engineer trabajando en el repositorio de MultiStack Systems.
+La app está construida con React + Vite, desplegada en Vercel, con Supabase para auth
+y React Router para navegación. El tema visual es oscuro/terminal (dark theme).
+
+Tu tarea es implementar dos páginas legales públicas y actualizar el footer.
+Sigue los pasos en orden. Inspecciona el código existente antes de escribir nada.
+
+--------------------------------------------------------------------------------
+PASO 1 — AUDITORÍA PREVIA (obligatorio antes de tocar cualquier archivo)
+--------------------------------------------------------------------------------
+
+Revisa y reporta:
+- Archivo principal del router (App.jsx o main.jsx): estructura de rutas actual
+- Componente Footer existente: estructura y estilos
+- Variables CSS o paleta de colores del tema actual (index.css, App.css o similar)
+- Rutas públicas existentes que NO requieren autenticación
+
+NO escribas código hasta completar esta auditoría.
+
+--------------------------------------------------------------------------------
+PASO 2 — CREAR DOS COMPONENTES DE PÁGINA
+--------------------------------------------------------------------------------
+
+Crear: /src/pages/PoliticaDePrivacidad.jsx
+Crear: /src/pages/TerminosDelServicio.jsx
+
+Ambas páginas deben:
+- Ser rutas públicas (sin auth requerida)
+- Coincidir con el dark theme existente de la app
+- Layout de columna única, max-width: 800px, centrado
+- Incluir botón "volver arriba" (scroll to top)
+- HTML semántico (h1, h2, p, ul, table)
+- document.title dinámico con useEffect
+- Meta description dinámica para SEO
+- Si existe react-helmet o react-helmet-async, usarlo en lugar del useEffect manual
+
+Tipografía:
+- Fuente monospace o técnica para headings (consistente con el tema)
+- Body: line-height: 1.8, font-size mínimo 16px
+- Headings con peso visual claro y espaciado generoso
+
+El contenido exacto de cada página está en las secciones CONTENT_PRIVACIDAD
+y CONTENT_TERMINOS más abajo en este archivo. Úsalo tal como aparece.
+
+--------------------------------------------------------------------------------
+PASO 3 — AGREGAR RUTAS AL ROUTER
+--------------------------------------------------------------------------------
+
+En el archivo principal del router, agregar dos rutas públicas:
+  /politica-de-privacidad  →  <PoliticaDePrivacidad />
+  /terminos-del-servicio   →  <TerminosDelServicio />
+
+Deben estar FUERA de cualquier wrapper de rutas protegidas.
+
+--------------------------------------------------------------------------------
+PASO 4 — ACTUALIZAR EL FOOTER
+--------------------------------------------------------------------------------
+
+En el componente Footer, agregar una columna o sección "Legal" con dos enlaces:
+  - "Política de Privacidad"  →  /politica-de-privacidad
+  - "Términos del Servicio"   →  /terminos-del-servicio
+
+Usar <Link> de React Router (no <a href>).
+Estilos consistentes con los demás enlaces del footer.
+
+--------------------------------------------------------------------------------
+PASO 5 — SEO META TAGS
+--------------------------------------------------------------------------------
+
+Para cada página, configurar dinámicamente:
+- document.title
+- <meta name="description"> en español (~150 caracteres)
+- <link rel="canonical"> apuntando a la URL de producción correspondiente
+
+URLs de producción:
+- https://multi-stack-systems.vercel.app/politica-de-privacidad
+- https://multi-stack-systems.vercel.app/terminos-del-servicio
+
+--------------------------------------------------------------------------------
+PASO 6 — VERIFICACIÓN FINAL
+--------------------------------------------------------------------------------
+
+Al terminar, reportar:
+1. Lista de archivos creados o modificados
+2. Rutas exactas agregadas al router
+3. Confirmación de que las páginas son accesibles sin autenticación
+4. Advertencias o problemas encontrados
+
+NO modificar: lógica de auth, rutas protegidas existentes, configuración de
+Supabase, variables de entorno, ni ningún archivo .env
+
+================================================================================
+CONTENT_PRIVACIDAD — POLÍTICA DE PRIVACIDAD (texto completo para el componente)
+================================================================================
+
+TÍTULO: Política de Privacidad
+SUBTÍTULO: Vigente desde: Junio 2026 | Versión 1.0
+META DESCRIPTION: Conoce cómo MultiStack Systems recopila, usa y protege tus datos personales. Plataforma tecnológica hondureña registrada ante el SAR.
+
+---
+
+1. RESPONSABLE DEL TRATAMIENTO DE DATOS
+
+El responsable del tratamiento de los datos personales recopilados a través de esta
+plataforma es Samuel Oviedo, operando bajo el nombre comercial MultiStack Systems,
+debidamente inscrito como Comerciante Individual ante el Servicio de Administración
+de Rentas (SAR) de la República de Honduras, con domicilio en Siguatepeque,
+Comayagua, Honduras.
+
+Para consultas relacionadas con esta Política, puede contactarnos a través de nuestro
+canal oficial de WhatsApp Business o mediante el formulario de contacto en
+https://multi-stack-systems.vercel.app/
+
+---
+
+2. DATOS QUE RECOPILAMOS
+
+2.1 Datos proporcionados mediante autenticación OAuth:
+Al iniciar sesión con Google, recopilamos automáticamente: nombre completo, dirección
+de correo electrónico, identificador único de cuenta (UID) y fotografía de perfil
+pública asociada a la cuenta de Google.
+
+2.2 Datos de uso y operación:
+Información técnica como dirección IP, tipo de navegador, sistema operativo, páginas
+visitadas dentro de la plataforma y marcas de tiempo de acceso. Estos datos se
+recopilan de forma automática para garantizar la seguridad y el correcto
+funcionamiento del sistema.
+
+2.3 Datos de proyectos y tickets:
+Información que usted provee voluntariamente al crear solicitudes de soporte técnico,
+tickets de servicio o requerimientos de desarrollo de software, incluyendo
+descripciones, archivos adjuntos y datos de contacto empresarial.
+
+2.4 Datos de facturación:
+Información necesaria para la emisión de cotizaciones y contratos de servicio.
+MultiStack Systems NO almacena datos de tarjetas de crédito ni información bancaria
+directamente en su plataforma.
+
+---
+
+3. FINALIDAD DEL TRATAMIENTO
+
+Los datos recopilados se utilizan exclusivamente para:
+
+- Gestionar la autenticación segura de usuarios en la plataforma.
+- Atender solicitudes de soporte técnico y proyectos de desarrollo de software.
+- Emitir propuestas, cotizaciones y contratos de servicio.
+- Enviar comunicaciones relacionadas con el estado de sus proyectos activos.
+- Garantizar la seguridad e integridad de la plataforma y sus usuarios.
+- Cumplir con obligaciones legales aplicables bajo la legislación hondureña.
+
+MultiStack Systems NO vende, arrienda ni cede sus datos personales a terceros con
+fines comerciales o publicitarios.
+
+---
+
+4. PROVEEDORES DE SERVICIO (PROCESADORES DE DATOS DE TERCEROS)
+
+Para operar esta plataforma, MultiStack Systems utiliza los siguientes servicios de
+terceros de confianza, los cuales pueden procesar datos en su nombre:
+
+| Proveedor       | Función                                         | Política de Privacidad               |
+|-----------------|--------------------------------------------------|--------------------------------------|
+| Vercel Inc.     | Hosting y despliegue de la plataforma            | vercel.com/legal/privacy-policy      |
+| Supabase Inc.   | Base de datos (PostgreSQL), auth y almacenamiento | supabase.com/privacy               |
+| Google LLC      | Autenticación OAuth 2.0                          | policies.google.com/privacy          |
+
+Todos estos proveedores cuentan con certificaciones de seguridad reconocidas
+internacionalmente. Le recomendamos revisar sus políticas individualmente.
+
+---
+
+5. CONSERVACIÓN DE DATOS
+
+Sus datos personales se conservarán mientras mantenga una cuenta activa en la
+plataforma o mientras exista una relación comercial vigente. Una vez finalizada la
+relación, los datos se eliminarán dentro de un plazo máximo de 90 días, salvo que
+la legislación hondureña exija su conservación por un período mayor.
+
+---
+
+6. DERECHOS DEL USUARIO
+
+Como usuario de nuestra plataforma, usted tiene derecho a:
+
+- Acceso: Solicitar información sobre los datos personales que almacenamos sobre usted.
+- Rectificación: Solicitar la corrección de datos inexactos o incompletos.
+- Eliminación: Solicitar la supresión de sus datos, sujeto a las obligaciones legales.
+- Portabilidad: Recibir sus datos en un formato estructurado y legible.
+- Oposición: Oponerse al tratamiento de sus datos para determinadas finalidades.
+
+Para ejercer cualquiera de estos derechos, contáctenos a través de nuestros canales
+oficiales.
+
+---
+
+7. SEGURIDAD
+
+MultiStack Systems implementa medidas técnicas y organizativas apropiadas para
+proteger sus datos contra acceso no autorizado, pérdida, alteración o divulgación.
+Esto incluye comunicaciones cifradas mediante HTTPS/TLS, autenticación segura
+mediante OAuth 2.0 y controles de acceso por roles dentro de la plataforma.
+
+Sin embargo, ningún sistema de transmisión por Internet es 100% seguro. El usuario
+es responsable de mantener la confidencialidad de sus credenciales de acceso.
+
+---
+
+8. MENORES DE EDAD
+
+Nuestra plataforma está dirigida exclusivamente a personas mayores de 18 años o a
+representantes legales de empresas. No recopilamos intencionalmente datos de menores.
+
+---
+
+9. CAMBIOS A ESTA POLÍTICA
+
+MultiStack Systems se reserva el derecho de actualizar esta Política de Privacidad
+en cualquier momento. Los cambios sustanciales serán notificados mediante aviso
+visible en la plataforma. El uso continuado de los servicios tras la publicación
+de cambios implica la aceptación de la nueva versión.
+
+---
+
+10. JURISDICCIÓN APLICABLE
+
+Esta Política se rige por las leyes vigentes de la República de Honduras. Cualquier
+controversia derivada de la interpretación o aplicación de esta Política será
+sometida a la jurisdicción de los tribunales competentes de Honduras.
+
+================================================================================
+CONTENT_TERMINOS — TÉRMINOS DEL SERVICIO (texto completo para el componente)
+================================================================================
+
+TÍTULO: Términos del Servicio
+SUBTÍTULO: Vigentes desde: Junio 2026 | Versión 1.0
+META DESCRIPTION: Términos y condiciones de uso de MultiStack Systems. Conoce tus derechos, obligaciones y la jurisdicción aplicable como usuario de nuestra plataforma.
+
+---
+
+1. ACEPTACIÓN DE LOS TÉRMINOS
+
+Al acceder, registrarse o utilizar cualquier servicio ofrecido a través de la
+plataforma de MultiStack Systems (https://multi-stack-systems.vercel.app/), usted
+declara haber leído, comprendido y aceptado íntegramente los presentes Términos del
+Servicio. Si no está de acuerdo con alguna de estas condiciones, deberá abstenerse
+de utilizar la plataforma.
+
+Estos términos constituyen un acuerdo legalmente vinculante entre usted (el "Cliente"
+o "Usuario") y Samuel Oviedo, operando como MultiStack Systems (el "Proveedor"),
+conforme a las leyes de la República de Honduras.
+
+---
+
+2. DESCRIPCIÓN DE LOS SERVICIOS
+
+MultiStack Systems es una plataforma tecnológica multiservicios que ofrece:
+
+- Soporte técnico: diagnóstico, mantenimiento preventivo y correctivo de equipos,
+  redes e infraestructura tecnológica.
+- Desarrollo de software: creación de sistemas web, móviles y aplicaciones a medida.
+- Consultoría tecnológica: análisis, planificación y modernización de infraestructura
+  digital.
+- Licenciamiento de software: reventa autorizada de herramientas como Microsoft
+  Office, Windows y Kaspersky.
+- Integración de Inteligencia Artificial: automatización de procesos empresariales.
+- Ciberseguridad: auditorías de vulnerabilidades y fortalecimiento de infraestructura.
+
+La disponibilidad de servicios específicos puede variar según la modalidad contratada
+y las condiciones del mercado.
+
+---
+
+3. CUENTAS DE USUARIO
+
+3.1 Registro:
+Para acceder a funcionalidades avanzadas de la plataforma, el usuario debe crear una
+cuenta mediante autenticación OAuth con Google. El usuario es responsable de
+proporcionar información veraz y mantenerla actualizada.
+
+3.2 Seguridad:
+El usuario es el único responsable de la confidencialidad de su cuenta y de todas
+las actividades realizadas bajo la misma. Cualquier acceso no autorizado debe
+reportarse inmediatamente a MultiStack Systems.
+
+3.3 Prohibiciones:
+Queda expresamente prohibido:
+- Intentar acceder sin autorización a sistemas, servidores o bases de datos de
+  MultiStack Systems.
+- Realizar ingeniería inversa sobre la plataforma.
+- Transmitir malware, virus o código malicioso.
+- Suplantar la identidad de otros usuarios.
+- Utilizar la plataforma con fines ilegales.
+
+El incumplimiento podrá resultar en la suspensión inmediata de la cuenta y en las
+acciones legales correspondientes.
+
+---
+
+4. CONTRATACIÓN DE SERVICIOS
+
+4.1 Propuestas y cotizaciones:
+Ningún servicio de desarrollo de software o consultoría se iniciará sin una propuesta
+formal aprobada y firmada por ambas partes. Las cotizaciones tienen validez de 15
+días calendario desde su emisión.
+
+4.2 Pagos:
+Los términos de pago se especifican en cada propuesta o contrato de servicio. Los
+contratos de mantenimiento mensual (SLA) se facturan por adelantado. Los proyectos
+de desarrollo se facturan en hitos acordados.
+
+4.3 Retrasos por parte del cliente:
+Si el cliente no provee información, accesos o retroalimentación necesaria dentro de
+los plazos acordados, MultiStack Systems no será responsable de retrasos en la
+entrega y podrá ajustar los tiempos del proyecto.
+
+---
+
+5. PROPIEDAD INTELECTUAL
+
+5.1 Plataforma y código base:
+Todos los derechos sobre la plataforma MultiStack Systems, su diseño, arquitectura,
+código fuente y marca son propiedad exclusiva de Samuel Oviedo / MultiStack Systems.
+Queda prohibida su reproducción, distribución o modificación sin autorización expresa
+y por escrito.
+
+5.2 Software a medida:
+El software desarrollado a medida para un cliente específico, una vez liquidado el
+pago total acordado, transfiere al cliente los derechos de uso sobre los entregables
+finales acordados en el contrato. MultiStack Systems se reserva el derecho de
+utilizar las metodologías, frameworks y componentes genéricos empleados en futuros
+proyectos.
+
+5.3 Contenido del cliente:
+El cliente conserva la titularidad sobre todos los datos, contenidos e información
+que provea para la realización del proyecto. Al compartirlos con MultiStack Systems,
+otorga una licencia limitada para utilizarlos exclusivamente en la ejecución del
+servicio contratado.
+
+---
+
+6. GARANTÍA LIMITADA Y LIMITACIÓN DE RESPONSABILIDAD
+
+MultiStack Systems garantiza que los servicios serán ejecutados con profesionalismo
+y conforme a los estándares técnicos acordados. Sin embargo:
+
+- No garantizamos disponibilidad ininterrumpida ni libre de errores de la plataforma.
+- No somos responsables de pérdidas de datos causadas por factores externos
+  (fallos del proveedor de hosting, desastres naturales, ataques de terceros).
+- La responsabilidad total de MultiStack Systems por cualquier reclamación no
+  excederá el monto pagado por el cliente por el servicio específico en los 30 días
+  anteriores al incidente.
+
+---
+
+7. CONFIDENCIALIDAD
+
+Ambas partes se comprometen a mantener confidencial toda información técnica,
+comercial o estratégica compartida durante la prestación del servicio. Esta
+obligación se extiende por un período de 2 años tras la finalización del contrato.
+
+---
+
+8. SUSPENSIÓN Y TERMINACIÓN
+
+MultiStack Systems se reserva el derecho de suspender o cancelar el acceso a la
+plataforma o los servicios en caso de: incumplimiento de estos Términos, falta de
+pago, uso fraudulento o actividad que ponga en riesgo la seguridad de la plataforma.
+
+En casos de terminación justificada por parte del cliente, se facturarán los trabajos
+realizados hasta la fecha de notificación formal.
+
+---
+
+9. MODIFICACIONES
+
+MultiStack Systems podrá modificar estos Términos del Servicio en cualquier momento.
+Las modificaciones entrarán en vigor a los 15 días de su publicación en la
+plataforma. El uso continuado de los servicios constituye aceptación de los nuevos
+términos.
+
+---
+
+10. JURISDICCIÓN Y RESOLUCIÓN DE DISPUTAS
+
+Estos Términos del Servicio se rigen por las leyes vigentes de la República de
+Honduras. Ante cualquier controversia derivada de la interpretación, ejecución o
+incumplimiento de estos Términos, las partes se someten a la jurisdicción de los
+tribunales competentes de la ciudad de Comayagua, Honduras, renunciando
+expresamente a cualquier otro fuero que pudiera corresponderles.
+
+================================================================================
+FIN DEL ARCHIVO — MultiStack Systems Legal Pages Context v1.0 | Junio 2026
+================================================================================

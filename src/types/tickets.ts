@@ -65,17 +65,17 @@ export const TICKET_TYPE_LABELS: Record<TicketType, string> = {
 
 export const TICKET_STATUS_CONFIG: Record<TicketStatus, { label: string; color: string }> = {
   abierto:     { label: 'Recibido',     color: 'text-accent border-accent/30 bg-accent/10' },
-  en_revision: { label: 'En revisión',  color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10' },
-  asignado:    { label: 'Asignado',     color: 'text-violet-400 border-violet-400/30 bg-violet-400/10' },
+  en_revision: { label: 'En revisión',  color: 'text-warning border-warning/30 bg-warning/10' },
+  asignado:    { label: 'Asignado',     color: 'text-violet-600 dark:text-violet-400 border-violet-500/30 bg-violet-500/10' },
   en_progreso: { label: 'En progreso',  color: 'text-primary border-primary/30 bg-primary/10' },
   resuelto:    { label: 'Resuelto',     color: 'text-muted-foreground border-border bg-muted/10' },
   cerrado:     { label: 'Cerrado',      color: 'text-muted-foreground/50 border-border/50 bg-transparent' },
-  convertido:  { label: 'Convertido a Proyecto', color: 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10' },
+  convertido:  { label: 'Convertido a Proyecto', color: 'text-success border-success/30 bg-success/10' },
 };
 
 export const TICKET_PRIORITY_CONFIG: Record<TicketPriority, { label: string; color: string; pulse?: boolean }> = {
   baja:    { label: 'Baja',    color: 'text-muted-foreground border-border' },
-  media:   { label: 'Media',   color: 'text-yellow-400 border-yellow-400/30' },
-  alta:    { label: 'Alta',    color: 'text-orange-400 border-orange-400/30' },
-  urgente: { label: 'Urgente', color: 'text-red-400 border-red-400/30', pulse: true },
+  media:   { label: 'Media',   color: 'text-warning border-warning/30' },
+  alta:    { label: 'Alta',    color: 'text-orange-600 dark:text-orange-400 border-orange-500/30' },
+  urgente: { label: 'Urgente', color: 'text-destructive border-destructive/30', pulse: true },
 };

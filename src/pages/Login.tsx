@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import AuthBrandPanel from "@/components/AuthBrandPanel";
+import Logo from "@/components/Logo";
 
 const GoogleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -27,11 +28,7 @@ const GitHubIcon = () => (
 const AuthLoadingScreen = () => (
   <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6">
     <div className="flex flex-col items-center gap-3">
-      <img
-        src="/logo-white.png"
-        alt="MultiStack Systems Logo"
-        className="h-9 w-auto object-contain"
-      />
+      <Logo className="h-9" />
       <div className="text-center space-y-1">
         <p className="font-mono text-[11px] text-muted-foreground tracking-[0.1em]">
           multistack-auth@secure:~$
@@ -222,7 +219,7 @@ const Login = () => {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-11 bg-primary text-primary-foreground font-sans font-medium text-sm rounded-md mt-2 hover:bg-primary/90 hover:shadow-[0_0_16px_rgba(14,165,233,0.30)] focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all disabled:opacity-70"
+              className="w-full h-11 bg-primary text-primary-foreground font-sans font-medium text-sm rounded-md mt-2 hover:bg-primary/90 dark:hover:shadow-[0_0_16px_rgba(14,165,233,0.30)] focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all disabled:opacity-70"
             >
               {loading ? (
                 <>

@@ -1,16 +1,87 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /* ====================================================================
+     LIGHT MODE = Notion — pure white, near-black ink, hairline borders,
+     airy flat grids, no glow. (default :root)
+     ==================================================================== */
   :root {
+    /* === Surfaces ====================================================== */
+    --background: 0 0% 100%;
+    --foreground: 40 4% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 40 4% 10%;
+    --card-muted: 40 11% 96%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 40 4% 10%;
+
+    /* === Brand (AA-safe darker stops on white) ======================== */
+    --primary: 200 98% 39%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 192 91% 36%;
+    --accent-foreground: 0 0% 100%;
+
+    /* === Neutral ======================================================= */
+    --secondary: 40 11% 96%;
+    --secondary-foreground: 40 4% 10%;
+    --muted: 40 11% 96%;
+    --muted-foreground: 40 2% 60%;
+    --body-foreground: 35 6% 25%;
+
+    /* === Borders & inputs ============================================== */
+    --border: 40 8% 91%;
+    --input: 40 8% 91%;
+    --ring: 200 98% 39%;
+
+    /* === Status ======================================================== */
+    --success: 160 84% 31%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 95% 44%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* === Sidebar (keep for compatibility) ============================= */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 40 4% 10%;
+    --sidebar-primary: 200 98% 39%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 11% 96%;
+    --sidebar-accent-foreground: 40 4% 10%;
+    --sidebar-border: 40 8% 91%;
+    --sidebar-ring: 200 98% 39%;
+
+    /* === Radii ========================================================= */
+    --radius: 0.5rem;
+
+    /* === Glows (light = near-zero; neon reads as a smudge on white) ==== */
+    --glow-focus:   0 0 0 3px rgba(2,132,199,0.18);
+    --glow-primary: 0 1px 2px rgba(2,132,199,0.12);
+    --glow-primary-light: 0 1px 2px rgba(2,132,199,0.08);
+    --glow-cyan:    0 1px 2px rgba(8,145,178,0.10);
+
+    /* === Motion ======================================================== */
+    --ease-brand: cubic-bezier(0.2, 0, 0, 1);
+    --dur-fast:   150ms;
+    --dur-base:   300ms;
+    --dur-slow:   500ms;
+  }
+
+  /* ====================================================================
+     DARK MODE = Kiro.dev — deep navy, cyan/sky glows, neon highlights,
+     visible tech borders, glassmorphism. (existing repo palette, kept)
+     ==================================================================== */
+  .dark {
     /* === Surfaces ====================================================== */
     --background: 222 43% 7%;
     --foreground: 216 100% 97%;
     --card: 218 56% 14%;
     --card-foreground: 216 100% 97%;
+    --card-muted: 218 56% 14%;
     --popover: 218 56% 14%;
     --popover-foreground: 216 100% 97%;
 
@@ -50,20 +121,11 @@
     --sidebar-border: 213 52% 24%;
     --sidebar-ring: 199 89% 48%;
 
-    /* === Radii ========================================================= */
-    --radius: 0.5rem;
-
-    /* === Glows ========================================================= */
+    /* === Glows (dark = neon) =========================================== */
     --glow-focus:   0 0 0 3px rgba(14,165,233,0.25);
     --glow-primary: 0 0 16px rgba(14,165,233,0.30);
     --glow-primary-light: 0 0 12px rgba(14,165,233,0.20);
     --glow-cyan:    0 0 16px rgba(6,182,212,0.22);
-
-    /* === Motion ======================================================== */
-    --ease-brand: cubic-bezier(0.2, 0, 0, 1);
-    --dur-fast:   150ms;
-    --dur-base:   300ms;
-    --dur-slow:   500ms;
   }
 }
 
@@ -72,11 +134,11 @@
 
   html, body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Hanken Grotesk', system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-family: 'Sora', system-ui, sans-serif;
     @apply font-semibold tracking-tight text-foreground;
     letter-spacing: -0.02em;
   }
@@ -100,7 +162,7 @@
   .glow-cyan          { box-shadow: var(--glow-cyan); }
 
   .eyebrow {
-    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-family: 'Sora', system-ui, sans-serif;
     @apply text-xs font-semibold uppercase text-accent;
     letter-spacing: 0.08em;
   }
@@ -113,7 +175,7 @@
 
   /* Legacy — kept for any scroll-animation usage */
   .font-display {
-    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-family: 'Sora', system-ui, sans-serif;
   }
   .font-mono-code {
     font-family: 'JetBrains Mono', monospace;
@@ -121,7 +183,11 @@
   .glow-green {
     box-shadow: var(--glow-primary);
   }
+  /* hairline in light, faint cyan tech-border in dark */
   .glow-border {
+    box-shadow: 0 0 0 1px hsl(var(--border));
+  }
+  .dark .glow-border {
     box-shadow: 0 0 0 1px hsla(199, 89%, 48%, 0.12);
   }
 }

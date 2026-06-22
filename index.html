@@ -1,7 +1,17 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Apply persisted theme before paint to avoid a light/dark flash.
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          var d = t ? t === "dark" : true; // default dark
+          document.documentElement.classList.toggle("dark", d);
+        } catch (e) {}
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="theme-color" content="#080F1E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

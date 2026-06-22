@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans:    ["Inter", "system-ui", "sans-serif"],
-        display: ["Space Grotesk", "system-ui", "sans-serif"],
+        sans:    ["Hanken Grotesk", "system-ui", "sans-serif"],
+        display: ["Sora", "system-ui", "sans-serif"],
         mono:    ["JetBrains Mono", "monospace"],
       },
       colors: {
@@ -59,6 +59,7 @@ export default {
         card: {
           DEFAULT:    "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+          muted:      "hsl(var(--card-muted))",
         },
         sidebar: {
           DEFAULT:              "hsl(var(--sidebar-background))",

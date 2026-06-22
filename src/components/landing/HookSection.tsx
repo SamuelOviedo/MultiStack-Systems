@@ -56,8 +56,8 @@ export function HookSection() {
       id="servicios"
       className="relative py-24 px-6 overflow-hidden scroll-mt-20"
     >
-      {/* Ambient depth glow */}
-      <div className="pointer-events-none absolute inset-0">
+      {/* Ambient depth glow — dark mode only */}
+      <div className="pointer-events-none absolute inset-0 hidden dark:block">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[500px] rounded-full bg-primary/5 blur-[120px]" />
       </div>
 

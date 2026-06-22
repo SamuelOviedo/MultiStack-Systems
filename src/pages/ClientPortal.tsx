@@ -50,7 +50,7 @@ function NewTicketModal({ onClose, onCreated, token }: NewTicketModalProps) {
   const inputClass = "bg-background border-border font-mono text-xs h-8";
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-md space-y-4 p-6">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-sm text-foreground">nuevo ticket</h2>

@@ -1,5 +1,6 @@
 import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
+import Logo from "@/components/Logo";
 
 const NotFound = () => {
   const location = useLocation();
@@ -11,11 +12,7 @@ const NotFound = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="text-center space-y-6">
-        <img
-          src="/logo-white.png"
-          alt="MultiStack Systems Logo"
-          className="h-10 w-auto object-contain mx-auto"
-        />
+        <Logo className="h-10 mx-auto" />
         <div className="space-y-2">
           <p className="font-mono text-[11px] text-muted-foreground tracking-[0.1em]">
             multistack@secure:~$ cd {location.pathname}

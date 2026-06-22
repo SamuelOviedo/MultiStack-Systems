@@ -14,7 +14,7 @@ const LOG_LINES = [
 
 export default function AuthBrandPanel() {
   return (
-    <div className="relative overflow-hidden border-r border-border px-12 py-8 flex flex-col lg:min-h-screen bg-[linear-gradient(180deg,_hsl(218_56%_14%)_0%,_hsl(222_43%_7%)_100%)]">
+    <div className="dark relative overflow-hidden border-r border-border px-12 py-8 flex flex-col lg:min-h-screen bg-[linear-gradient(180deg,_hsl(218_56%_14%)_0%,_hsl(222_43%_7%)_100%)]">
       {/* Ambient glows */}
       <div
         className="pointer-events-none absolute top-[-120px] left-[-120px] w-[480px] h-[480px]"

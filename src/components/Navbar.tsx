@@ -4,6 +4,8 @@ import { LayoutDashboard, LogOut, Ticket } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { getOpenTicketsCount } from "@/lib/tickets";
 import { cn } from "@/lib/utils";
+import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const cmdBtn =
   "rounded-sm px-3 py-1.5 text-xs font-display font-medium border transition-all whitespace-nowrap";
@@ -72,11 +74,7 @@ const Navbar = () => {
           onClick={handleLogoClick}
           className="flex items-center gap-2.5 group"
         >
-          <img
-            src="/logo-white.png"
-            alt="MultiStack Systems Logo"
-            className="h-7 w-auto object-contain shrink-0"
-          />
+          <Logo className="h-7" />
           <span className="font-display text-sm font-semibold tracking-tight text-foreground whitespace-nowrap">
             MultiStack Systems
           </span>
@@ -107,6 +105,7 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             {loading ? (
               <span
                 className="font-display text-xs text-muted-foreground animate-pulse border border-border/60 px-3 py-1.5 rounded-sm"

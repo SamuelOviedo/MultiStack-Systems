@@ -25,7 +25,7 @@ const TerminalHero = () => {
   }, [phase]);
 
   return (
-    <div className="w-full max-w-2xl rounded-lg overflow-hidden glow-border bg-card/80 backdrop-blur-xl">
+    <div className="dark w-full max-w-2xl rounded-lg overflow-hidden glow-border bg-card/80 backdrop-blur-xl">
       {/* Title bar */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-foreground/5 bg-foreground/5">
         <div className="w-3 h-3 rounded-full bg-destructive/20 border border-destructive/50" />

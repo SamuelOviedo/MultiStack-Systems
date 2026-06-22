@@ -11,8 +11,8 @@ const HeroSection = () => {
       id="hero"
       className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-20 overflow-hidden"
     >
-      {/* Radial glow */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* Radial glow — dark mode only (neon blobs read as a smudge on white) */}
+      <div className="absolute inset-0 pointer-events-none hidden dark:block">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-accent/5 blur-3xl" />
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-primary/5 blur-3xl" />
       </div>
@@ -55,7 +55,7 @@ const HeroSection = () => {
         >
           <button
             onClick={() => scrollTo("servicios")}
-            className="rounded-sm bg-primary/10 px-6 py-3 font-display text-sm font-medium text-primary border border-primary/20 hover:bg-primary/20 hover:shadow-[0_0_20px_hsla(142,70%,50%,0.3)] transition-all duration-300"
+            className="rounded-sm bg-primary/10 px-6 py-3 font-display text-sm font-medium text-primary border border-primary/20 hover:bg-primary/20 dark:hover:shadow-[0_0_20px_hsl(var(--primary)/0.25)] transition-all duration-300"
           >
             [ EXPLORAR_SERVICIOS ]
           </button>

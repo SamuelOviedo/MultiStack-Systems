@@ -1,15 +1,10 @@
 import { cn } from "@/lib/utils";
+import Logo from "@/components/Logo";
 
 /**
- * Unified brand loading indicator — replaces the legacy Terminal-icon pulse.
- * Always renders the white logo (every app surface is dark terminal-themed).
+ * Unified brand loading indicator — theme-aware pulsing logo
+ * (white on dark, black on light).
  */
 export default function BrandLoader({ className }: { className?: string }) {
-  return (
-    <img
-      src="/logo-white.png"
-      alt="MultiStack Systems Logo"
-      className={cn("h-8 w-auto object-contain animate-pulse", className)}
-    />
-  );
+  return <Logo className={cn("h-8 animate-pulse", className)} />;
 }

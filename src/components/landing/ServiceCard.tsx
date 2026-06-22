@@ -50,11 +50,11 @@ export function ServiceCard({
       onMouseLeave={() => { if (isHoverDevice()) onCollapse(); }}
       onClick={() => { if (!isHoverDevice()) onToggle(); }}
       className={cn(
-        "relative flex flex-col rounded-sm border bg-card/50 backdrop-blur-md cursor-pointer",
-        "transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "relative flex flex-col rounded-sm border bg-card dark:bg-card/50 dark:backdrop-blur-md cursor-pointer",
+        "transition-[border-color,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
         isOpen
-          ? "border-primary/25 shadow-[0_4px_40px_hsl(var(--primary)/0.07)]"
-          : "border-border/50 hover:border-primary/20"
+          ? "border-primary/25 dark:shadow-[0_4px_40px_hsl(var(--primary)/0.07)]"
+          : "border-border hover:border-primary/20 hover:bg-card-muted dark:hover:bg-card/50"
       )}
     >
       {/* Left accent bar */}
@@ -63,7 +63,7 @@ export function ServiceCard({
           "absolute left-0 top-5 bottom-5 w-[2px] rounded-full",
           "transition-[background-color,box-shadow] duration-300",
           isOpen
-            ? "bg-accent shadow-[-3px_0_10px_hsl(var(--accent)/0.4)]"
+            ? "bg-accent dark:shadow-[-3px_0_10px_hsl(var(--accent)/0.4)]"
             : "bg-primary/15"
         )}
       />

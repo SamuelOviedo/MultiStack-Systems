@@ -86,7 +86,7 @@ const ServicesSection = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.12, ease: [0.4, 0, 0.2, 1] }}
-          className="grid grid-cols-1 lg:grid-cols-[5fr_7fr] rounded-sm border border-border/50 bg-card/20 backdrop-blur-sm overflow-hidden"
+          className="grid grid-cols-1 lg:grid-cols-[5fr_7fr] rounded-sm border border-border bg-card dark:bg-card/20 dark:backdrop-blur-sm overflow-hidden"
         >
           {/* ── Left: service navigator ── */}
           <div className="border-b lg:border-b-0 lg:border-r border-border/40 p-3">
@@ -108,7 +108,7 @@ const ServicesSection = () => {
                       "transition-all duration-200",
                       isActive
                         ? "bg-primary/10 border border-primary/20 shadow-[inset_2px_0_0_hsl(var(--primary))]"
-                        : "border border-transparent hover:bg-card/60 hover:border-border/40"
+                        : "border border-transparent hover:bg-card-muted dark:hover:bg-card/60 hover:border-border/40"
                     )}
                   >
                     {/* Icon */}
@@ -194,8 +194,8 @@ const ServicesSection = () => {
                 {/* CTA */}
                 <div className="mt-auto pt-2">
                   {CATALOG[active].comingSoon ? (
-                    <div className="inline-flex items-center gap-2.5 rounded-sm bg-amber-400/5 border border-amber-400/15 px-4 py-2.5 text-sm font-display text-amber-400/60 cursor-default">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400/50 animate-pulse shrink-0" />
+                    <div className="inline-flex items-center gap-2.5 rounded-sm bg-warning/10 border border-warning/30 px-4 py-2.5 text-sm font-display text-warning cursor-default">
+                      <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse shrink-0" />
                       Disponible próximamente
                     </div>
                   ) : (
