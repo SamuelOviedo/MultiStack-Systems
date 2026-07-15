@@ -6,13 +6,20 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     groups:
       # Batch low-risk minor/patch bumps into a single PR to reduce noise.
       minor-and-patch:
         update-types:
           - minor
           - patch
+    ignore:
+      # Do NOT auto-open major version bumps — they routinely break the build
+      # (e.g. React 19 types, eslint 10 flat-config, zod 4, sonner 2). Security
+      # fixes still come through regardless of this. Majors are done manually,
+      # on a branch, with the full CI suite green before merge.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # Keep the GitHub Actions used in these workflows patched.
   - package-ecosystem: github-actions
