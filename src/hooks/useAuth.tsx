@@ -2,6 +2,16 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Authentication context for the app.
+ *
+ * `loading`  – true only while the initial session is being resolved from
+ *              storage. It ALWAYS flips to false, even if the network fails.
+ * `userType` – the caller's role (0 = admin, 1 = collaborator, 2 = client).
+ *              Resolves to a number for every signed-in user; it is never left
+ *              `null` while a user is present, so downstream `userType !== null`
+ *              gates cannot deadlock.
+ */
 interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -9,6 +19,11 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
 }
+
+/** Fallback role when the profile lookup fails — least-privileged (client). */
+const DEFAULT_USER_TYPE = 2;
+/** Hard ceiling so a stalled profile request can never hang the auth gate. */
+const PROFILE_FETCH_TIMEOUT_MS = 8000;
 
 const AuthContext = createContext<AuthContextType>({
   session: null,
@@ -18,13 +33,32 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+/**
+ * Resolve a user's role from the `profiles` table.
+ *
+ * Guaranteed to resolve to a number: any error, missing row, or stalled
+ * request falls back to {@link DEFAULT_USER_TYPE} instead of rejecting. This
+ * is the safety net that prevents the post-login redirect and role-gated data
+ * loads from hanging forever.
+ */
 const fetchUserType = async (userId: string): Promise<number> => {
-  const { data } = await (supabase
-    .from("profiles" as any)
-    .select("user_type")
-    .eq("id", userId)
-    .single() as any);
-  return typeof data?.user_type === "number" ? data.user_type : 2;
+  try {
+    const query = supabase
+      .from("profiles" as any)
+      .select("user_type")
+      .eq("id", userId)
+      .single();
+
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("profile-fetch-timeout")), PROFILE_FETCH_TIMEOUT_MS)
+    );
+
+    const { data } = (await Promise.race([query, timeout])) as { data: { user_type?: number } | null };
+    return typeof data?.user_type === "number" ? data.user_type : DEFAULT_USER_TYPE;
+  } catch {
+    // Network failure, RLS error, or timeout — degrade gracefully.
+    return DEFAULT_USER_TYPE;
+  }
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -34,61 +68,63 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
+    let active = true;
 
-    // Initial load: reads from localStorage (no network), then fetches profile
-    const initialize = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!isMounted) return;
+    /**
+     * Single funnel for both the initial session and every later auth event.
+     * Always resolves `loading` and (for signed-in users) `userType`, so no
+     * consumer gate can stall.
+     */
+    const applySession = async (nextSession: Session | null) => {
+      if (!active) return;
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
 
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        const type = await fetchUserType(session.user.id);
-        if (!isMounted) return;
+      if (nextSession?.user) {
+        const type = await fetchUserType(nextSession.user.id);
+        if (!active) return;
         setUserType(type);
+      } else {
+        setUserType(null);
       }
-      setLoading(false);
+      if (active) setLoading(false);
     };
 
-    initialize();
+    // Initial load: reads the persisted session from localStorage (no network
+    // round-trip). `finally` guarantees the loading gate is released even if
+    // getSession itself rejects.
+    supabase.auth
+      .getSession()
+      .then(({ data }) => applySession(data.session))
+      .catch(() => {
+        if (active) setLoading(false);
+      });
 
-    // Listen for login/logout events after initial load
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    // Listen for login/logout/refresh events after the initial load.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!active) return;
 
-        if (session?.user) {
-          const userId = session.user.id;
-
-          // Fire welcome email on first sign-in; edge function handles idempotency
-          if (_event === "SIGNED_IN") {
-            supabase.functions.invoke("send-welcome-email").catch(() => {});
-          }
-
-          // setTimeout(0) avoids Supabase deadlock when querying inside this callback
-          setTimeout(() => {
-            fetchUserType(userId).then((type) => {
-              if (isMounted) setUserType(type);
-            });
-          }, 0);
-        } else {
-          setUserType(null);
-        }
+      // Fire welcome email on first sign-in; edge function handles idempotency.
+      if (event === "SIGNED_IN") {
+        supabase.functions.invoke("send-welcome-email").catch(() => {});
       }
-    );
+
+      // Defer DB work out of the callback: querying inside the onAuthStateChange
+      // callback can deadlock the Supabase auth lock.
+      setTimeout(() => {
+        if (active) applySession(nextSession);
+      }, 0);
+    });
 
     return () => {
-      isMounted = false;
+      active = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUserType(null);
+    // onAuthStateChange(SIGNED_OUT) clears session/user/userType via applySession.
   };
 
   return (
