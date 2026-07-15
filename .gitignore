@@ -25,6 +25,9 @@ dist-ssr/
 # Supabase CLI temp files
 supabase/.temp/
 
+# Graphify generated artifacts (regenerate with `npm run graph`)
+graph/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

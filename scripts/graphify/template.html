@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Graphify — Architecture Graph</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --bg2: #10151f;
+    --panel: rgba(18, 24, 36, 0.86);
+    --border: #232c3d;
+    --text: #d7e0ee;
+    --muted: #8494ad;
+    --accent: #5b8cff;
+    --in: #38bdf8;   /* incoming */
+    --out: #fb923c;  /* outgoing */
+    --warn: #f43f5e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: radial-gradient(1200px 800px at 70% -10%, #131a28 0%, var(--bg) 60%);
+    color: var(--text);
+    font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  #canvas { position: fixed; inset: 0; display: block; cursor: grab; }
+  #canvas.grabbing { cursor: grabbing; }
+
+  .panel {
+    position: fixed;
+    background: var(--panel);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+  #sidebar { top: 14px; left: 14px; width: 288px; max-height: calc(100vh - 28px); overflow-y: auto; padding: 14px; }
+  #sidebar::-webkit-scrollbar { width: 8px; }
+  #sidebar::-webkit-scrollbar-thumb { background: #2a3446; border-radius: 8px; }
+
+  #details { top: 14px; right: 14px; width: 300px; max-height: calc(100vh - 28px); overflow-y: auto; padding: 14px; display: none; }
+  #details.open { display: block; }
+
+  .brand { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .brand b { font-size: 15px; letter-spacing: .3px; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 3px; background: linear-gradient(135deg, var(--accent), #22d3ee); box-shadow: 0 0 12px var(--accent); }
+  .sub { color: var(--muted); font-size: 11px; }
+
+  h4 { margin: 16px 0 7px; font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-weight: 600; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  input[type=search], select {
+    width: 100%; background: #0c1119; color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; font: inherit; outline: none;
+  }
+  input[type=search]:focus, select:focus { border-color: var(--accent); }
+  .btn {
+    background: #141b28; color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 9px; font: inherit; cursor: pointer; flex: 1; text-align: center;
+  }
+  .btn:hover { border-color: var(--accent); color: #fff; }
+  .btn.on { background: var(--accent); border-color: var(--accent); color: #061021; font-weight: 600; }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .stat { background: #0c1119; border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; }
+  .stat .n { font-size: 17px; font-weight: 700; }
+  .stat .l { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .stat.bad .n { color: var(--warn); }
+
+  .legend { display: flex; flex-direction: column; gap: 3px; }
+  .legend .item, .filter .item {
+    display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 2px 4px; border-radius: 6px; cursor: pointer; user-select: none;
+  }
+  .legend .item:hover, .filter .item:hover { background: #141c2b; }
+  .legend .item.off, .filter .item.off { opacity: .35; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+  .legend .cnt, .filter .cnt { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .toggle { display: flex; align-items: center; gap: 7px; font-size: 12px; padding: 3px 2px; cursor: pointer; }
+  .toggle input { accent-color: var(--accent); }
+
+  #details h3 { margin: 2px 0 2px; font-size: 14px; word-break: break-all; }
+  .tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); margin-right: 4px; }
+  .kv { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed #1b2434; }
+  .kv span:first-child { color: var(--muted); }
+  .dep-list { max-height: 150px; overflow-y: auto; margin-top: 4px; }
+  .dep { font-size: 11px; padding: 3px 6px; border-radius: 6px; cursor: pointer; word-break: break-all; }
+  .dep:hover { background: #141c2b; }
+  .dep.in { border-left: 2px solid var(--in); }
+  .dep.out { border-left: 2px solid var(--out); }
+
+  #tooltip {
+    position: fixed; pointer-events: none; z-index: 20; display: none;
+    background: #0c1119ee; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; max-width: 320px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5); font-size: 12px;
+  }
+  #tooltip b { color: #fff; word-break: break-all; }
+  #tooltip .m { color: var(--muted); font-size: 11px; }
+
+  #hud { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+  #hud .btn { flex: none; }
+  .foot { margin-top: 12px; color: var(--muted); font-size: 10px; text-align: center; }
+  .close { position: absolute; top: 10px; right: 12px; cursor: pointer; color: var(--muted); font-size: 16px; }
+  .close:hover { color: #fff; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div id="sidebar" class="panel">
+  <div class="brand"><span class="dot"></span><b>Graphify</b></div>
+  <div class="sub" id="genLine">architecture graph</div>
+
+  <h4>Search</h4>
+  <input type="search" id="search" placeholder="filter by file name…" autocomplete="off" />
+
+  <h4>Metrics</h4>
+  <div class="stat-grid" id="stats"></div>
+
+  <h4>Color by</h4>
+  <div class="row">
+    <button class="btn on" data-color="layer">Layer</button>
+    <button class="btn" data-color="folder">Folder</button>
+    <button class="btn" data-color="community">Cluster</button>
+  </div>
+
+  <h4>Legend <span class="sub" id="legendHint">(click to filter)</span></h4>
+  <div class="legend" id="legend"></div>
+
+  <h4>Highlight issues</h4>
+  <label class="toggle"><input type="checkbox" id="tgCirc"> Circular deps</label>
+  <label class="toggle"><input type="checkbox" id="tgOrphan"> Orphans</label>
+  <label class="toggle"><input type="checkbox" id="tgDead"> Dead-code candidates</label>
+  <label class="toggle"><input type="checkbox" id="tgEnv"> Env / config access</label>
+
+  <h4>Display</h4>
+  <label class="toggle"><input type="checkbox" id="tgLabels" checked> Show labels</label>
+  <label class="toggle"><input type="checkbox" id="tgArrows" checked> Directed arrows</label>
+  <label class="toggle"><input type="checkbox" id="tgPhysics" checked> Physics running</label>
+  <div class="row" style="margin-top:8px">
+    <label class="sub" style="flex:1">Neighbor depth
+      <input type="range" id="depth" min="1" max="4" value="1" style="width:100%">
+    </label>
+  </div>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<div id="details" class="panel">
+  <span class="close" id="detClose">&times;</span>
+  <div id="detBody"></div>
+</div>
+
+<div id="tooltip"></div>
+
+<div id="hud">
+  <button class="btn" id="btnReset">Reset view</button>
+  <button class="btn" id="btnFit">Fit</button>
+  <button class="btn" id="btnReheat">Reheat</button>
+  <button class="btn" id="btnClear">Clear selection</button>
+</div>
+
+<script>
+/* ==================================================================== *
+ * Graph data — injected inline so the file is fully standalone/offline. *
+ * ==================================================================== */
+window.__GRAPH__ = /*__GRAPH_DATA__*/ null /*__END_GRAPH_DATA__*/;
+
+(function () {
+  "use strict";
+  const GRAPH = window.__GRAPH__;
+  if (!GRAPH) { document.body.innerHTML = "<p style='padding:2rem'>No graph data injected.</p>"; return; }
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  // ---- palette --------------------------------------------------------
+  const LAYER_COLORS = {
+    entry: "#f472b6", pages: "#5b8cff", components: "#22d3ee", ui: "#818cf8",
+    hooks: "#34d399", services: "#f59e0b", lib: "#a3e635", data: "#fb7185",
+    types: "#94a3b8", style: "#64748b", asset: "#6b7280", test: "#475569", other: "#9ca3af",
+  };
+  const PALETTE = ["#5b8cff","#22d3ee","#34d399","#f59e0b","#f472b6","#a78bfa","#fb7185","#a3e635","#38bdf8","#fbbf24","#c084fc","#4ade80","#f87171","#2dd4bf","#e879f9","#60a5fa"];
+
+  function colorFor(node) {
+    if (colorMode === "layer") return LAYER_COLORS[node.layer] || "#9ca3af";
+    if (colorMode === "community") return PALETTE[node.community % PALETTE.length];
+    // folder
+    const idx = folderIndex.get(node.folder) || 0;
+    return PALETTE[idx % PALETTE.length];
+  }
+
+  // ---- state ----------------------------------------------------------
+  let colorMode = "layer";
+  const nodes = GRAPH.nodes.map((n) => ({ ...n, x: 0, y: 0, vx: 0, vy: 0 }));
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const links = GRAPH.edges
+    .map((e) => ({ ...e, s: byId.get(e.source), t: byId.get(e.target) }))
+    .filter((l) => l.s && l.t);
+
+  // neighbor adjacency for highlight / depth
+  const outN = new Map(), inN = new Map();
+  nodes.forEach((n) => { outN.set(n.id, []); inN.set(n.id, []); });
+  links.forEach((l) => { outN.get(l.source).push(l.target); inN.get(l.target).push(l.source); });
+
+  const folders = [...new Set(nodes.map((n) => n.folder))].sort();
+  const folderIndex = new Map(folders.map((f, i) => [f, i]));
+
+  const hiddenLayers = new Set();
+  let selected = null, hovered = null;
+  let neighborDepth = 1;
+  const issue = { circ: false, orphan: false, dead: false, env: false };
+  const deadSet = new Set(GRAPH.deadCandidates.map((d) => d.id));
+  let showLabels = true, showArrows = true, physicsOn = true;
+
+  // ---- layout / camera ------------------------------------------------
+  let cam = { x: 0, y: 0, k: 1 };
+  function resize() {
+    canvas.width = innerWidth * DPR;
+    canvas.height = innerHeight * DPR;
+    canvas.style.width = innerWidth + "px";
+    canvas.style.height = innerHeight + "px";
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // seed positions on a spiral by layer to avoid degenerate overlap
+  nodes.forEach((n, i) => {
+    const a = i * 2.399963;
+    const r = 40 + Math.sqrt(i) * 46;
+    n.x = Math.cos(a) * r;
+    n.y = Math.sin(a) * r;
+  });
+
+  // ---- force simulation (naive O(n^2), fine for this graph size) ------
+  let alpha = 1;
+  const REPULSE = 5200, SPRING = 0.02, SPRING_LEN = 70, CENTER = 0.015, DAMP = 0.86;
+  function sizeOf(n) { return 4 + Math.sqrt(n.degree) * 2.6; }
+
+  function step() {
+    if (!physicsOn) return;
+    alpha *= 0.994;
+    if (alpha < 0.02) alpha = 0.02;
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i];
+      a.vx -= a.x * CENTER * alpha;
+      a.vy -= a.y * CENTER * alpha;
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j];
+        let dx = a.x - b.x, dy = a.y - b.y;
+        let d2 = dx * dx + dy * dy;
+        if (d2 < 0.01) { dx = (Math.cos(i) ); dy = (Math.sin(j)); d2 = 1; }
+        const d = Math.sqrt(d2);
+        const f = (REPULSE * alpha) / d2;
+        const fx = (dx / d) * f, fy = (dy / d) * f;
+        a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+      }
+    }
+    for (const l of links) {
+      const dx = l.t.x - l.s.x, dy = l.t.y - l.s.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const f = (d - SPRING_LEN) * SPRING * alpha;
+      const fx = (dx / d) * f, fy = (dy / d) * f;
+      l.s.vx += fx; l.s.vy += fy; l.t.vx -= fx; l.t.vy -= fy;
+    }
+    for (const n of nodes) {
+      if (n === dragging) continue;
+      n.vx *= DAMP; n.vy *= DAMP;
+      n.x += n.vx; n.y += n.vy;
+    }
+  }
+
+  // ---- highlight sets -------------------------------------------------
+  function neighborhood(id, depth) {
+    const inSet = new Set(), outSet = new Set();
+    let frontier = [id];
+    for (let d = 0; d < depth; d++) {
+      const next = [];
+      for (const cur of frontier) for (const m of outN.get(cur) || []) if (!outSet.has(m)) { outSet.add(m); next.push(m); }
+      frontier = next;
+    }
+    frontier = [id];
+    for (let d = 0; d < depth; d++) {
+      const next = [];
+      for (const cur of frontier) for (const m of inN.get(cur) || []) if (!inSet.has(m)) { inSet.add(m); next.push(m); }
+      frontier = next;
+    }
+    return { inSet, outSet };
+  }
+  let hi = null; // {inSet,outSet}
+  function recomputeHighlight() {
+    hi = selected ? neighborhood(selected.id, neighborDepth) : null;
+  }
+
+  function nodeVisible(n) {
+    if (hiddenLayers.has(n.layer)) return false;
+    if (searchTerm && !n.id.toLowerCase().includes(searchTerm)) {
+      // keep visible but will be dimmed; don't hide so context remains
+    }
+    return true;
+  }
+
+  function issueMatch(n) {
+    if (issue.circ && n.scc >= 0) return true;
+    if (issue.orphan && n.orphan) return true;
+    if (issue.dead && deadSet.has(n.id)) return true;
+    if (issue.env && n.env) return true;
+    return false;
+  }
+  const anyIssue = () => issue.circ || issue.orphan || issue.dead || issue.env;
+
+  // ---- rendering ------------------------------------------------------
+  function toScreen(x, y) { return [(x + cam.x) * cam.k + canvas.width / 2, (y + cam.y) * cam.k + canvas.height / 2]; }
+  function toWorld(px, py) { return [((px * DPR) - canvas.width / 2) / cam.k - cam.x, ((py * DPR) - canvas.height / 2) / cam.k - cam.y]; }
+
+  function draw() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const focus = selected || hovered;
+    const searchOn = !!searchTerm;
+
+    // edges
+    ctx.lineWidth = Math.max(0.6, cam.k * 0.6);
+    for (const l of links) {
+      if (hiddenLayers.has(l.s.layer) || hiddenLayers.has(l.t.layer)) continue;
+      let color = "rgba(120,140,170,0.12)", w = ctx.lineWidth, dash = l.dynamic;
+      if (hi) {
+        const inv = hi.inSet.has(l.s.id) && (l.t.id === selected.id || hi.inSet.has(l.t.id));
+        const outv = hi.outSet.has(l.t.id) && (l.s.id === selected.id || hi.outSet.has(l.s.id));
+        if (l.t.id === selected.id || (hi.inSet.has(l.s.id) && hi.inSet.has(l.t.id)) || (l.s.id !== selected.id && hi.inSet.has(l.s.id) && l.t.id === selected.id)) {}
+        if (l.s.id === selected.id || l.t.id === selected.id || (hi.inSet.has(l.s.id) && (hi.inSet.has(l.t.id) || l.t.id===selected.id)) || (hi.outSet.has(l.t.id) && (hi.outSet.has(l.s.id) || l.s.id===selected.id))) {
+          const incoming = l.t.id === selected.id || hi.inSet.has(l.t.id);
+          const outgoing = l.s.id === selected.id || hi.outSet.has(l.s.id);
+          color = incoming && !outgoing ? "rgba(56,189,248,0.85)" : "rgba(251,146,60,0.85)";
+          w = Math.max(1.1, cam.k * 1.1);
+        } else {
+          color = "rgba(120,140,170,0.04)";
+        }
+      }
+      const [x1, y1] = toScreen(l.s.x, l.s.y);
+      const [x2, y2] = toScreen(l.t.x, l.t.y);
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = w;
+      ctx.setLineDash(dash ? [4, 4] : []);
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      if (showArrows && (cam.k > 0.7 || (hi && color[3] !== "0")) ) {
+        drawArrow(x1, y1, x2, y2, sizeOf(l.t) * cam.k, color);
+      }
+    }
+    ctx.setLineDash([]);
+
+    // nodes
+    for (const n of nodes) {
+      if (hiddenLayers.has(n.layer)) continue;
+      const [x, y] = toScreen(n.x, n.y);
+      const r = Math.max(2, sizeOf(n) * cam.k);
+      let a = 1, ring = null;
+      if (hi) {
+        if (n.id === selected.id) ring = "#fff";
+        else if (hi.inSet.has(n.id)) ring = "var(--in)";
+        else if (hi.outSet.has(n.id)) ring = "var(--out)";
+        else a = 0.15;
+      } else if (searchOn) {
+        a = n.id.toLowerCase().includes(searchTerm) ? 1 : 0.12;
+      } else if (anyIssue()) {
+        a = issueMatch(n) ? 1 : 0.16;
+      }
+      ctx.globalAlpha = a;
+      ctx.beginPath();
+      ctx.fillStyle = colorFor(n);
+      ctx.arc(x, y, r, 0, 6.283);
+      ctx.fill();
+      if (anyIssue() && issueMatch(n)) {
+        ctx.lineWidth = 2; ctx.strokeStyle = "#f43f5e"; ctx.stroke();
+      }
+      if (ring) {
+        ctx.lineWidth = 2.2;
+        ctx.strokeStyle = ring === "#fff" ? "#fff" : (hi.inSet.has(n.id) ? "#38bdf8" : "#fb923c");
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      if (showLabels && (cam.k > 1.15 || r > 7 || n === focus || (hi && ring))) {
+        ctx.fillStyle = a < 0.4 ? "rgba(215,224,238,0.25)" : "#c7d2e5";
+        ctx.font = `${Math.max(9, 10)}px ui-sans-serif, system-ui`;
+        ctx.fillText(n.name, x + r + 3, y + 3);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawArrow(x1, y1, x2, y2, pad, color) {
+    const ang = Math.atan2(y2 - y1, x2 - x1);
+    const ax = x2 - Math.cos(ang) * (pad + 2);
+    const ay = y2 - Math.sin(ang) * (pad + 2);
+    const h = 5;
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - Math.cos(ang - 0.4) * h, ay - Math.sin(ang - 0.4) * h);
+    ctx.lineTo(ax - Math.cos(ang + 0.4) * h, ay - Math.sin(ang + 0.4) * h);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function frame() { step(); draw(); requestAnimationFrame(frame); }
+
+  // ---- interaction ----------------------------------------------------
+  let dragging = null, panning = false, last = null;
+  function pickNode(px, py) {
+    const [wx, wy] = toWorld(px, py);
+    let best = null, bd = 1e9;
+    for (const n of nodes) {
+      if (hiddenLayers.has(n.layer)) continue;
+      const dx = n.x - wx, dy = n.y - wy;
+      const d = dx * dx + dy * dy;
+      const r = sizeOf(n) + 6;
+      if (d < r * r && d < bd) { bd = d; best = n; }
+    }
+    return best;
+  }
+
+  canvas.addEventListener("mousedown", (e) => {
+    const n = pickNode(e.clientX, e.clientY);
+    last = { x: e.clientX, y: e.clientY };
+    if (n) { dragging = n; physicsNudge(); }
+    else { panning = true; canvas.classList.add("grabbing"); }
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (dragging) {
+      const [wx, wy] = toWorld(e.clientX, e.clientY);
+      dragging.x = wx; dragging.y = wy; dragging.vx = 0; dragging.vy = 0;
+    } else if (panning) {
+      cam.x += (e.clientX - last.x) * DPR / cam.k;
+      cam.y += (e.clientY - last.y) * DPR / cam.k;
+      last = { x: e.clientX, y: e.clientY };
+    } else {
+      const n = pickNode(e.clientX, e.clientY);
+      hovered = n;
+      showTooltip(n, e.clientX, e.clientY);
+    }
+  });
+  window.addEventListener("mouseup", (e) => {
+    if (dragging && last && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 4) select(dragging);
+    dragging = null; panning = false; canvas.classList.remove("grabbing");
+  });
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const [wx, wy] = toWorld(e.clientX, e.clientY);
+    const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    cam.k = Math.max(0.15, Math.min(6, cam.k * f));
+    const [wx2, wy2] = toWorld(e.clientX, e.clientY);
+    cam.x += wx2 - wx; cam.y += wy2 - wy;
+  }, { passive: false });
+  canvas.addEventListener("dblclick", (e) => { const n = pickNode(e.clientX, e.clientY); if (n) { select(n); focusNode(n); } });
+
+  function physicsNudge() { if (physicsOn) alpha = Math.max(alpha, 0.4); }
+
+  // ---- tooltip --------------------------------------------------------
+  const tooltip = document.getElementById("tooltip");
+  function showTooltip(n, px, py) {
+    if (!n) { tooltip.style.display = "none"; return; }
+    tooltip.style.display = "block";
+    tooltip.innerHTML = `<b>${n.label}</b><br><span class="m">${n.type} · ${n.layer} · in ${n.fanIn} / out ${n.fanOut}${n.externalCount ? " · " + n.externalCount + " npm" : ""}${n.scc >= 0 ? " · <span style='color:#f43f5e'>circular</span>" : ""}</span>`;
+    const w = tooltip.offsetWidth, h = tooltip.offsetHeight;
+    tooltip.style.left = Math.min(px + 14, innerWidth - w - 8) + "px";
+    tooltip.style.top = Math.min(py + 14, innerHeight - h - 8) + "px";
+  }
+
+  // ---- selection / details --------------------------------------------
+  const details = document.getElementById("details");
+  function select(n) { selected = n; recomputeHighlight(); renderDetails(n); }
+  function clearSelection() { selected = null; hi = null; details.classList.remove("open"); }
+  document.getElementById("detClose").onclick = clearSelection;
+  document.getElementById("btnClear").onclick = clearSelection;
+
+  function renderDetails(n) {
+    const ins = (inN.get(n.id) || []).slice().sort();
+    const outs = (outN.get(n.id) || []).slice().sort();
+    const link = (id, cls) => `<div class="dep ${cls}" data-goto="${id}">${byId.get(id).label}</div>`;
+    details.classList.add("open");
+    document.getElementById("detBody").innerHTML = `
+      <h3>${n.label}</h3>
+      <div style="margin:6px 0 10px">
+        <span class="tag" style="border-color:${colorFor(n)};color:${colorFor(n)}">${n.type}</span>
+        <span class="tag">${n.layer}</span>
+        ${n.scc >= 0 ? '<span class="tag" style="border-color:#f43f5e;color:#f43f5e">circular</span>' : ""}
+        ${n.orphan ? '<span class="tag" style="border-color:#f59e0b;color:#f59e0b">orphan</span>' : ""}
+        ${deadSet.has(n.id) ? '<span class="tag" style="border-color:#f43f5e;color:#f43f5e">no importers</span>' : ""}
+        ${n.env ? '<span class="tag" style="border-color:#34d399;color:#34d399">env</span>' : ""}
+      </div>
+      <div class="kv"><span>Folder</span><span>${n.folder}</span></div>
+      <div class="kv"><span>Fan-in (imported by)</span><span>${n.fanIn}</span></div>
+      <div class="kv"><span>Fan-out (imports)</span><span>${n.fanOut}</span></div>
+      <div class="kv"><span>Degree</span><span>${n.degree}</span></div>
+      <div class="kv"><span>External pkgs</span><span>${n.externalCount}</span></div>
+      <div class="kv"><span>Cluster</span><span>#${n.community}</span></div>
+      ${n.externals && n.externals.length ? `<h4>Packages</h4><div class="sub" style="word-break:break-all">${n.externals.join(", ")}</div>` : ""}
+      <h4>Imported by (${ins.length})</h4><div class="dep-list">${ins.map((i) => link(i, "in")).join("") || '<span class="sub">— none —</span>'}</div>
+      <h4>Imports (${outs.length})</h4><div class="dep-list">${outs.map((i) => link(i, "out")).join("") || '<span class="sub">— none —</span>'}</div>
+    `;
+    details.querySelectorAll("[data-goto]").forEach((el) =>
+      el.addEventListener("click", () => { const t = byId.get(el.dataset.goto); if (t) { select(t); focusNode(t); } }));
+  }
+
+  function focusNode(n) {
+    cam.x = -n.x; cam.y = -n.y;
+    cam.k = Math.max(cam.k, 1.4);
+  }
+
+  // ---- search ---------------------------------------------------------
+  let searchTerm = "";
+  const searchEl = document.getElementById("search");
+  searchEl.addEventListener("input", () => { searchTerm = searchEl.value.trim().toLowerCase(); });
+  searchEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && searchTerm) {
+      const hit = nodes.find((n) => n.id.toLowerCase().includes(searchTerm));
+      if (hit) { select(hit); focusNode(hit); }
+    }
+  });
+
+  // ---- color mode -----------------------------------------------------
+  document.querySelectorAll("[data-color]").forEach((b) =>
+    b.addEventListener("click", () => {
+      document.querySelectorAll("[data-color]").forEach((x) => x.classList.remove("on"));
+      b.classList.add("on");
+      colorMode = b.dataset.color;
+      buildLegend();
+    }));
+
+  // ---- legend / layer filter ------------------------------------------
+  const legendEl = document.getElementById("legend");
+  function buildLegend() {
+    let groups;
+    if (colorMode === "layer") {
+      const counts = {};
+      nodes.forEach((n) => (counts[n.layer] = (counts[n.layer] || 0) + 1));
+      groups = Object.keys(counts).sort((a, b) => counts[b] - counts[a])
+        .map((k) => ({ key: k, color: LAYER_COLORS[k] || "#9ca3af", count: counts[k], layer: k }));
+      document.getElementById("legendHint").textContent = "(click to filter)";
+    } else if (colorMode === "community") {
+      const counts = {};
+      nodes.forEach((n) => (counts[n.community] = (counts[n.community] || 0) + 1));
+      groups = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 16)
+        .map((k) => ({ key: "Cluster #" + k, color: PALETTE[k % PALETTE.length], count: counts[k] }));
+      document.getElementById("legendHint").textContent = "(top clusters)";
+    } else {
+      const counts = {};
+      nodes.forEach((n) => (counts[n.folder] = (counts[n.folder] || 0) + 1));
+      groups = Object.keys(counts).sort((a, b) => counts[b] - counts[a])
+        .map((k) => ({ key: k.replace(/^src\//, ""), color: PALETTE[(folderIndex.get(k) || 0) % PALETTE.length], count: counts[k] }));
+      document.getElementById("legendHint").textContent = "(folders)";
+    }
+    legendEl.innerHTML = groups.map((g) =>
+      `<div class="item${g.layer && hiddenLayers.has(g.layer) ? " off" : ""}" ${g.layer ? `data-layer="${g.layer}"` : ""}>
+        <span class="swatch" style="background:${g.color}"></span>${g.key}<span class="cnt">${g.count}</span></div>`).join("");
+    legendEl.querySelectorAll("[data-layer]").forEach((el) =>
+      el.addEventListener("click", () => {
+        const L = el.dataset.layer;
+        if (hiddenLayers.has(L)) hiddenLayers.delete(L); else hiddenLayers.add(L);
+        el.classList.toggle("off");
+      }));
+  }
+
+  // ---- issue toggles / display ----------------------------------------
+  const bind = (id, fn) => document.getElementById(id).addEventListener("change", (e) => fn(e.target.checked));
+  bind("tgCirc", (v) => (issue.circ = v));
+  bind("tgOrphan", (v) => (issue.orphan = v));
+  bind("tgDead", (v) => (issue.dead = v));
+  bind("tgEnv", (v) => (issue.env = v));
+  bind("tgLabels", (v) => (showLabels = v));
+  bind("tgArrows", (v) => (showArrows = v));
+  bind("tgPhysics", (v) => { physicsOn = v; if (v) alpha = 0.5; });
+  document.getElementById("depth").addEventListener("input", (e) => { neighborDepth = +e.target.value; recomputeHighlight(); });
+
+  document.getElementById("btnReset").onclick = () => { cam = { x: 0, y: 0, k: 1 }; };
+  document.getElementById("btnReheat").onclick = () => { alpha = 1; physicsOn = true; document.getElementById("tgPhysics").checked = true; };
+  document.getElementById("btnFit").onclick = fit;
+  function fit() {
+    let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+    for (const n of nodes) { if (hiddenLayers.has(n.layer)) continue; minX = Math.min(minX, n.x); minY = Math.min(minY, n.y); maxX = Math.max(maxX, n.x); maxY = Math.max(maxY, n.y); }
+    const w = maxX - minX || 1, h = maxY - minY || 1;
+    cam.k = Math.min(6, Math.max(0.15, 0.9 * Math.min(canvas.width / w, canvas.height / h)));
+    cam.x = -(minX + maxX) / 2; cam.y = -(minY + maxY) / 2;
+  }
+
+  // ---- stats ----------------------------------------------------------
+  const m = GRAPH.metrics;
+  const statDefs = [
+    ["Files", m.files], ["Edges", m.edgeCount], ["Avg degree", m.avgDegree],
+    ["Clusters", m.communityCount], ["Circular", m.circularGroupCount, m.circularGroupCount > 0],
+    ["Orphans", m.orphanCount, m.orphanCount > 0], ["Max depth", m.maxDepth], ["No importers", m.deadCandidateCount, m.deadCandidateCount > 0],
+  ];
+  document.getElementById("stats").innerHTML = statDefs.map(([l, n, bad]) =>
+    `<div class="stat${bad ? " bad" : ""}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+  document.getElementById("genLine").textContent = (GRAPH.generatedAt || "architecture graph");
+  document.getElementById("foot").textContent = `${m.nodeCount} nodes · ${m.edgeCount} edges · largest component ${m.largestComponentSize}`;
+
+  buildLegend();
+  setTimeout(fit, 60);
+  setTimeout(fit, 900);
+  frame();
+})();
+</script>
+</body>
+</html>
