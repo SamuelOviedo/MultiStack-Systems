@@ -1,0 +1,42 @@
+name: CI
+
+# Baseline quality gate for every push and PR targeting main:
+# lint + typecheck + tests + build validation ("does it even turn on?").
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint · Typecheck · Test · Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Build (validation)
+        run: npm run build

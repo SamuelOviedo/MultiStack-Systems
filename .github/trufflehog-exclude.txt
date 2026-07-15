@@ -1,0 +1,4 @@
+# Paths excluded from secret scanning (regex, one per line).
+# The Supabase publishable/anon key is designed to be public — it is shipped in
+# the browser bundle and protected by Row Level Security, not by secrecy.
+src/integrations/supabase/client\.ts

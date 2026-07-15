@@ -1,0 +1,81 @@
+name: Security
+
+# Baseline security hygiene: secret scanning, dependency (SCA) audit, and SAST.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Secret scanning ────────────────────────────────────────────────────────
+  secret-scan:
+    name: Secret scanning (TruffleHog)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog — verified secrets only
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          # Only fail on *verified* live credentials to avoid noise. The
+          # Supabase publishable/anon key (public by design) is excluded.
+          extra_args: --only-verified --exclude-paths=.github/trufflehog-exclude.txt
+
+  # ── Software Composition Analysis (dependency vulnerabilities) ─────────────
+  dependency-audit:
+    name: Dependency audit (npm / SCA)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Informational for now: the tree has pre-existing transitive advisories.
+      # Dependabot (see .github/dependabot.yml) is the enforcing mechanism — it
+      # opens PRs that must go green through CI. Flip `continue-on-error` to
+      # false once the backlog is cleared to make this a hard gate.
+      - name: npm audit (high and above)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+  # ── Static Application Security Testing ────────────────────────────────────
+  # CodeQL requires a public repo or GitHub Advanced Security. Skipped on
+  # private repos without GHAS so it never becomes a permanently-red check.
+  codeql:
+    name: CodeQL (SAST)
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3

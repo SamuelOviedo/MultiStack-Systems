@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Application dependencies — security + version updates via PRs (SCA).
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      # Batch low-risk minor/patch bumps into a single PR to reduce noise.
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Keep the GitHub Actions used in these workflows patched.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
