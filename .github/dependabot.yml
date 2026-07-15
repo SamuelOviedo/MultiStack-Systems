@@ -21,9 +21,13 @@ updates:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 
-  # Keep the GitHub Actions used in these workflows patched.
+  # Keep the GitHub Actions used in these workflows patched (minor/patch only;
+  # major action bumps are taken manually to avoid surprise breakage).
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
