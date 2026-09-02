@@ -6,25 +6,25 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import BrandLoader from "@/components/BrandLoader";
+import ProtectedRoute from "@/components/common/ProtectedRoute";
+import BrandLoader from "@/components/common/BrandLoader";
 
 // Pages cargadas al inicio (rutas públicas críticas — no se lazy-load)
-import Index from "./pages/Index.tsx";
+import Index from "./pages/marketing/Index.tsx";
 
 // Lazy-load: cada página genera su propio chunk
-const Login          = lazy(() => import("./pages/Login.tsx"));
-const Signup         = lazy(() => import("./pages/Signup.tsx"));
-const Dashboard      = lazy(() => import("./pages/Dashboard.tsx"));
-const ProjectDetail  = lazy(() => import("./pages/ProjectDetail.tsx"));
-const TicketsGlobal  = lazy(() => import("./pages/TicketsGlobal.tsx"));
-const MisSolicitudes = lazy(() => import("./pages/MisSolicitudes.tsx"));
-const ClientPortal   = lazy(() => import("./pages/ClientPortal.tsx"));
-const AuthCallback   = lazy(() => import("./pages/AuthCallback.tsx"));
-const ResetPassword         = lazy(() => import("./pages/ResetPassword.tsx"));
-const PoliticaDePrivacidad  = lazy(() => import("./pages/PoliticaDePrivacidad.tsx"));
-const TerminosDelServicio   = lazy(() => import("./pages/TerminosDelServicio.tsx"));
-const NotFound              = lazy(() => import("./pages/NotFound.tsx"));
+const Login                 = lazy(() => import("./pages/auth/Login.tsx"));
+const Signup                = lazy(() => import("./pages/auth/Signup.tsx"));
+const Dashboard             = lazy(() => import("./pages/dashboard/Dashboard.tsx"));
+const ProjectDetail         = lazy(() => import("./pages/dashboard/ProjectDetail.tsx"));
+const TicketsGlobal         = lazy(() => import("./pages/dashboard/TicketsGlobal.tsx"));
+const MisSolicitudes        = lazy(() => import("./pages/client/MisSolicitudes.tsx"));
+const ClientPortal          = lazy(() => import("./pages/client/ClientPortal.tsx"));
+const AuthCallback          = lazy(() => import("./pages/auth/AuthCallback.tsx"));
+const ResetPassword         = lazy(() => import("./pages/auth/ResetPassword.tsx"));
+const PoliticaDePrivacidad  = lazy(() => import("./pages/legal/PoliticaDePrivacidad.tsx"));
+const TerminosDelServicio   = lazy(() => import("./pages/legal/TerminosDelServicio.tsx"));
+const NotFound              = lazy(() => import("./pages/marketing/NotFound.tsx"));
 
 const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">

@@ -52,8 +52,8 @@ async function generate() {
   };
   writeFileSync(path.join(OUT, "dependency-report.json"), JSON.stringify(depReport, null, 2));
 
-  // 3. ARCHITECTURE_REPORT.md
-  writeFileSync(path.join(ROOT, "ARCHITECTURE_REPORT.md"), buildReport(model));
+  // 3. docs/context/ARCHITECTURE_REPORT.md
+  writeFileSync(path.join(ROOT, "docs", "context", "ARCHITECTURE_REPORT.md"), buildReport(model));
 
   // 4. graph.html (standalone, data injected inline)
   if (!flag("--no-html")) {
@@ -71,7 +71,7 @@ async function generate() {
     `graphify: ${M.nodeCount} nodes · ${M.edgeCount} edges · ${M.circularGroupCount} circular · ` +
       `${M.orphanCount} orphans · ${M.communityCount} clusters  (${ms}ms)`
   );
-  console.log(`  -> graph/graph.html   graph/graph.json   graph/dependency-report.json   ARCHITECTURE_REPORT.md`);
+  console.log(`  -> graph/graph.html   graph/graph.json   graph/dependency-report.json   docs/context/ARCHITECTURE_REPORT.md`);
   return model;
 }
 

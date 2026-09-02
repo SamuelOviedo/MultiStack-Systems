@@ -1,5 +1,5 @@
 /**
- * Renders ARCHITECTURE_REPORT.md from the analysis model.
+ * Renders docs/context/ARCHITECTURE_REPORT.md from the analysis model.
  */
 export function buildReport(model) {
   const M = model.metrics;

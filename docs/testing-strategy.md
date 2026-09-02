@@ -29,9 +29,9 @@ npx playwright install chromium
 ```
 src/test/
   setup.ts                   — jest-dom matchers + matchMedia mock
-  example.test.ts            — test de smoke (verificar que Vitest funciona)
   siteUrl.test.ts            — tests de helpers puros en src/lib/siteUrl.ts
   ProtectedRoute.test.tsx    — tests de lógica de redirect y acceso
+  useAuth.test.tsx           — regresión del flujo de autenticación
 
 e2e/
   login.spec.ts              — tests E2E: login page, redirects protegidos, landing

@@ -5,9 +5,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import MaintenanceSection from "@/components/dashboard/MaintenanceSection";
-import TicketDrawer from "@/components/dashboard/TicketDrawer";
-import ClientAccessSection from "@/components/dashboard/ClientAccessSection";
+import MaintenanceSection from "@/components/dashboard/project-detail/MaintenanceSection";
+import TicketDrawer from "@/components/dashboard/tickets/TicketDrawer";
+import ClientAccessSection from "@/components/dashboard/project-detail/ClientAccessSection";
 import SubTicketForm from "@/components/dashboard/project-detail/SubTicketForm";
 import { daysUntil } from "@/lib/projects";
 import { SERVICE_TYPE_LABELS, type ProjectService, type ProjectMaintenance } from "@/types/projects";

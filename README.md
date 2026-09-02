@@ -115,11 +115,11 @@ Estrategia y estructura de tests: [`docs/testing-strategy.md`](docs/testing-stra
 
 ## AI-First Workflow
 
-Este proyecto está optimizado para trabajar con Claude Code. Guía completa: [`CONTRIBUTING_AI.md`](CONTRIBUTING_AI.md)
+Este proyecto está optimizado para trabajar con Claude Code. Guía completa: [`docs/context/CONTRIBUTING_AI.md`](docs/context/CONTRIBUTING_AI.md)
 
 **Antes de implementar, siempre analizar:**
 ```
-Lee QUICK_CONTEXT.md antes de empezar.
+Lee `docs/context/QUICK_CONTEXT.md` antes de empezar.
 Área: [componente / módulo concreto].
 Objetivo: [una sola cosa].
 No tocar: [archivos fuera de scope].
@@ -147,11 +147,14 @@ No tocar: [archivos fuera de scope].
 
 | Archivo | Contenido |
 |---|---|
-| [`QUICK_CONTEXT.md`](QUICK_CONTEXT.md) | Resumen del proyecto en 5 minutos |
-| [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) | Referencia técnica completa |
-| [`ARCHITECTURE_MAP.md`](ARCHITECTURE_MAP.md) | Flujos, dependencias y capas |
-| [`CONTRIBUTING_AI.md`](CONTRIBUTING_AI.md) | Cómo trabajar con Claude Code |
-| [`PROMPTS.md`](PROMPTS.md) | Prompts reutilizables para Claude Code |
+| [`docs/context/QUICK_CONTEXT.md`](docs/context/QUICK_CONTEXT.md) | Resumen del proyecto en 5 minutos |
+| [`docs/context/PROJECT_CONTEXT.md`](docs/context/PROJECT_CONTEXT.md) | Referencia técnica completa |
+| [`docs/context/ARCHITECTURE_MAP.md`](docs/context/ARCHITECTURE_MAP.md) | Flujos, dependencias y capas |
+| [`docs/context/ARCHITECTURE_REPORT.md`](docs/context/ARCHITECTURE_REPORT.md) | Reporte generado de arquitectura |
+| [`docs/context/CONTRIBUTING_AI.md`](docs/context/CONTRIBUTING_AI.md) | Cómo trabajar con Claude Code |
+| [`docs/context/PROMPTS.md`](docs/context/PROMPTS.md) | Prompts reutilizables para Claude Code |
+| [`docs/brand/BRAND_MANUAL.md`](docs/brand/BRAND_MANUAL.md) | Manual de marca canónico |
+| [`docs/brand/CLAUDE_DESIGN_CONTEXT.md`](docs/brand/CLAUDE_DESIGN_CONTEXT.md) | Handoff completo de diseño |
 | [`docs/auth-flow.md`](docs/auth-flow.md) | Auth flow completo |
 | [`docs/oauth-setup.md`](docs/oauth-setup.md) | Setup de GitHub y Google OAuth |
 | [`docs/testing-strategy.md`](docs/testing-strategy.md) | Estrategia de tests |
