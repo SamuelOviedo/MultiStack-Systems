@@ -61,13 +61,7 @@ const Navbar = () => {
 
   const scrollTo = (id: string) => {
     if (!isHome) {
-      navigate("/");
-      requestAnimationFrame(() =>
-        setTimeout(() => {
-          const el = document.getElementById(id);
-          if (el) window.scrollTo({ top: el.offsetTop - 60, behavior: "smooth" });
-        }, 60)
-      );
+      navigate(`/#${id}`);
       return;
     }
     const el = document.getElementById(id);
@@ -89,10 +83,10 @@ const Navbar = () => {
   const toggleTheme = () => setTheme(resolvedTheme === "light" ? "dark" : "light");
 
   const sectionNav = [
-    { label: "Inicio", id: "hero" },
-    { label: "Servicios", id: "servicios" },
-    { label: "Stack", id: "stack" },
-    { label: "Contacto", id: "footer" },
+    { label: "Productos", id: "productos" },
+    { label: "Engineering", id: "stack" },
+    { label: "Empresa", id: "empresa" },
+    { label: "Contacto", id: "contacto" },
   ];
 
   return (
@@ -114,7 +108,7 @@ const Navbar = () => {
     >
       <div
         style={{
-          maxWidth: "1240px",
+          maxWidth: "1200px",
           margin: "0 auto",
           padding: "0 32px",
           height: "100%",

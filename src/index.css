@@ -258,21 +258,96 @@
 .ms-linkcta:hover { gap: 11px; }
 
 /* Responsive landing grids (inline styles can't carry media queries) */
-.ms-grid-servicios { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: 60px; align-items: start; }
-.ms-sticky { position: sticky; top: 108px; }
-.ms-bento-a { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; margin-bottom: 18px; }
-.ms-bento-b { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-.ms-stack-rowgrid { display: grid; grid-template-columns: 0.9fr 2.1fr; gap: 24px; align-items: center; }
-.ms-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; gap: 40px; }
+.ms-showcase-techon {
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: 56px;
+  align-items: center;
+  padding: 56px 0;
+  border-top: 1px solid var(--hairline);
+}
+.ms-showcase-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
+  align-items: center;
+  padding: 8px 0;
+}
+.ms-eco-body {
+  display: grid;
+  grid-template-columns: 1.6fr 0.9fr;
+  gap: 0;
+  align-items: stretch;
+  padding: 22px;
+}
+.ms-eco-aside {
+  border-left: 1px solid var(--hairline);
+}
+.ms-eco-connect {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.ms-eco-links {
+  display: flex;
+  align-items: center;
+  gap: 14px 20px;
+  flex-wrap: wrap;
+}
+.ms-contact-split {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 20px;
+  align-items: start;
+}
+.ms-eng-row {
+  transition: background 0.2s;
+}
+.ms-eng-row:hover {
+  background: var(--hover-bg);
+}
+.ms-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr; gap: 40px; }
 
 @media (max-width: 920px) {
-  .ms-grid-servicios { grid-template-columns: 1fr; gap: 36px; }
-  .ms-sticky { position: static; }
-  .ms-bento-a { grid-template-columns: 1fr; }
-  .ms-bento-b { grid-template-columns: 1fr; }
-  .ms-stack-rowgrid { grid-template-columns: 1fr; gap: 14px; }
+  .ms-showcase-techon {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 40px 0;
+  }
+  .ms-showcase-row {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .ms-eco-body {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 16px;
+  }
+  .ms-eco-aside {
+    border-left: none;
+    border-top: 1px solid var(--hairline);
+  }
+  .ms-contact-split {
+    grid-template-columns: 1fr;
+  }
+  .ms-eng-row {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
   .ms-footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
 }
 @media (max-width: 560px) {
   .ms-footer-grid { grid-template-columns: 1fr; }
+}
+
+/* 390px / 360px: hero preview compacto, sin overflow ni controles apretados */
+@media (max-width: 420px) {
+  .ms-eco-body {
+    padding: 12px;
+  }
+  .ms-showcase-techon,
+  .ms-showcase-row {
+    gap: 24px;
+  }
 }

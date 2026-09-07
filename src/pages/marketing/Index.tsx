@@ -2,9 +2,11 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import Navbar from "@/components/common/Navbar";
 import HeroSection from "@/components/marketing/HeroSection";
-import { HookSection } from "@/components/marketing/HookSection";
-import ServicesSection from "@/components/marketing/ServicesSection";
+import ProductsShowcase from "@/components/marketing/ProductsShowcase";
+import EcosystemConnect from "@/components/marketing/EcosystemConnect";
 import TechStack from "@/components/marketing/TechStack";
+import BuiltHonduras from "@/components/marketing/BuiltHonduras";
+import ContactSplit from "@/components/marketing/ContactSplit";
 import Footer from "@/components/common/Footer";
 import { useMsThemeVars } from "@/lib/msTokens";
 
@@ -34,9 +36,13 @@ const Index = () => {
         }}
       >
         <HeroSection />
-        <HookSection />
-        <ServicesSection />
+        <ProductsShowcase />
+        <EcosystemConnect />
         <TechStack />
+        <div id="empresa">
+          <BuiltHonduras />
+        </div>
+        <ContactSplit />
         <Footer />
       </div>
     </>
