@@ -1,4 +1,4 @@
-import ContactForm from "@/components/marketing/ContactForm";
+import ContactForm, { type ContactPrefill } from "@/components/marketing/ContactForm";
 import { getTechonHref, isExternalHref } from "@/lib/products";
 
 const MONO = "'JetBrains Mono', monospace";
@@ -7,7 +7,7 @@ const MONO = "'JetBrains Mono', monospace";
  * Contacto con intenciones separadas:
  * soporte → TechOn · proyecto → MultiStack (form directo).
  */
-const ContactSplit = () => {
+const ContactSplit = ({ prefill }: { prefill?: ContactPrefill }) => {
   const techonHref = getTechonHref();
   const external = isExternalHref(techonHref);
 
@@ -144,7 +144,7 @@ const ContactSplit = () => {
             >
               Escríbenos directo. Respondemos desde MultiStack.
             </p>
-            <ContactForm idPrefix="ms-contact-split" />
+            <ContactForm idPrefix="ms-contact-split" prefill={prefill} />
           </div>
         </div>
       </div>

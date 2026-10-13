@@ -7,19 +7,30 @@ import { cn } from "@/lib/utils";
  * <html> (Tailwind class strategy). Sized by height via `className`
  * (e.g. `h-7`); width auto-tracks the asset's aspect ratio.
  */
-const Logo = ({ className, alt = "MultiStack Systems Logo" }: { className?: string; alt?: string }) => (
+const Logo = ({
+  className,
+  alt = "MultiStack Systems Logo",
+  tone = "auto",
+}: {
+  className?: string;
+  alt?: string;
+  /** "light" forces the white mark (e.g. over cinematic dark scenes in light theme). */
+  tone?: "auto" | "light";
+}) => (
   <span className={cn("inline-flex w-auto shrink-0", className)}>
     <img
       src="/logo-white.png"
       alt={alt}
-      className="hidden h-full w-auto object-contain dark:block"
+      className={cn("h-full w-auto object-contain", tone === "light" ? "block" : "hidden dark:block")}
     />
-    <img
-      src="/logo-black.png"
-      alt=""
-      aria-hidden="true"
-      className="block h-full w-auto object-contain dark:hidden"
-    />
+    {tone === "auto" && (
+      <img
+        src="/logo-black.png"
+        alt=""
+        aria-hidden="true"
+        className="block h-full w-auto object-contain dark:hidden"
+      />
+    )}
   </span>
 );
 

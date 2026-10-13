@@ -258,21 +258,6 @@
 .ms-linkcta:hover { gap: 11px; }
 
 /* Responsive landing grids (inline styles can't carry media queries) */
-.ms-showcase-techon {
-  display: grid;
-  grid-template-columns: 0.85fr 1.15fr;
-  gap: 56px;
-  align-items: center;
-  padding: 56px 0;
-  border-top: 1px solid var(--hairline);
-}
-.ms-showcase-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 56px;
-  align-items: center;
-  padding: 8px 0;
-}
 .ms-eco-body {
   display: grid;
   grid-template-columns: 1.6fr 0.9fr;
@@ -310,15 +295,6 @@
 .ms-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr; gap: 40px; }
 
 @media (max-width: 920px) {
-  .ms-showcase-techon {
-    grid-template-columns: 1fr;
-    gap: 32px;
-    padding: 40px 0;
-  }
-  .ms-showcase-row {
-    grid-template-columns: 1fr;
-    gap: 28px;
-  }
   .ms-eco-body {
     grid-template-columns: 1fr;
     gap: 0;
@@ -344,10 +320,6 @@
 @media (max-width: 420px) {
   .ms-eco-body {
     padding: 12px;
-  }
-  .ms-showcase-techon,
-  .ms-showcase-row {
-    gap: 24px;
   }
 }
 
@@ -537,5 +509,309 @@
   .ms-cine-video,
   .ms-cine-scrim-side {
     transition: none;
+  }
+}
+
+/* Anchored sections land below the fixed 72px Navbar. */
+.ms-landing [id] {
+  scroll-margin-top: 72px;
+}
+
+/* --- F2: scroll scenes (ScrollScene / FloatingCopy) ---------------------- */
+.ms-scene {
+  position: relative;
+  height: 240vh;
+}
+.ms-scene-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+}
+.ms-scene-inner {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 72px 32px 24px;
+}
+/* Reserves the chapters' height while their lazy chunk loads (no CLS). */
+.ms-chapters-placeholder {
+  height: 480vh;
+}
+
+.ms-chapter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: 64px;
+  align-items: center;
+}
+.ms-chapter-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 560px;
+}
+.ms-chapter-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 20px;
+}
+.ms-chapter-title {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: clamp(34px, 4.4vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  text-wrap: balance;
+  text-shadow: 0 2px 30px rgba(8, 15, 30, 0.55);
+}
+.ms-chapter-lead {
+  margin-top: 20px;
+  font-size: clamp(16px, 1.3vw, 18px);
+  line-height: 1.65;
+  color: var(--text2);
+  max-width: 46ch;
+}
+.ms-chapter-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ms-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+/* Glass cards floating over the video */
+.ms-glass-card {
+  background: var(--cine-glass-bg);
+  backdrop-filter: var(--cine-glass-blur);
+  -webkit-backdrop-filter: var(--cine-glass-blur);
+  border: 1px solid var(--cine-glass-border);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+.ms-glass-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+}
+.ms-glass-card-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text2);
+}
+.ms-glass-card-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text2);
+}
+.ms-glass-card-foot {
+  padding: 10px 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ms-agent-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--btn-primary-text);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+.ms-chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ms-chat-row {
+  display: flex;
+}
+.ms-chat-row.is-user {
+  justify-content: flex-end;
+}
+.ms-chat-bubble {
+  max-width: 85%;
+  padding: 11px 14px;
+  border-radius: 14px 14px 14px 4px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hairline);
+}
+.ms-chat-row.is-user .ms-chat-bubble {
+  border-radius: 14px 14px 4px 14px;
+  background: var(--primary-soft);
+  border-color: var(--border-accent);
+}
+.ms-chat-tag {
+  display: block;
+  margin-top: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--accent);
+}
+.ms-flow {
+  list-style: none;
+  margin: 0;
+  padding: 18px;
+}
+.ms-flow > li {
+  position: relative;
+  padding-bottom: 14px;
+}
+.ms-flow > li:last-child {
+  padding-bottom: 0;
+}
+.ms-flow > li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 17px;
+  top: 40px;
+  bottom: 2px;
+  width: 1px;
+  background: linear-gradient(var(--border-accent), transparent);
+}
+.ms-flow-step {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.ms-flow-node {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid var(--border-accent);
+}
+.ms-flow-label {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.ms-flow-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text2);
+  white-space: nowrap;
+}
+
+/* Tablets, narrow laptops and short viewports: no sticky pin, normal flow.
+   Keep in sync with STACKED_QUERY in FloatingCopy.tsx. */
+@media (max-width: 1023px), (max-height: 620px) {
+  .ms-scene {
+    height: auto;
+  }
+  .ms-scene-pin {
+    position: static;
+    height: auto;
+    min-height: 100svh;
+    padding: 96px 0;
+  }
+  .ms-scene-inner {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .ms-chapter {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+  .ms-chapters-placeholder {
+    height: 220vh;
+  }
+}
+@media (max-width: 640px) {
+  .ms-flow-step {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+  .ms-flow-node {
+    width: 32px;
+    height: 32px;
+  }
+  .ms-flow > li:not(:last-child)::before {
+    left: 15px;
+    top: 36px;
+  }
+  .ms-flow-status {
+    grid-column: 2;
+  }
+}
+
+/* --- F3: AI services catalog ------------------------------------------- */
+.ms-svc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.ms-svc-card {
+  display: flex;
+  flex-direction: column;
+  padding: 28px 26px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-2);
+}
+.ms-svc-cta {
+  margin-top: auto;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--primary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.ms-svc-cta:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+@media (max-width: 920px) {
+  .ms-svc-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

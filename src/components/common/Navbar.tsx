@@ -4,7 +4,7 @@ import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
 import { getOpenTicketsCount } from "@/lib/tickets";
 import Logo from "@/components/common/Logo";
-import { useMsThemeVars } from "@/lib/msTokens";
+import { CINEMATIC_VARS, useMsThemeVars } from "@/lib/msTokens";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -62,7 +62,59 @@ const mobileLink: CSSProperties = {
   gap: "8px",
 };
 
-const Navbar = () => {
+/**
+ * Anchors of the public landing ("/"). Rendered ONLY when `isHome`: the
+ * dashboard, client and legal pages never show them, so marketing copy can
+ * change here without touching the internal app's navigation.
+ */
+const MARKETING_SECTIONS = [
+  { label: "Servicios", id: "productos" },
+  { label: "Engineering", id: "stack" },
+  { label: "Empresa", id: "empresa" },
+  { label: "Contacto", id: "contacto" },
+] as const;
+
+const NAV_HEIGHT = 72;
+/** Theme toggle state must reflect the real theme even while the bar wears dark tokens. */
+const THEME_STATE_VARS = ["--knob-x", "--sun-op", "--moon-op"] as const;
+
+/**
+ * overlay: true while an element marked `data-nav-overlay` (the cinematic
+ * scenes) is still under the bar. rAF-throttled passive scroll listener.
+ */
+function useOverCinematic(enabled: boolean): boolean {
+  const [over, setOver] = useState(enabled);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let frame = 0;
+    const check = () => {
+      frame = 0;
+      const el = document.querySelector<HTMLElement>("[data-nav-overlay]");
+      setOver(!!el && el.getBoundingClientRect().bottom > NAV_HEIGHT);
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(check);
+    };
+    check();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+    };
+  }, [enabled]);
+
+  return enabled && over;
+}
+
+/**
+ * @param variant "overlay" (landing only): translucent bar with dark tokens and
+ * white logo while over the cinematic scenes, regardless of theme; reverts to
+ * the default themed bar below them. Default: unchanged behavior everywhere.
+ */
+const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) => {
   const [openTickets, setOpenTickets] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, userType, loading, signOut } = useAuth();
@@ -72,6 +124,15 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
+  const overCinematic = useOverCinematic(variant === "overlay");
+
+  const navVars: CSSProperties = overCinematic
+    ? (() => {
+        const vars: Record<string, unknown> = { ...CINEMATIC_VARS };
+        for (const key of THEME_STATE_VARS) vars[key] = (msVars as Record<string, unknown>)[key];
+        return vars as CSSProperties;
+      })()
+    : msVars;
 
   useEffect(() => {
     if (!user || isClient) return;
@@ -118,27 +179,27 @@ const Navbar = () => {
 
   const toggleTheme = () => setTheme(resolvedTheme === "light" ? "dark" : "light");
 
-  const sectionNav = [
-    { label: "Productos", id: "productos" },
-    { label: "Engineering", id: "stack" },
-    { label: "Empresa", id: "empresa" },
-    { label: "Contacto", id: "contacto" },
-  ];
 
   return (
     <nav
       style={{
-        ...msVars,
+        ...navVars,
         position: "fixed",
         top: 0,
         left: 0,
         right: 0,
         zIndex: 50,
         minHeight: "72px",
-        background: "var(--nav-bg)",
+        // Over video: lighter glass so the scene reads through; solid enough
+        // behind the open mobile panel to keep its links legible.
+        background: overCinematic
+          ? mobileOpen
+            ? "rgba(8,15,30,0.92)"
+            : "rgba(8,15,30,0.3)"
+          : "var(--nav-bg)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
-        borderBottom: "1px solid var(--border-soft)",
+        borderBottom: overCinematic ? "1px solid transparent" : "1px solid var(--border-soft)",
         transition: "border-color .45s, background .45s",
       }}
     >
@@ -159,7 +220,7 @@ const Navbar = () => {
           onClick={handleLogoClick}
           style={{ display: "flex", alignItems: "center", gap: "11px", textDecoration: "none" }}
         >
-          <Logo className="h-7" />
+          <Logo className="h-7" tone={overCinematic ? "light" : "auto"} />
           <span
             style={{
               fontFamily: "'Sora', sans-serif",
@@ -175,7 +236,7 @@ const Navbar = () => {
 
         {isHome && (
           <div className="hidden md:flex" style={{ alignItems: "center", gap: "2px" }}>
-            {sectionNav.map((item) => (
+            {MARKETING_SECTIONS.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -365,7 +426,7 @@ const Navbar = () => {
             }}
           >
             {isHome &&
-              sectionNav.map((item) => (
+              MARKETING_SECTIONS.map((item) => (
                 <button
                   key={item.id}
                   type="button"

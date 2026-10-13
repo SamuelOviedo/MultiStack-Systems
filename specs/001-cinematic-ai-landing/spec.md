@@ -433,3 +433,19 @@ Desviaciones respecto del plan (justificadas):
 Mediciones: chunk de entrada `index-*.js` 26.16 → 27.36 KB gzip (+1.2 KB; SC-004 ≤ 40 KB). 0 solicitudes de video con `videoReady=false` y con reduced motion. Sin dependencias nuevas.
 
 Pendiente para F2: modo `scrub`, `activeSceneId` derivado del scroll, Navbar `variant="overlay"` (hoy en tema claro el Navbar es claro sobre el hero oscuro).
+
+## F2 + F3 (2026-10-13)
+
+Entregado:
+- **F2**: `ScrollScene` (sección alta + panel sticky, progreso `useScroll` → `useSpring` 120/30), `FloatingCopy` (opacity + y sincronizados al progreso; modo propio por viewport en layouts apilados; estático con reduced motion), `AgentValueSection` (`#agente`, escena `agent` en modo scrub) y `ZeroPaperSection` (`#automatizacion`, escena `automation`), `CinematicChapters` (único punto de entrada a framer-motion: `React.lazy` + `<LazyMotion strict>` con `domAnimation` asíncrono). Modo scrub en `CinematicBackground`: video en pausa, `currentTime` = progreso suavizado × duración, umbral de 1 frame y sin encolar seeks. `useActiveScene` (IntersectionObserver en la línea media del viewport) reemplaza al `DevSceneSwitcher` (eliminado).
+- **F3**: `AiServicesCatalog` (`#productos`, 3 servicios de `lib/aiServices.ts`, sin precios) reemplaza `ProductsShowcase` + `ProductPreview` (eliminados). Prefill de contacto vía prop `prefill {text, nonce}` (Index → ContactSplit → ContactForm), usado por el catálogo y por los CTA de los capítulos; el foco queda en el email. `Navbar variant="overlay"` (solo landing): vidrio oscuro + tokens dark + logo blanco (`Logo tone="light"`) mientras `[data-nav-overlay]` está bajo la barra; el toggle de tema conserva el estado real. Default sin cambios en las otras 6 páginas.
+- Regla ESLint `no-restricted-imports`: prohibido importar `motion` de framer-motion (solo `m` + LazyMotion).
+
+Decisiones:
+- Layout apilado (sin sticky) en `max-width: 1023px` **o** `max-height: 620px`, no solo en móvil: en tablets y pantallas bajas el panel de 100vh recortaba contenido.
+- Suspense con placeholder de alto equivalente (`.ms-chapters-placeholder`) + re-scroll al hash cuando montan los capítulos.
+- CTA de "Cero Papel" es "Quiero automatizar mis procesos" (no "Calcular mi ahorro": no existe calculadora).
+
+Mediciones: entrada `index-*.js` 27.97 KB gzip (+0.6 KB vs F1; +1.8 KB vs base); framer-motion solo en `CinematicChapters` (25.5 KB gzip) + `motionFeatures` (9.3 KB gzip), ambos lazy. Rutas no-landing: 0 solicitudes cinemáticas.
+
+Pendiente: F4 (`AiChatWidgetDemo`), F5 (Lighthouse, SEO/OG del pivot). QA de scrub con videos reales (all-intra).

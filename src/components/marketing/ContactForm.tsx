@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { sendContactMessage } from "@/lib/contact";
 
 const MONO = "'JetBrains Mono', monospace";
@@ -16,14 +16,30 @@ const fieldStyle: CSSProperties = {
   boxSizing: "border-box",
 };
 
+/** Texto para prellenar el mensaje. `nonce` permite reaplicar el mismo texto. */
+export interface ContactPrefill {
+  text: string;
+  nonce: number;
+}
+
 /**
  * Formulario de contacto MultiStack (vía lib/contact → Edge Function).
  * Extraído del Footer para reutilizarlo en ContactSplit sin duplicar lógica.
  */
-const ContactForm = ({ idPrefix = "ms-contact" }: { idPrefix?: string }) => {
+const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; prefill?: ContactPrefill }) => {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  // Prefill desde un CTA de servicio: reemplaza el mensaje y deja el foco en el
+  // email (lo único que falta) sin interrumpir el scroll suave del llamador.
+  useEffect(() => {
+    if (!prefill) return;
+    setMessage(prefill.text);
+    setStatus((s) => (s === "loading" ? s : "idle"));
+    emailRef.current?.focus({ preventScroll: true });
+  }, [prefill]);
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const canSubmit = emailValid && message.trim().length >= 5 && status !== "loading";
@@ -51,6 +67,7 @@ const ContactForm = ({ idPrefix = "ms-contact" }: { idPrefix?: string }) => {
         tu@email.com
       </label>
       <input
+        ref={emailRef}
         id={`${idPrefix}-email`}
         type="email"
         value={email}

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import type { CinematicScene, CinematicSceneId } from "@/types/cinematic";
+import type { CinematicScene, CinematicSceneId, ScrubSource } from "@/types/cinematic";
 import { useAfterLoadIdle, useCinematicEnabled } from "@/hooks/useCinematicEnabled";
 
 /** Max time a pending scene waits for its first video frame before crossfading on its poster. */
 const VIDEO_WAIT_MS = 1200;
 const MOBILE_QUERY = "(max-width: 768px)";
+/** Seek threshold for scrub mode: one frame at 24 fps. Skips redundant seeks. */
+const FRAME_S = 1 / 24;
 
 type Slot = 0 | 1;
 type SlotPair<T> = [T, T];
@@ -30,6 +32,8 @@ interface SceneLayerProps {
   loadVideo: boolean;
   playing: boolean;
   mobile: boolean;
+  /** Smoothed scroll progress for scrub scenes; ignored in loop mode. */
+  scrub?: ScrubSource;
   onReady: (id: CinematicSceneId) => void;
 }
 
@@ -40,7 +44,16 @@ type VideoState = "loading" | "shown" | "failed";
  * the <video> sits on top at opacity 0 and is revealed only once a real frame
  * has been presented, so neither a black frame nor a src swap is ever visible.
  */
-const SceneLayer = ({ scene, isFront, isPending, loadVideo, playing, mobile, onReady }: SceneLayerProps) => {
+const SceneLayer = ({
+  scene,
+  isFront,
+  isPending,
+  loadVideo,
+  playing,
+  mobile,
+  scrub,
+  onReady,
+}: SceneLayerProps) => {
   const imgRef = useRef<HTMLImageElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [posterLoaded, setPosterLoaded] = useState(false);
@@ -48,6 +61,7 @@ const SceneLayer = ({ scene, isFront, isPending, loadVideo, playing, mobile, onR
   const [waitExpired, setWaitExpired] = useState(false);
 
   const wantsVideo = loadVideo && scene.videoReady && videoState !== "failed";
+  const isScrub = scene.mode === "scrub";
   const sources = mobile ? scene.video.mobile : scene.video.desktop;
   const src = canPlayWebm() ? sources.webm : sources.mp4;
 
@@ -72,7 +86,9 @@ const SceneLayer = ({ scene, isFront, isPending, loadVideo, playing, mobile, onR
   useEffect(() => {
     const el = videoRef.current;
     if (!wantsVideo || !el) return;
-    if (playing) {
+    if (isScrub) {
+      el.pause(); // scrub: position comes from scroll, never from playback
+    } else if (playing) {
       el.play().catch((err: DOMException) => {
         // Autoplay blocked / unsupported → keep the poster. AbortError just
         // means a pause() interrupted play(); not a failure.
@@ -83,7 +99,40 @@ const SceneLayer = ({ scene, isFront, isPending, loadVideo, playing, mobile, onR
     } else {
       el.pause();
     }
-  }, [playing, wantsVideo]);
+  }, [playing, wantsVideo, isScrub]);
+
+  // Scrub ("steady gimbal"): map the spring-smoothed progress to currentTime.
+  // Smoothing lives in the source (framer-motion useSpring); here we only
+  // avoid redundant seeks and never queue a seek on top of one in flight.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!wantsVideo || !el || !isScrub || !scrub) return;
+    let pending = false;
+    const seek = () => {
+      if (!Number.isFinite(el.duration) || el.duration <= 0) return;
+      if (el.seeking) {
+        pending = true;
+        return;
+      }
+      const p = Math.min(Math.max(scrub.get(), 0), 1);
+      const t = p * Math.max(el.duration - 0.05, 0);
+      if (Math.abs(t - el.currentTime) >= FRAME_S) el.currentTime = t;
+    };
+    const onSeeked = () => {
+      if (!pending) return;
+      pending = false;
+      seek();
+    };
+    const unsubscribe = scrub.on("change", seek);
+    el.addEventListener("loadedmetadata", seek);
+    el.addEventListener("seeked", onSeeked);
+    seek();
+    return () => {
+      unsubscribe();
+      el.removeEventListener("loadedmetadata", seek);
+      el.removeEventListener("seeked", onSeeked);
+    };
+  }, [wantsVideo, isScrub, scrub]);
 
   const reveal = () => {
     const el = videoRef.current;
@@ -131,10 +180,12 @@ const SceneLayer = ({ scene, isFront, isPending, loadVideo, playing, mobile, onR
           src={src}
           muted
           playsInline
-          loop={scene.mode === "loop"}
+          loop={!isScrub}
           preload="auto"
           disablePictureInPicture
-          onPlaying={reveal}
+          onPlaying={isScrub ? undefined : reveal}
+          // Scrub videos stay paused: loadeddata = first frame decoded.
+          onLoadedData={isScrub ? () => setVideoState("shown") : undefined}
           onError={() => setVideoState("failed")}
         />
       )}
@@ -147,6 +198,8 @@ interface CinematicBackgroundProps {
   activeSceneId: CinematicSceneId;
   /** Extra kill switch, AND-ed with reduced-motion / Save-Data detection. */
   enabled?: boolean;
+  /** Progress sources for scenes in "scrub" mode, keyed by scene id. */
+  scrubSources?: Partial<Record<CinematicSceneId, ScrubSource>>;
 }
 
 /**
@@ -160,10 +213,15 @@ interface CinematicBackgroundProps {
  *   motion / Save-Data / 2g. Posters carry LCP.
  * - Plays only while on screen and the tab is visible.
  *
- * Scene mode "scrub" (scroll-driven currentTime) lands in F2; until then every
- * scene plays as a loop.
+ * - "loop" scenes play continuously; "scrub" scenes stay paused and follow
+ *   their scroll progress source (`scrubSources`).
  */
-const CinematicBackground = ({ scenes, activeSceneId, enabled = true }: CinematicBackgroundProps) => {
+const CinematicBackground = ({
+  scenes,
+  activeSceneId,
+  enabled = true,
+  scrubSources,
+}: CinematicBackgroundProps) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const motionAllowed = useCinematicEnabled();
   const afterIdle = useAfterLoadIdle();
@@ -235,6 +293,7 @@ const CinematicBackground = ({ scenes, activeSceneId, enabled = true }: Cinemati
             loadVideo={videoAllowed && (isFront || isPending)}
             playing={(isFront || isPending) && inView && pageVisible}
             mobile={mobile}
+            scrub={scrubSources?.[scene.id]}
             onReady={readyHandlers[slot]}
           />
         );

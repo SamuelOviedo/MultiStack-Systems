@@ -1,38 +1,68 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import Navbar from "@/components/common/Navbar";
 import HeroSection from "@/components/marketing/HeroSection";
 import CinematicBackground from "@/components/marketing/cinematic/CinematicBackground";
-import DevSceneSwitcher from "@/components/marketing/cinematic/DevSceneSwitcher";
-import ProductsShowcase from "@/components/marketing/ProductsShowcase";
+import AiServicesCatalog from "@/components/marketing/AiServicesCatalog";
 import EcosystemConnect from "@/components/marketing/EcosystemConnect";
 import TechStack from "@/components/marketing/TechStack";
 import BuiltHonduras from "@/components/marketing/BuiltHonduras";
 import ContactSplit from "@/components/marketing/ContactSplit";
+import type { ContactPrefill } from "@/components/marketing/ContactForm";
 import Footer from "@/components/common/Footer";
 import { CINEMATIC_VARS, useMsThemeVars } from "@/lib/msTokens";
 import { CINEMATIC_SCENES } from "@/lib/cinematicScenes";
-import type { CinematicSceneId } from "@/types/cinematic";
+import { getAiService, serviceContactMessage } from "@/lib/aiServices";
+import { useActiveScene } from "@/hooks/useActiveScene";
+import type { CinematicSceneId, ScrubSource } from "@/types/cinematic";
+import type { AiService, AiServiceSlug } from "@/types/aiServices";
+
+// Only entry point to framer-motion: keeps it out of the chunk /dashboard shares.
+const CinematicChapters = lazy(() => import("@/components/marketing/cinematic/CinematicChapters"));
+
+/** Section anchor → cinematic scene, for the backdrop's scroll-spy. */
+const SCENE_SECTIONS = { hero: "hero", agente: "agent", automatizacion: "automation" } as const;
+
+type ScrubSources = Partial<Record<CinematicSceneId, ScrubSource>>;
 
 const Index = () => {
   const location = useLocation();
   const msVars = useMsThemeVars();
-  // F1: only the hero scene is live. F2 derives this from scroll position.
-  const [devScene, setDevScene] = useState<CinematicSceneId>("hero");
-  const activeScene: CinematicSceneId = import.meta.env.DEV ? devScene : "hero";
+  const [chaptersReady, setChaptersReady] = useState(false);
+  const [scrubSources, setScrubSources] = useState<ScrubSources>({});
+  const [contactPrefill, setContactPrefill] = useState<ContactPrefill>();
+  const activeScene = useActiveScene(SCENE_SECTIONS, chaptersReady);
 
+  // Re-run after the lazy chapters mount: they shift everything below them.
   useEffect(() => {
     const id = location.hash.replace(/^#/, "");
     if (!id) return;
     requestAnimationFrame(() => {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
     });
-  }, [location]);
+  }, [location, chaptersReady]);
+
+  const handleChaptersReady = useCallback(() => setChaptersReady(true), []);
+
+  const registerScrubSource = useCallback((sceneId: CinematicSceneId, source: ScrubSource) => {
+    setScrubSources((prev) => (prev[sceneId] === source ? prev : { ...prev, [sceneId]: source }));
+  }, []);
+
+  const requestService = useCallback((service: AiService) => {
+    setContactPrefill((prev) => ({ text: serviceContactMessage(service), nonce: (prev?.nonce ?? 0) + 1 }));
+    document.getElementById("contacto")?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const requestServiceBySlug = useCallback(
+    (slug: AiServiceSlug) => requestService(getAiService(slug)),
+    [requestService],
+  );
 
   return (
     <>
-      <Navbar />
+      <Navbar variant="overlay" />
       <div
+        className="ms-landing"
         style={{
           ...msVars,
           minHeight: "100vh",
@@ -43,27 +73,37 @@ const Index = () => {
         }}
       >
         {/* Escenas cinemáticas: siempre tokens oscuros (spec C-3). */}
-        <div className="ms-cine" style={CINEMATIC_VARS}>
+        <div className="ms-cine" style={CINEMATIC_VARS} data-nav-overlay>
           <div className="ms-cine-stage">
             <div className="ms-cine-stage-pin">
-              <CinematicBackground scenes={CINEMATIC_SCENES} activeSceneId={activeScene} />
+              <CinematicBackground
+                scenes={CINEMATIC_SCENES}
+                activeSceneId={activeScene}
+                scrubSources={scrubSources}
+              />
             </div>
           </div>
           <div className="ms-cine-content">
             <HeroSection />
+            <Suspense fallback={<div className="ms-chapters-placeholder" aria-hidden="true" />}>
+              <CinematicChapters
+                onReady={handleChaptersReady}
+                onScrubSource={registerScrubSource}
+                onRequestService={requestServiceBySlug}
+              />
+            </Suspense>
           </div>
         </div>
 
-        <ProductsShowcase />
+        <AiServicesCatalog onSelect={requestService} />
         <EcosystemConnect />
         <TechStack />
         <div id="empresa">
           <BuiltHonduras />
         </div>
-        <ContactSplit />
+        <ContactSplit prefill={contactPrefill} />
         <Footer />
       </div>
-      {import.meta.env.DEV && <DevSceneSwitcher value={devScene} onChange={setDevScene} />}
     </>
   );
 };
