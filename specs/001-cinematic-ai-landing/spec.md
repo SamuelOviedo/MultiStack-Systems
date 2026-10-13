@@ -414,3 +414,22 @@ export interface AiService {
 | **C-6** | ¿Dónde se versionan los masters y si los videos van en `public/` o en un CDN/Blob? | `public/assets/` para el lanzamiento; masters fuera del repo |
 | **C-7** | ¿La demo del chat debe evolucionar a un agente real (Fase 2) y con qué proveedor? | Fuera de alcance; diseñado para enchufar una Edge Function |
 | **C-8** | ¿Qué hacemos con los cambios WIP sin commit en `HeroSection`/`EcosystemPreview`/`index.css`? | Commitear o guardar en un stash/rama antes de F1, ya que el Hero se reescribe |
+
+---
+
+# PARTE E — Registro de implementación
+
+## F0 + F1 (2026-10-13) — Aprobado C-1…C-8
+
+Entregado: `public/assets/` (estructura + posters placeholder generados con `npm run assets:placeholders`), `types/cinematic.ts`, `lib/cinematicScenes.ts`, `MS_CINEMATIC` + `CINEMATIC_VARS` en `msTokens.ts`, `hooks/useCinematicEnabled.ts`, `CinematicBackground.tsx` (A/B), nuevo `HeroSection.tsx`, preload del poster en `index.html` (solo `/`), `EcosystemPreview.tsx` retirado (C-4), `src/test/cinematic.test.tsx`.
+
+Desviaciones respecto del plan (justificadas):
+- **Capa fija → stage `absolute` + pin `sticky`** (`.ms-cine-stage` / `.ms-cine-stage-pin`). Un `position: fixed` (o sticky con margen negativo) cubría las secciones sólidas inferiores; así el fondo queda acotado a las escenas cinemáticas.
+- **Tokens con prefijo `cine-`** (`--cine-scrim`, `--cine-glass-*`, `--cine-glow`) en un mapa aparte `MS_CINEMATIC`, en vez de agregarlos a `MS_DARK`/`MS_LIGHT`: `--glass-bg` y `--glow-primary` ya existían con otro valor/uso. `useMsThemeVars` intacto.
+- **Flag `videoReady` por escena**: mientras sea `false` no se solicita ningún video (sin 404). Activarlo al colocar los 4 archivos de la escena.
+- **Fundido sin bajón de brillo**: la capa entrante aparece encima (0→1) mientras la saliente permanece opaca debajo.
+- `DevSceneSwitcher` (solo `import.meta.env.DEV`, eliminado del build de producción) para revisar el A/B antes de F2. Retirar en F2.
+
+Mediciones: chunk de entrada `index-*.js` 26.16 → 27.36 KB gzip (+1.2 KB; SC-004 ≤ 40 KB). 0 solicitudes de video con `videoReady=false` y con reduced motion. Sin dependencias nuevas.
+
+Pendiente para F2: modo `scrub`, `activeSceneId` derivado del scroll, Navbar `variant="overlay"` (hoy en tema claro el Navbar es claro sobre el hero oscuro).

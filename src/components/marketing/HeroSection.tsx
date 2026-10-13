@@ -1,165 +1,141 @@
-import EcosystemPreview from "./EcosystemPreview";
 import { getTechonHref, isExternalHref } from "@/lib/products";
 
+const MONO = "'JetBrains Mono', monospace";
+
+const CAPABILITIES = ["Agentes RAG 24/7", "Automatización con n8n", "Integración con tus sistemas"];
+
+/**
+ * Hero cinemático. Se pinta sobre CinematicBackground (lo provee Index) y no
+ * depende de video ni de JS de animación para ser legible (spec FR-017):
+ * solo animaciones CSS de entrada, desactivadas con prefers-reduced-motion.
+ */
 const HeroSection = () => {
   const techonHref = getTechonHref();
 
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
-    if (el) window.scrollTo({ top: el.offsetTop - 60, behavior: "smooth" });
+    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 60, behavior: "smooth" });
   };
 
   return (
-    <section
-      id="hero"
-      style={{
-        position: "relative",
-        overflow: "hidden",
-        padding: "96px 0 64px",
-        background: "var(--page-bg)",
-      }}
-    >
-      {/* Grid técnico sutil — solo hero, identidad sin ruido */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          backgroundImage: "var(--grid-image)",
-          backgroundSize: "var(--grid-size)",
-          WebkitMaskImage: "var(--grid-mask)",
-          maskImage: "var(--grid-mask)",
-          opacity: 0.6,
-        }}
-      />
-      <div
-        style={{
-          position: "relative",
-          maxWidth: "1200px",
-          margin: "0 auto",
-          padding: "0 32px",
-        }}
-      >
-        <div className="ms-hero-grid">
-          {/* Copy — izquierda */}
-          <div style={{ minWidth: 0, textAlign: "left" }}>
-            <div
-              style={{
-                animation: "ms-rise .6s ease both",
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "12.5px",
-                fontWeight: 500,
-                letterSpacing: "0.22em",
-                color: "var(--accent)",
-                margin: "40px 0 24px",
-                textTransform: "uppercase",
-              }}
-            >
-              multistack.systems — ecosistema de productos
-            </div>
-            <h1
-              style={{
-                animation: "ms-rise .6s ease .06s both",
-                fontFamily: "'Sora', sans-serif",
-                fontWeight: 600,
-                fontSize: "clamp(40px,5.2vw,60px)",
-                lineHeight: 1.06,
-                letterSpacing: "-0.03em",
-                color: "var(--text)",
-                maxWidth: "16ch",
-                textWrap: "balance",
-              }}
-            >
-              Alto nivel de Ingeniería detrás de productos reales.
-            </h1>
-            <p
-              style={{
-                animation: "ms-rise .6s ease .12s both",
-                marginTop: "22px",
-                fontSize: "clamp(16px,1.3vw,18px)",
-                lineHeight: 1.65,
-                color: "var(--text2)",
-                maxWidth: "42ch",
-                textWrap: "balance",
-              }}
-            >
-              MultiStack construye plataformas y productos tecnológicos — TechOn, Desarrollo,
-              Licenciamiento — con ADN de ingeniero, desde Honduras.
-            </p>
-            <div
-              style={{
-                animation: "ms-rise .6s ease .18s both",
-                marginTop: "32px",
-                display: "flex",
-                alignItems: "center",
-                gap: "14px",
-                flexWrap: "wrap",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => scrollTo("productos")}
-                className="ms-cta"
-                style={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  color: "var(--btn-text)",
-                  background: "var(--btn-bg)",
-                  padding: "15px 28px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  border: "1px solid var(--btn-border)",
-                  boxShadow: "var(--btn-shadow)",
-                }}
-              >
-                Explorar productos
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollTo("contacto")}
-                style={{
-                  fontSize: "14.5px",
-                  fontWeight: 600,
-                  color: "var(--text)",
-                  background: "transparent",
-                  padding: "15px 22px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  border: "1px solid var(--border)",
-                }}
-              >
-                Hablar de un proyecto
-              </button>
-            </div>
-            <a
-              href={techonHref}
-              {...(isExternalHref(techonHref)
-                ? { target: "_blank", rel: "noopener noreferrer" }
-                : {})}
-              style={{
-                animation: "ms-rise .6s ease .22s both",
-                display: "inline-block",
-                marginTop: "18px",
-                fontSize: "13.5px",
-                fontWeight: 500,
-                color: "var(--text2)",
-                textDecoration: "none",
-              }}
-            >
-              ¿Necesitas soporte? Ir a TechOn <span aria-hidden="true">→</span>
-            </a>
+    <section id="hero" className="ms-cine-hero" aria-label="Inteligencia artificial aplicada a tu operación">
+      <div style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "0 32px" }}>
+        <div style={{ maxWidth: "660px" }}>
+          <div
+            className="ms-cine-rise"
+            style={{
+              fontFamily: MONO,
+              fontSize: "12.5px",
+              fontWeight: 500,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--accent)",
+              marginBottom: "24px",
+            }}
+          >
+            {"// inteligencia artificial aplicada"}
           </div>
 
-          {/* Visual — derecha, protagonista */}
-          <div style={{ minWidth: 0, animation: "ms-rise .7s ease .24s both" }}>
-            <EcosystemPreview />
+          <h1
+            className="ms-cine-rise"
+            style={{
+              animationDelay: ".08s",
+              fontFamily: "'Sora', sans-serif",
+              fontWeight: 600,
+              fontSize: "clamp(40px,6.2vw,76px)",
+              lineHeight: 1.02,
+              letterSpacing: "-0.035em",
+              color: "var(--text)",
+              textWrap: "balance",
+              textShadow: "0 2px 30px rgba(8,15,30,0.55)",
+            }}
+          >
+            Tu operación,{" "}
+            <span style={{ color: "var(--primary)" }}>en piloto automático.</span>
+          </h1>
+
+          <p
+            className="ms-cine-rise"
+            style={{
+              animationDelay: ".16s",
+              marginTop: "24px",
+              fontSize: "clamp(16px,1.4vw,19px)",
+              lineHeight: 1.65,
+              color: "var(--text2)",
+              maxWidth: "46ch",
+              textWrap: "pretty",
+            }}
+          >
+            Agentes de IA y automatizaciones que reducen{" "}
+            <strong style={{ color: "var(--text)", fontWeight: 600 }}>hasta un 70% la carga operativa</strong>{" "}
+            de tu equipo. Implementados en semanas, no en meses.
+          </p>
+
+          <div
+            className="ms-cine-rise"
+            style={{
+              animationDelay: ".24s",
+              marginTop: "36px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <button type="button" onClick={() => scrollTo("contacto")} className="ms-cine-cta">
+              Agenda un diagnóstico
+            </button>
+            <button type="button" onClick={() => scrollTo("productos")} className="ms-cine-ghost">
+              Ver servicios <span aria-hidden="true">→</span>
+            </button>
           </div>
+
+          <ul
+            className="ms-cine-rise"
+            aria-label="Capacidades"
+            style={{
+              animationDelay: ".32s",
+              listStyle: "none",
+              margin: "40px 0 0",
+              padding: 0,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "10px",
+            }}
+          >
+            {CAPABILITIES.map((label) => (
+              <li key={label} className="ms-cine-chip">
+                <span
+                  aria-hidden="true"
+                  style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--accent)" }}
+                />
+                {label}
+              </li>
+            ))}
+          </ul>
+
+          <a
+            href={techonHref}
+            {...(isExternalHref(techonHref) ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            className="ms-cine-rise ms-foot-link"
+            style={{
+              animationDelay: ".4s",
+              display: "inline-block",
+              marginTop: "28px",
+              fontSize: "13.5px",
+              fontWeight: 500,
+              color: "var(--text2)",
+              textDecoration: "none",
+            }}
+          >
+            ¿Ya eres cliente? Soporte en TechOn <span aria-hidden="true">→</span>
+          </a>
         </div>
+      </div>
+
+      <div className="ms-cine-scrollcue" aria-hidden="true">
+        <span>scroll</span>
+        <span className="ms-cine-scrollcue-line" />
       </div>
     </section>
   );

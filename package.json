@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "favicons": "node scripts/generate-favicons.mjs",
+    "assets:placeholders": "node scripts/generate-cinematic-placeholders.mjs",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",

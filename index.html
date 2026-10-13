@@ -12,6 +12,22 @@
         } catch (e) {}
       })();
     </script>
+    <script>
+      // Landing only: preload the hero poster (LCP candidate) at high priority.
+      // Injected by script so SPA routes like /dashboard never download it.
+      // Keep in sync with src/lib/cinematicScenes.ts.
+      (function () {
+        if (location.pathname !== "/") return;
+        var l = document.createElement("link");
+        l.rel = "preload";
+        l.as = "image";
+        l.type = "image/webp";
+        l.setAttribute("imagesrcset", "/assets/posters/hero.720.webp 1280w, /assets/posters/hero.1080.webp 1920w");
+        l.setAttribute("imagesizes", "100vw");
+        l.setAttribute("fetchpriority", "high");
+        document.head.appendChild(l);
+      })();
+    </script>
     <!-- Favicons (Google reads any rel containing "icon"; sizes are multiples of 48px) -->
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />

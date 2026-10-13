@@ -38,3 +38,6 @@ graph/
 *.njsproj
 *.sln
 *.sw?
+
+# CodeGraph local index (regenerate with `codegraph init`)
+.codegraph/
