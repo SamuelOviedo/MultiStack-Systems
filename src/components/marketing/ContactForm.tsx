@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { sendContactMessage } from "@/lib/contact";
+import { CONTACT_LIMITS, sendContactMessage, validateContact, type ContactPayload } from "@/lib/contact";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -16,82 +16,177 @@ const fieldStyle: CSSProperties = {
   boxSizing: "border-box",
 };
 
+const invalidStyle: CSSProperties = { borderColor: "var(--danger)" };
+
+const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: "11.5px", color: "var(--muted)" };
+
+const errorStyle: CSSProperties = { fontFamily: MONO, fontSize: "11px", color: "var(--danger)" };
+
 /** Texto para prellenar el mensaje. `nonce` permite reaplicar el mismo texto. */
 export interface ContactPrefill {
   text: string;
   nonce: number;
 }
 
+const EMPTY_FORM: ContactPayload = { name: "", phone: "", email: "", message: "" };
+
 /**
  * Formulario de contacto MultiStack (vía lib/contact → Edge Function).
- * Extraído del Footer para reutilizarlo en ContactSplit sin duplicar lógica.
+ * Nombre y mensaje obligatorios; teléfono y correo opcionales, pero se pide al
+ * menos uno de los dos para poder responder. Los errores aparecen tras el
+ * primer intento de envío y se actualizan en vivo.
  */
 const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; prefill?: ContactPrefill }) => {
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
+  const [form, setForm] = useState<ContactPayload>(EMPTY_FORM);
+  const [submitted, setSubmitted] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const emailRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   // Prefill desde un CTA de servicio: reemplaza el mensaje y deja el foco en el
-  // email (lo único que falta) sin interrumpir el scroll suave del llamador.
+  // primer campo (nombre) sin interrumpir el scroll suave del llamador.
   useEffect(() => {
     if (!prefill) return;
-    setMessage(prefill.text);
+    setForm((f) => ({ ...f, message: prefill.text }));
     setStatus((s) => (s === "loading" ? s : "idle"));
-    emailRef.current?.focus({ preventScroll: true });
+    nameRef.current?.focus({ preventScroll: true });
   }, [prefill]);
 
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const canSubmit = emailValid && message.trim().length >= 5 && status !== "loading";
+  const errors = validateContact(form);
+  const shown = submitted ? errors : {};
+  const id = (field: string) => `${idPrefix}-${field}`;
+
+  const update = (field: keyof ContactPayload) => (e: { target: { value: string } }) =>
+    setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (status === "loading") return;
+    setSubmitted(true);
+    if (Object.keys(errors).length > 0) {
+      // Lleva el foco al primer campo con error (en orden visual).
+      const first = (["name", "phone", "email", "message"] as const).find(
+        (f) => errors[f] || ((f === "phone" || f === "email") && errors.contact),
+      );
+      if (first) document.getElementById(id(first))?.focus();
+      return;
+    }
     setStatus("loading");
     try {
-      await sendContactMessage(email, message);
+      await sendContactMessage(form);
       setStatus("success");
-      setEmail("");
-      setMessage("");
+      setForm(EMPTY_FORM);
+      setSubmitted(false);
     } catch {
       setStatus("error");
     }
   };
 
+  const contactInvalid = !!shown.contact;
+  const describedBy = (field: "name" | "phone" | "email" | "message") =>
+    [shown[field] && id(`${field}-error`), (field === "phone" || field === "email") && contactInvalid && id("contact-error")]
+      .filter(Boolean)
+      .join(" ") || undefined;
+
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-      <label
-        htmlFor={`${idPrefix}-email`}
-        style={{ fontFamily: MONO, fontSize: "11.5px", color: "var(--muted)" }}
-      >
-        tu@email.com
+    <form onSubmit={handleSubmit} noValidate className="ms-contact-form" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <label htmlFor={id("name")} style={labelStyle}>
+        Nombre completo
       </label>
       <input
-        ref={emailRef}
-        id={`${idPrefix}-email`}
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="tu@email.com"
+        ref={nameRef}
+        id={id("name")}
+        type="text"
+        value={form.name}
+        onChange={update("name")}
+        placeholder="Nombre y apellido"
         disabled={status === "loading"}
-        autoComplete="email"
-        style={fieldStyle}
+        autoComplete="name"
+        required
+        maxLength={CONTACT_LIMITS.nameMax}
+        aria-invalid={!!shown.name}
+        aria-describedby={describedBy("name")}
+        style={{ ...fieldStyle, ...(shown.name ? invalidStyle : {}) }}
       />
-      <label
-        htmlFor={`${idPrefix}-message`}
-        style={{ fontFamily: MONO, fontSize: "11.5px", color: "var(--muted)" }}
-      >
-        mensaje
+      {shown.name && (
+        <div id={id("name-error")} style={errorStyle}>
+          {shown.name}
+        </div>
+      )}
+
+      <div className="ms-contact-pair">
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: 0 }}>
+          <label htmlFor={id("phone")} style={labelStyle}>
+            Número de teléfono (opcional)
+          </label>
+          <input
+            id={id("phone")}
+            type="tel"
+            value={form.phone}
+            onChange={update("phone")}
+            placeholder="+504 9999-9999"
+            disabled={status === "loading"}
+            autoComplete="tel"
+            inputMode="tel"
+            aria-invalid={!!shown.phone || contactInvalid}
+            aria-describedby={describedBy("phone")}
+            style={{ ...fieldStyle, ...(shown.phone || contactInvalid ? invalidStyle : {}) }}
+          />
+          {shown.phone && (
+            <div id={id("phone-error")} style={errorStyle}>
+              {shown.phone}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: 0 }}>
+          <label htmlFor={id("email")} style={labelStyle}>
+            Correo electrónico (opcional)
+          </label>
+          <input
+            id={id("email")}
+            type="email"
+            value={form.email}
+            onChange={update("email")}
+            placeholder="tu@email.com"
+            disabled={status === "loading"}
+            autoComplete="email"
+            aria-invalid={!!shown.email || contactInvalid}
+            aria-describedby={describedBy("email")}
+            style={{ ...fieldStyle, ...(shown.email || contactInvalid ? invalidStyle : {}) }}
+          />
+          {shown.email && (
+            <div id={id("email-error")} style={errorStyle}>
+              {shown.email}
+            </div>
+          )}
+        </div>
+      </div>
+      {contactInvalid && (
+        <div id={id("contact-error")} style={errorStyle}>
+          {shown.contact}
+        </div>
+      )}
+
+      <label htmlFor={id("message")} style={labelStyle}>
+        Mensaje
       </label>
       <textarea
-        id={`${idPrefix}-message`}
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
+        id={id("message")}
+        value={form.message}
+        onChange={update("message")}
         placeholder="Cuéntanos qué necesitas construir…"
         rows={3}
         disabled={status === "loading"}
-        style={{ ...fieldStyle, resize: "vertical" }}
+        required
+        aria-invalid={!!shown.message}
+        aria-describedby={describedBy("message")}
+        style={{ ...fieldStyle, resize: "vertical", ...(shown.message ? invalidStyle : {}) }}
       />
+      {shown.message && (
+        <div id={id("message-error")} style={errorStyle}>
+          {shown.message}
+        </div>
+      )}
+
       {status === "success" ? (
         <div role="status" style={{ fontFamily: MONO, fontSize: "12px", color: "var(--success)" }}>
           ¡Mensaje enviado! Te responderemos a la brevedad.
@@ -99,7 +194,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       ) : (
         <button
           type="submit"
-          disabled={!canSubmit}
+          disabled={status === "loading"}
           style={{
             padding: "11px",
             borderRadius: "8px",
@@ -108,8 +203,8 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
             color: "var(--btn-primary-text)",
             background: "var(--primary)",
             border: "none",
-            cursor: canSubmit ? "pointer" : "not-allowed",
-            opacity: canSubmit ? 1 : 0.5,
+            cursor: status === "loading" ? "not-allowed" : "pointer",
+            opacity: status === "loading" ? 0.6 : 1,
           }}
         >
           {status === "loading" ? "Enviando…" : "Enviar mensaje"}

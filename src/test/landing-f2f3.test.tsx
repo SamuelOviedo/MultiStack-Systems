@@ -142,10 +142,10 @@ describe("ContactForm · prefill", () => {
   it("prellena el mensaje y lo reaplica con cada nonce nuevo", () => {
     const text = serviceContactMessage(getAiService("agente-rag"));
     const { rerender } = render(<ContactForm idPrefix="t" prefill={{ text, nonce: 1 }} />);
-    const textarea = screen.getByLabelText("mensaje") as HTMLTextAreaElement;
+    const textarea = screen.getByLabelText("Mensaje") as HTMLTextAreaElement;
     expect(textarea.value).toBe(text);
     expect(textarea.value).toContain("Agente de Atención IA");
-    expect(document.activeElement).toBe(screen.getByLabelText("tu@email.com"));
+    expect(document.activeElement).toBe(screen.getByLabelText("Nombre completo"));
 
     fireEvent.change(textarea, { target: { value: "otra cosa" } });
     rerender(<ContactForm idPrefix="t" prefill={{ text, nonce: 2 }} />);
