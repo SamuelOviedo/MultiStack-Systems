@@ -10,6 +10,7 @@ import BuiltHonduras from "@/components/marketing/BuiltHonduras";
 import ContactSplit from "@/components/marketing/ContactSplit";
 import type { ContactPrefill } from "@/components/marketing/ContactForm";
 import Footer from "@/components/common/Footer";
+import AiChatLauncher from "@/components/marketing/ai-demo/AiChatLauncher";
 import { CINEMATIC_VARS, useMsThemeVars } from "@/lib/msTokens";
 import { CINEMATIC_SCENES } from "@/lib/cinematicScenes";
 import { getAiService, serviceContactMessage } from "@/lib/aiServices";
@@ -31,6 +32,8 @@ const Index = () => {
   const [chaptersReady, setChaptersReady] = useState(false);
   const [scrubSources, setScrubSources] = useState<ScrubSources>({});
   const [contactPrefill, setContactPrefill] = useState<ContactPrefill>();
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatArmed, setChatArmed] = useState(false);
   const activeScene = useActiveScene(SCENE_SECTIONS, chaptersReady);
 
   // Re-run after the lazy chapters mount: they shift everything below them.
@@ -58,6 +61,13 @@ const Index = () => {
     [requestService],
   );
 
+  const armChat = useCallback(() => setChatArmed(true), []);
+  const openChat = useCallback(() => {
+    setChatArmed(true);
+    setChatOpen(true);
+  }, []);
+  const chatToDiagnosis = useCallback(() => requestServiceBySlug("agente-rag"), [requestServiceBySlug]);
+
   return (
     <>
       <Navbar variant="overlay" />
@@ -84,7 +94,7 @@ const Index = () => {
             </div>
           </div>
           <div className="ms-cine-content">
-            <HeroSection />
+            <HeroSection onTryAgent={openChat} onTryAgentIntent={armChat} />
             <Suspense fallback={<div className="ms-chapters-placeholder" aria-hidden="true" />}>
               <CinematicChapters
                 onReady={handleChaptersReady}
@@ -104,6 +114,13 @@ const Index = () => {
         <ContactSplit prefill={contactPrefill} />
         <Footer />
       </div>
+      <AiChatLauncher
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        armed={chatArmed}
+        onArm={armChat}
+        onRequestDiagnosis={chatToDiagnosis}
+      />
     </>
   );
 };

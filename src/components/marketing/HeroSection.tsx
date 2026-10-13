@@ -9,7 +9,14 @@ const CAPABILITIES = ["Agentes RAG 24/7", "Automatización con n8n", "Integraci�
  * depende de video ni de JS de animación para ser legible (spec FR-017):
  * solo animaciones CSS de entrada, desactivadas con prefers-reduced-motion.
  */
-const HeroSection = () => {
+interface HeroSectionProps {
+  /** Abre el agente de demostración. Sin él, el CTA secundario lleva a los servicios. */
+  onTryAgent?: () => void;
+  /** Primera intención sobre el CTA: precarga el chat. */
+  onTryAgentIntent?: () => void;
+}
+
+const HeroSection = ({ onTryAgent, onTryAgentIntent }: HeroSectionProps) => {
   const techonHref = getTechonHref();
 
   const scrollTo = (id: string) => {
@@ -85,9 +92,22 @@ const HeroSection = () => {
             <button type="button" onClick={() => scrollTo("contacto")} className="ms-cine-cta">
               Agenda un diagnóstico
             </button>
-            <button type="button" onClick={() => scrollTo("productos")} className="ms-cine-ghost">
-              Ver servicios <span aria-hidden="true">→</span>
-            </button>
+            {onTryAgent ? (
+              <button
+                type="button"
+                onClick={onTryAgent}
+                onPointerEnter={onTryAgentIntent}
+                onFocus={onTryAgentIntent}
+                aria-haspopup="dialog"
+                className="ms-cine-ghost"
+              >
+                Probar el agente <span aria-hidden="true">→</span>
+              </button>
+            ) : (
+              <button type="button" onClick={() => scrollTo("productos")} className="ms-cine-ghost">
+                Ver servicios <span aria-hidden="true">→</span>
+              </button>
+            )}
           </div>
 
           <ul

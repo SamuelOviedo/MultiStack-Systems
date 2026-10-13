@@ -449,3 +449,19 @@ Decisiones:
 Mediciones: entrada `index-*.js` 27.97 KB gzip (+0.6 KB vs F1; +1.8 KB vs base); framer-motion solo en `CinematicChapters` (25.5 KB gzip) + `motionFeatures` (9.3 KB gzip), ambos lazy. Rutas no-landing: 0 solicitudes cinemáticas.
 
 Pendiente: F4 (`AiChatWidgetDemo`), F5 (Lighthouse, SEO/OG del pivot). QA de scrub con videos reales (all-intra).
+
+## Ajustes F2/F3 + F4 + F5 (2026-10-13)
+
+- **Navbar**: etiqueta "Productos" → "Servicios". Los anchors de la landing viven en la constante `MARKETING_SECTIONS`, que solo se renderiza con `isHome`; el menú de dashboard/cliente/legales no cambia. Plazos del catálogo confirmados. Commit `315b87b`.
+- **F4 — `AiChatWidgetDemo`** (`components/marketing/ai-demo/`):
+  - `AiChatLauncher` (eager, mínimo): FAB + etiqueta solo-CSS. El panel (`React.lazy`) se monta con lo primero de: `load` + `requestIdleCallback`, primera intención (pointerenter/focus/touchstart sobre el FAB o el CTA "Probar el agente" del hero) o clic. Medido en navegador: el chunk se solicita **después** del evento `load`.
+  - `chatMachine.ts` (reducer idle ⇄ typing, un turno a la vez) + `demoScript.ts` (intenciones sin acentos/mayúsculas, retardo 700–1400 ms). Sin red ni almacenamiento.
+  - shadcn: `Sheet` (derecha en desktop / bottom 85dvh en móvil; se añadieron props opcionales `overlayClassName` y `closeLabel`, compatibles con los 4 usos del dashboard), `ScrollArea`, `Avatar`, `Badge` (nuevos, código canónico shadcn), `Button`, `Textarea`.
+  - a11y: trampa de foco y Esc (Radix), `role="log"` + `aria-live="polite"`, foco devuelto al disparador (sin `SheetTrigger`, Radix no sabe a quién devolverlo), CTA "Agenda un diagnóstico" → cierra y prellena el contacto con el foco en el email.
+  - Tema: clase `dark` en el panel (tokens HSL shadcn). **No** se aplican tokens MS en el portal: `--primary` hex rompía `hsl(var(--primary))` (botones invisibles); el CSS propio usa `--chat-*`.
+  - Bundle: Radix ScrollArea/Avatar (+ `use-is-hydrated`, `number`) excluidos de `vendor-ui` en `vite.config.ts` para que viajen en el chunk lazy; el Radix Tooltip del FAB se reemplazó por CSS porque arrastraba código a `vendor-ui` (compartido con /dashboard).
+- **F5 — SEO**: `title`, `description`, `keywords`, Open Graph y Twitter orientados a "Servicios Productizados de IA y Automatización B2B"; imagen OG 1200×630 (`npm run assets:og`, PNG + WebP) en `public/assets/images/og/`; JSON-LD con `slogan`, `knowsAbout` actualizado y `hasOfferCatalog` (3 servicios, sin precios); `site.webmanifest` y `lastmod` del sitemap actualizados.
+
+Mediciones: entrada 28.37 KB gzip (+0.40 KB vs F3: FAB + wrapper lazy); `vendor-ui` 37.56 KB (+0.03 KB); chat en chunk lazy de 8.06 KB gzip.
+
+Pendiente: QA de scrub con videos reales; Lighthouse sobre build de producción desplegado (SC-001…SC-007); regenerar la imagen OG cuando exista el poster definitivo del hero.
