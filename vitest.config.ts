@@ -8,6 +8,12 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // Deterministic, obviously fake Supabase config: tests never depend on a
+    // developer's .env (CI has none) and never reach a real project.
+    env: {
+      VITE_SUPABASE_URL: "https://test-project.supabase.co",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable-key",
+    },
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   resolve: {
