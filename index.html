@@ -13,7 +13,7 @@
       })();
     </script>
     <script>
-      // Landing only: preload the hero poster (LCP candidate) at high priority.
+      // Landing only: preload the hero's first frame (LCP candidate) at high priority.
       // Injected by script so SPA routes like /dashboard never download it.
       // Keep in sync with src/lib/cinematicScenes.ts.
       (function () {
@@ -22,7 +22,7 @@
         l.rel = "preload";
         l.as = "image";
         l.type = "image/webp";
-        l.setAttribute("imagesrcset", "/assets/posters/hero.720.webp 1280w, /assets/posters/hero.1080.webp 1920w");
+        l.setAttribute("imagesrcset", "/assets/scenes/hero/hero-01.720.webp 1280w, /assets/scenes/hero/hero-01.1080.webp 1920w");
         l.setAttribute("imagesizes", "100vw");
         l.setAttribute("fetchpriority", "high");
         document.head.appendChild(l);

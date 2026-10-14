@@ -335,7 +335,7 @@
   color: var(--text);
 }
 /* Backdrop scoped to the cinematic sections: the absolute stage spans exactly
-   their height and the pin sticks inside it, so the video stays pinned while
+   their height and the pin sticks inside it, so the imagery stays pinned while
    they scroll and leaves with them, never covering the solid sections below.
    overflow: clip (not hidden) so the stage does not become a scroll container
    and break `sticky`. */
@@ -378,9 +378,6 @@
   height: 100%;
   object-fit: cover;
   user-select: none;
-}
-.ms-cine-video {
-  transition: opacity 0.4s ease-out;
 }
 .ms-cine-scrim,
 .ms-cine-scrim-side {
@@ -507,7 +504,6 @@
     animation: none;
   }
   .ms-cine-layer,
-  .ms-cine-video,
   .ms-cine-scrim-side {
     transition: none;
   }

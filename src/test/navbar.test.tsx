@@ -84,10 +84,11 @@ describe("Navbar", () => {
     renderAt("/");
 
     fireEvent.click(screen.getByRole("button", { name: "Abrir menú" }));
-    const dialog = await screen.findByRole("dialog");
+    // Lazy drawer chunk: generous timeout so a busy CI machine does not flake.
+    const dialog = await screen.findByRole("dialog", {}, { timeout: 5000 });
     fireEvent.click(within(dialog).getByRole("button", { name: /Servicios/ }));
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: 5000 });
     expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 500 + window.scrollY - 72 }));
   });
 

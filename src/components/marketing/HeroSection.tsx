@@ -6,7 +6,7 @@ const CAPABILITIES = ["Agentes RAG 24/7", "Automatización con n8n", "Integraci�
 
 /**
  * Hero cinemático. Se pinta sobre CinematicBackground (lo provee Index) y no
- * depende de video ni de JS de animación para ser legible (spec FR-017):
+ * depende de las imágenes animadas ni de JS de animación para ser legible (spec FR-017):
  * solo animaciones CSS de entrada, desactivadas con prefers-reduced-motion.
  */
 interface HeroSectionProps {

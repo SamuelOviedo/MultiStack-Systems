@@ -263,7 +263,7 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
         right: 0,
         zIndex: 50,
         minHeight: `${NAV_HEIGHT}px`,
-        // Over video: lighter glass so the scene reads through.
+        // Over the cinematic scenes: lighter glass so the imagery reads through.
         background: overCinematic ? "rgba(8,15,30,0.3)" : "var(--nav-bg)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",

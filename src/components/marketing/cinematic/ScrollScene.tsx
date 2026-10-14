@@ -7,7 +7,7 @@ interface ScrollSceneProps {
   id: string;
   sceneId: CinematicSceneId;
   label: string;
-  /** Publishes this scene's smoothed progress so the backdrop can scrub its video. */
+  /** Publishes this scene's smoothed progress so the backdrop can scrub its image sequence. */
   onScrubSource?: (sceneId: CinematicSceneId, source: ScrubSource) => void;
   children: (progress: MotionValue<number>) => ReactNode;
 }
@@ -16,7 +16,7 @@ interface ScrollSceneProps {
  * Tall section with a sticky, viewport-sized panel (desktop). Exposes a
  * spring-smoothed 0..1 progress: 0 when the section's top reaches mid-viewport,
  * 1 when its bottom reaches the viewport bottom. The same value drives the
- * floating copy and, for "scrub" scenes, the background video ("steady
+ * floating copy and, for "scrub" scenes, the background sequence ("steady
  * gimbal"). On phones the CSS drops the sticky pin and the section flows
  * normally (see .ms-scene in index.css).
  */

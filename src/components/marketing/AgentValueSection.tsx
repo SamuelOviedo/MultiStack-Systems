@@ -28,7 +28,7 @@ interface AgentValueSectionProps {
   onRequestService: (slug: AiServiceSlug) => void;
 }
 
-/** Escena 2 — Propuesta de valor: Agente de Atención 24/7 (escena de video "agent", modo scrub). */
+/** Escena 2 — Propuesta de valor: Agente de Atención 24/7 (escena "agent", secuencia en modo scrub). */
 const AgentValueSection = ({ onScrubSource, onRequestService }: AgentValueSectionProps) => (
   <ScrollScene id="agente" sceneId="agent" label="Agente de atención 24/7" onScrubSource={onScrubSource}>
     {(progress) => (

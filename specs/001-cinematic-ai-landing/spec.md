@@ -471,3 +471,14 @@ Pendiente: QA de scrub con videos reales; Lighthouse sobre build de producción 
 Hallazgos (medidos con Playwright antes del cambio): (1) hamburguesa visible en desktop — el `display:flex` inline anulaba `md:hidden`; (2) breakpoint `md` → a 800px la barra desbordaba 133px; (3) `offsetTop - 60` dejaba las secciones 12px bajo la barra de 72px; (4) panel móvil sin semántica de diálogo; (5) sin estado activo.
 
 Cambios: enlaces y auth desktop desde `lg` (1024px), debajo solo hamburguesa; drawer con shadcn `Sheet` (`MobileNavDrawer`, lazy al primer hover/focus/touch del botón para no sumar react-remove-scroll al chunk de entrada), cierre automático al elegir enlace, cierre al crecer a desktop, foco devuelto al botón; `useScrollSpy` (línea al 40% del viewport) → `aria-current="location"` en desktop y drawer; hover con subrayado `scaleX` (sin layout shift) y `transition-colors duration-200`; navegación por rect (`top − 72`); overlay solo si `variant="overlay"` **y** ruta `/`. Entrada +0.66 KB gzip.
+
+## Pivote: video → secuencia de imágenes (2026-10-13)
+
+Se descarta `<video>` (.webm/.mp4) por rendimiento y memoria. **Sustituye** a FR-002/FR-004/FR-006/FR-007 y a la estructura `public/assets/video|posters`.
+
+- **Tipos**: `CinematicScene.images: SceneImage[]` (`{ desktop, mobile }` = 1920w/1280w, srcset compartido), sin `video`/`poster`/`videoReady`. `ScrubSource = MotionValue<number>` (type-only).
+- **Assets**: `public/assets/scenes/<escena>/<escena>-NN.<1080|720>.webp`, 3 frames por escena. Placeholders procedurales (`npm run assets:placeholders`): red neuronal (hero), anillos de señal + forma de onda (agent), tuberías de flujo (automation). 18 archivos, 193 KB.
+- **Arquitectura** (restricción de bundle): `CinematicBackground` (entrada, sin framer-motion) mantiene el A/B, el gating y la pausa, y pinta el **primer frame estático** (LCP, y experiencia completa con reduced motion / Save-Data). La animación vive en `AnimatedSequence` (lazy, `LazyMotion strict` + `m.img`), que comparte el chunk de framer-motion con `CinematicChapters` → /dashboard paga 0.
+  - **loop**: slideshow con doble búfer interno (el frame saliente queda opaco debajo; el siguiente se pre-decodifica con `img.decode()` antes del fundido de 1.4 s) + **Ken Burns** por frame (escala 1→1.06 y paneo sutil, `transform` en string → WAAPI/compositor). Avanza solo con la escena visible y la pestaña activa.
+  - **scrub**: el progreso suavizado (spring de `ScrollScene`) controla un fundido **acumulativo** entre frames (sin bajón de brillo) + **parallax Y** (±2.5 %, escala 1.08).
+- **Medido en navegador**: Ken Burns continuo, cambio a `hero-02` a ~8 s, scrub 1/0.82/0 → 1/1/1 con parallax +4 → −22 px; reduced motion = 1 frame y 1 request. Entrada 29.41 KB gzip (−0.58 KB al quitar el código de video); `AnimatedSequence` 1.24 KB.
