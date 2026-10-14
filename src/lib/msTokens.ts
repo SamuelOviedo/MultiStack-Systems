@@ -123,6 +123,24 @@ export const MS_LIGHT: MsTokens = {
   "moon-op": "0.3",
 };
 
+/**
+ * Extra tokens for the cinematic (video-backed) landing scenes. Always layered
+ * on top of MS_DARK: cinematic scenes ignore the light theme (spec C-3).
+ * Prefixed `cine-` so they never shadow global or shadcn variables.
+ */
+export const MS_CINEMATIC: MsTokens = {
+  // Base scrim: lets the video breathe at the top, fades into --bg (#080f1e)
+  // at the bottom so the scene meets the solid sections without a seam.
+  "cine-scrim":
+    "linear-gradient(180deg, rgba(8,15,30,0.35) 0%, rgba(8,15,30,0.15) 30%, rgba(8,15,30,0.65) 78%, #080f1e 100%)",
+  // Behind left-aligned copy columns.
+  "cine-scrim-side": "linear-gradient(90deg, rgba(8,15,30,0.85) 0%, rgba(8,15,30,0.5) 38%, rgba(8,15,30,0) 65%)",
+  "cine-glass-bg": "rgba(15,28,53,0.55)",
+  "cine-glass-border": "rgba(14,165,233,0.22)",
+  "cine-glass-blur": "blur(14px)",
+  "cine-glow": "0 0 0 1px rgba(14,165,233,0.35), 0 10px 40px -8px rgba(14,165,233,0.55)",
+};
+
 /** Turn a token map into an inline-style object of `--token` custom props. */
 export function toCssVars(tokens: MsTokens): React.CSSProperties {
   const out: Record<string, string> = {};
@@ -142,3 +160,6 @@ export function useMsThemeVars(): React.CSSProperties {
   const isLight = mounted && resolvedTheme === "light";
   return toCssVars(isLight ? MS_LIGHT : MS_DARK);
 }
+
+/** Theme-independent variables for cinematic scenes: MS_DARK + MS_CINEMATIC. */
+export const CINEMATIC_VARS: React.CSSProperties = toCssVars({ ...MS_DARK, ...MS_CINEMATIC });

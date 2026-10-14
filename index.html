@@ -12,6 +12,22 @@
         } catch (e) {}
       })();
     </script>
+    <script>
+      // Landing only: preload the hero poster (LCP candidate) at high priority.
+      // Injected by script so SPA routes like /dashboard never download it.
+      // Keep in sync with src/lib/cinematicScenes.ts.
+      (function () {
+        if (location.pathname !== "/") return;
+        var l = document.createElement("link");
+        l.rel = "preload";
+        l.as = "image";
+        l.type = "image/webp";
+        l.setAttribute("imagesrcset", "/assets/posters/hero.720.webp 1280w, /assets/posters/hero.1080.webp 1920w");
+        l.setAttribute("imagesizes", "100vw");
+        l.setAttribute("fetchpriority", "high");
+        document.head.appendChild(l);
+      })();
+    </script>
     <!-- Favicons (Google reads any rel containing "icon"; sizes are multiples of 48px) -->
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />
@@ -20,26 +36,29 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#080F1E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MultiStack Systems | Ingeniería de Software &amp; Soluciones Tecnológicas</title>
-    <meta name="description" content="MultiStack Systems es una empresa de ingeniería de software en Honduras. Desarrollo web a medida con Next.js y React, soporte técnico especializado, licenciamiento oficial de software y automatización con IA para empresas." />
+    <title>MultiStack Systems | Servicios de IA y Automatización B2B</title>
+    <meta name="description" content="Servicios productizados de IA para empresas: agentes de atención 24/7 con RAG, automatización cero papel con n8n e integración con tus sistemas. Desde Honduras." />
     <meta name="author" content="MultiStack Systems" />
-    <meta name="keywords" content="ingeniería de software, empresa de software Honduras, desarrollo web Honduras, soporte técnico, licencias de software, automatización con IA, ciberseguridad, MultiStack Systems" />
+    <meta name="keywords" content="servicios de IA para empresas, agente de IA, chatbot RAG, automatización de procesos, automatización n8n, cero papel, integración de sistemas, IA B2B, automatización Honduras, MultiStack Systems" />
     <link rel="canonical" href="https://multistacksystems.com" />
 
     <meta property="og:site_name" content="MultiStack Systems" />
-    <meta property="og:title" content="MultiStack Systems | Ingeniería de Software &amp; Soluciones Tecnológicas" />
-    <meta property="og:description" content="Empresa de ingeniería de software en Honduras. Desarrollo web, soporte técnico, licencias y automatización con IA." />
+    <meta property="og:title" content="Servicios Productizados de IA y Automatización B2B | MultiStack Systems" />
+    <meta property="og:description" content="Agentes de IA que atienden 24/7 con la información de tu negocio y automatizaciones cero papel con n8n. Implementados en semanas, no en meses." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://multistacksystems.com" />
-    <meta property="og:image" content="https://multistacksystems.com/logo-black.png" />
-    <meta property="og:image:alt" content="MultiStack Systems Logo" />
+    <meta property="og:image" content="https://multistacksystems.com/assets/images/og/og-ai.1200x630.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="MultiStack Systems — Tu operación, en piloto automático. Servicios productizados de IA y automatización." />
     <meta property="og:locale" content="es_HN" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="MultiStack Systems | Ingeniería de Software &amp; Soluciones Tecnológicas" />
-    <meta name="twitter:description" content="Empresa de ingeniería de software en Honduras. Desarrollo web, soporte técnico, licencias y automatización con IA." />
-    <meta name="twitter:image" content="https://multistacksystems.com/logo-black.png" />
-    <meta name="twitter:image:alt" content="MultiStack Systems Logo" />
+    <meta name="twitter:title" content="Servicios Productizados de IA y Automatización B2B | MultiStack Systems" />
+    <meta name="twitter:description" content="Agentes de IA que atienden 24/7 con la información de tu negocio y automatizaciones cero papel con n8n. Implementados en semanas, no en meses." />
+    <meta name="twitter:image" content="https://multistacksystems.com/assets/images/og/og-ai.1200x630.png" />
+    <meta name="twitter:image:alt" content="MultiStack Systems — Tu operación, en piloto automático. Servicios productizados de IA y automatización." />
 
     <script type="application/ld+json">
     {
@@ -48,7 +67,8 @@
       "name": "MultiStack Systems",
       "url": "https://multistacksystems.com",
       "logo": "https://multistacksystems.com/logo-white.png",
-      "description": "Empresa de ingeniería de software en Honduras especializada en desarrollo web a medida, soporte técnico, licenciamiento oficial de software y automatización con inteligencia artificial.",
+      "description": "Servicios productizados de inteligencia artificial y automatización B2B: agentes de atención con RAG, automatización cero papel con n8n e integración de IA con los sistemas de cada empresa.",
+      "slogan": "Tu operación, en piloto automático.",
       "foundingDate": "2024",
       "address": {
         "@type": "PostalAddress",
@@ -73,15 +93,45 @@
         "name": "Honduras y Latinoamérica"
       },
       "knowsAbout": [
-        "Software Engineering",
-        "Custom Web Development",
-        "Technical Support",
-        "Software Licensing",
-        "AI Automation",
-        "Cybersecurity",
-        "Next.js",
-        "React"
+        "Artificial Intelligence",
+        "Retrieval-Augmented Generation",
+        "AI Customer Service Agents",
+        "Business Process Automation",
+        "n8n Workflow Automation",
+        "Paperless Office",
+        "Systems Integration",
+        "Software Engineering"
       ],
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Servicios Productizados de IA",
+        "itemListElement": [
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Agente de Atención IA",
+              "description": "Agente que responde 24/7 con la información real del negocio (RAG) y escala a tu equipo con contexto."
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Automatización Cero Papel",
+              "description": "Formularios, facturas y aprobaciones automatizados con n8n, sin recaptura manual."
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Integración IA a Medida",
+              "description": "IA conectada a ERP, CRM y APIs existentes, entregada por fases."
+            }
+          }
+        ]
+      },
       "sameAs": [
         "https://github.com/SamuelOviedo/MultiStack-Systems"
       ]

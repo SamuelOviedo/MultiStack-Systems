@@ -29,6 +29,20 @@ export default tseslint.config(
       // generated Database types are intentionally partial. Keep this visible
       // as a warning rather than a hard error (project-wide convention).
       "@typescript-eslint/no-explicit-any": "warn",
+      // Bundle budget (spec 001 §6): framer-motion only via <LazyMotion> + `m`.
+      // `motion.*` ships every feature synchronously.
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "framer-motion",
+              importNames: ["motion"],
+              message: "Usa `m` dentro de <LazyMotion> (ver CinematicChapters) para no cargar todas las features.",
+            },
+          ],
+        },
+      ],
     },
   },
   {

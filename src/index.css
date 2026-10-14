@@ -258,21 +258,803 @@
 .ms-linkcta:hover { gap: 11px; }
 
 /* Responsive landing grids (inline styles can't carry media queries) */
-.ms-grid-servicios { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: 60px; align-items: start; }
-.ms-sticky { position: sticky; top: 108px; }
-.ms-bento-a { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; margin-bottom: 18px; }
-.ms-bento-b { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-.ms-stack-rowgrid { display: grid; grid-template-columns: 0.9fr 2.1fr; gap: 24px; align-items: center; }
-.ms-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; gap: 40px; }
+.ms-eco-body {
+  display: grid;
+  grid-template-columns: 1.6fr 0.9fr;
+  gap: 0;
+  align-items: stretch;
+  padding: 22px;
+}
+.ms-eco-aside {
+  border-left: 1px solid var(--hairline);
+}
+.ms-eco-connect {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.ms-eco-links {
+  display: flex;
+  align-items: center;
+  gap: 14px 20px;
+  flex-wrap: wrap;
+}
+.ms-contact-split {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 20px;
+  align-items: start;
+}
+.ms-eng-row {
+  transition: background 0.2s;
+}
+.ms-eng-row:hover {
+  background: var(--hover-bg);
+}
+.ms-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr; gap: 40px; }
 
 @media (max-width: 920px) {
-  .ms-grid-servicios { grid-template-columns: 1fr; gap: 36px; }
-  .ms-sticky { position: static; }
-  .ms-bento-a { grid-template-columns: 1fr; }
-  .ms-bento-b { grid-template-columns: 1fr; }
-  .ms-stack-rowgrid { grid-template-columns: 1fr; gap: 14px; }
+  .ms-eco-body {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 16px;
+  }
+  .ms-eco-aside {
+    border-left: none;
+    border-top: 1px solid var(--hairline);
+  }
+  .ms-contact-split {
+    grid-template-columns: 1fr;
+  }
+  .ms-eng-row {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
   .ms-footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
 }
 @media (max-width: 560px) {
   .ms-footer-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .ms-eco-body {
+    padding: 12px;
+  }
+}
+
+/* ====================================================================
+   Cinematic landing (spec 001-cinematic-ai-landing).
+   Vars come from CINEMATIC_VARS (MS_DARK + MS_CINEMATIC) on .ms-cine.
+   ==================================================================== */
+.ms-cine {
+  position: relative;
+  isolation: isolate;
+  background: var(--bg);
+  color: var(--text);
+}
+/* Backdrop scoped to the cinematic sections: the absolute stage spans exactly
+   their height and the pin sticks inside it, so the video stays pinned while
+   they scroll and leaves with them, never covering the solid sections below.
+   overflow: clip (not hidden) so the stage does not become a scroll container
+   and break `sticky`. */
+.ms-cine-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+.ms-cine-stage-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100lvh;
+  overflow: hidden;
+}
+.ms-cine-content {
+  position: relative;
+  z-index: 1;
+}
+
+.ms-cine-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+}
+.ms-cine-layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.6s ease-out;
+  will-change: opacity;
+}
+.ms-cine-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+.ms-cine-video {
+  transition: opacity 0.4s ease-out;
+}
+.ms-cine-scrim,
+.ms-cine-scrim-side {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+.ms-cine-scrim {
+  background: var(--cine-scrim);
+}
+.ms-cine-scrim-side {
+  background: var(--cine-scrim-side);
+  transition: opacity 0.6s ease-out;
+}
+
+/* Hero */
+.ms-cine-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 120px 0 112px;
+}
+.ms-cine-rise {
+  animation: ms-rise 0.7s ease both;
+}
+.ms-cine-cta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--btn-primary-text);
+  background: var(--primary);
+  padding: 16px 28px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: var(--cine-glow);
+  transition: transform 0.25s, filter 0.25s;
+}
+.ms-cine-cta:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+.ms-cine-ghost {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--cine-glass-bg);
+  backdrop-filter: var(--cine-glass-blur);
+  -webkit-backdrop-filter: var(--cine-glass-blur);
+  padding: 15px 22px;
+  border: 1px solid var(--cine-glass-border);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.25s, background 0.25s;
+}
+.ms-cine-ghost:hover {
+  border-color: var(--border-accent);
+  background: rgba(15, 28, 53, 0.75);
+}
+.ms-cine-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text2);
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: var(--cine-glass-bg);
+  backdrop-filter: var(--cine-glass-blur);
+  -webkit-backdrop-filter: var(--cine-glass-blur);
+  border: 1px solid var(--cine-glass-border);
+}
+.ms-cine-cta:focus-visible,
+.ms-cine-ghost:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.ms-cine-scrollcue {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ms-cine-scrollcue-line {
+  width: 1px;
+  height: 36px;
+  background: linear-gradient(var(--accent), transparent);
+  animation: ms-pulse 2.4s ease-in-out infinite;
+}
+
+/* Portrait phones: the 16:9 video is center-cropped behind full-width copy,
+   so the side scrim becomes a uniform vertical one. */
+@media (max-width: 640px) {
+  .ms-cine-scrim-side {
+    background: linear-gradient(180deg, rgba(8, 15, 30, 0.45) 0%, rgba(8, 15, 30, 0.7) 100%);
+  }
+  .ms-cine-hero {
+    align-items: flex-end;
+    padding: 112px 0 96px;
+  }
+  .ms-cine-scrollcue {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-cine-rise,
+  .ms-cine-scrollcue-line {
+    animation: none;
+  }
+  .ms-cine-layer,
+  .ms-cine-video,
+  .ms-cine-scrim-side {
+    transition: none;
+  }
+}
+
+/* Anchored sections land below the fixed 72px Navbar. */
+.ms-landing [id] {
+  scroll-margin-top: 72px;
+}
+
+/* --- F2: scroll scenes (ScrollScene / FloatingCopy) ---------------------- */
+.ms-scene {
+  position: relative;
+  height: 240vh;
+}
+.ms-scene-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+}
+.ms-scene-inner {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 72px 32px 24px;
+}
+/* Reserves the chapters' height while their lazy chunk loads (no CLS). */
+.ms-chapters-placeholder {
+  height: 480vh;
+}
+
+.ms-chapter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: 64px;
+  align-items: center;
+}
+.ms-chapter-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 560px;
+}
+.ms-chapter-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 20px;
+}
+.ms-chapter-title {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: clamp(34px, 4.4vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  text-wrap: balance;
+  text-shadow: 0 2px 30px rgba(8, 15, 30, 0.55);
+}
+.ms-chapter-lead {
+  margin-top: 20px;
+  font-size: clamp(16px, 1.3vw, 18px);
+  line-height: 1.65;
+  color: var(--text2);
+  max-width: 46ch;
+}
+.ms-chapter-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ms-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+/* Glass cards floating over the video */
+.ms-glass-card {
+  background: var(--cine-glass-bg);
+  backdrop-filter: var(--cine-glass-blur);
+  -webkit-backdrop-filter: var(--cine-glass-blur);
+  border: 1px solid var(--cine-glass-border);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+.ms-glass-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+}
+.ms-glass-card-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text2);
+}
+.ms-glass-card-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text2);
+}
+.ms-glass-card-foot {
+  padding: 10px 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ms-agent-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--btn-primary-text);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+.ms-chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ms-chat-row {
+  display: flex;
+}
+.ms-chat-row.is-user {
+  justify-content: flex-end;
+}
+.ms-chat-bubble {
+  max-width: 85%;
+  padding: 11px 14px;
+  border-radius: 14px 14px 14px 4px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hairline);
+}
+.ms-chat-row.is-user .ms-chat-bubble {
+  border-radius: 14px 14px 4px 14px;
+  background: var(--primary-soft);
+  border-color: var(--border-accent);
+}
+.ms-chat-tag {
+  display: block;
+  margin-top: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--accent);
+}
+.ms-flow {
+  list-style: none;
+  margin: 0;
+  padding: 18px;
+}
+.ms-flow > li {
+  position: relative;
+  padding-bottom: 14px;
+}
+.ms-flow > li:last-child {
+  padding-bottom: 0;
+}
+.ms-flow > li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 17px;
+  top: 40px;
+  bottom: 2px;
+  width: 1px;
+  background: linear-gradient(var(--border-accent), transparent);
+}
+.ms-flow-step {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.ms-flow-node {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid var(--border-accent);
+}
+.ms-flow-label {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.ms-flow-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text2);
+  white-space: nowrap;
+}
+
+/* Tablets, narrow laptops and short viewports: no sticky pin, normal flow.
+   Keep in sync with STACKED_QUERY in FloatingCopy.tsx. */
+@media (max-width: 1023px), (max-height: 620px) {
+  .ms-scene {
+    height: auto;
+  }
+  .ms-scene-pin {
+    position: static;
+    height: auto;
+    min-height: 100svh;
+    padding: 96px 0;
+  }
+  .ms-scene-inner {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .ms-chapter {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+  .ms-chapters-placeholder {
+    height: 220vh;
+  }
+}
+@media (max-width: 640px) {
+  .ms-flow-step {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+  .ms-flow-node {
+    width: 32px;
+    height: 32px;
+  }
+  .ms-flow > li:not(:last-child)::before {
+    left: 15px;
+    top: 36px;
+  }
+  .ms-flow-status {
+    grid-column: 2;
+  }
+}
+
+/* --- F3: AI services catalog ------------------------------------------- */
+.ms-svc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.ms-svc-card {
+  display: flex;
+  flex-direction: column;
+  padding: 28px 26px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-2);
+}
+.ms-svc-cta {
+  margin-top: auto;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--primary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.ms-svc-cta:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+@media (max-width: 920px) {
+  .ms-svc-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- F4: AI chat demo (FAB eager · panel lazy) --------------------------- */
+.ms-chat-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #06121f;
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.35), 0 12px 40px -8px rgba(14, 165, 233, 0.6);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.ms-chat-fab::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid rgba(14, 165, 233, 0.45);
+  animation: ms-pulse 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.ms-chat-fab:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.5), 0 16px 48px -8px rgba(14, 165, 233, 0.75);
+}
+.ms-chat-fab:focus-visible {
+  outline: 2px solid #06b6d4;
+  outline-offset: 4px;
+}
+.ms-chat-fab-label {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translate(6px, -50%);
+  padding: 7px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f0f6ff;
+  background: rgba(8, 15, 30, 0.92);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.ms-chat-fab:hover .ms-chat-fab-label,
+.ms-chat-fab:focus-visible .ms-chat-fab-label {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+@media (hover: none) {
+  .ms-chat-fab-label {
+    display: none;
+  }
+}
+
+/* Own palette (MS_DARK values): the panel portals out of the landing scope and
+   must not redefine shadcn's HSL --primary/--accent/--border/--muted. */
+.ms-chat-panel {
+  --chat-text: #f0f6ff;
+  --chat-text2: #94a3b8;
+  --chat-muted: #64748b;
+  --chat-hairline: rgba(255, 255, 255, 0.08);
+  --chat-primary: #0ea5e9;
+  --chat-accent: #06b6d4;
+  --chat-primary-soft: rgba(14, 165, 233, 0.1);
+  --chat-border-accent: rgba(14, 165, 233, 0.4);
+  --chat-glass-border: rgba(14, 165, 233, 0.22);
+  --chat-success: #10b981;
+  --chat-warning: #f59e0b;
+  --chat-warning-soft: rgba(245, 158, 11, 0.1);
+  --chat-on-primary: #06121f;
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  background: rgba(8, 15, 30, 0.94);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-color: var(--chat-glass-border);
+  color: var(--chat-text);
+}
+.ms-chat-head {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--chat-hairline);
+}
+.ms-chat-avatar {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--chat-on-primary);
+  background: linear-gradient(135deg, var(--chat-primary), var(--chat-accent));
+}
+.ms-chat-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--chat-text2);
+}
+.ms-chat-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--chat-warning);
+  border-color: rgba(245, 158, 11, 0.4);
+  background: var(--chat-warning-soft);
+}
+.ms-chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+.ms-chat-msg {
+  align-self: flex-start;
+  max-width: 88%;
+  padding: 11px 14px;
+  border-radius: 14px 14px 14px 4px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--chat-text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--chat-hairline);
+  animation: ms-rise 0.3s ease both;
+}
+.ms-chat-msg.is-user {
+  align-self: flex-end;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--chat-primary-soft);
+  border-color: var(--chat-border-accent);
+}
+.ms-chat-cta {
+  margin-top: 10px;
+}
+.ms-chat-typing {
+  display: inline-flex;
+  gap: 5px;
+  padding: 14px 16px;
+}
+.ms-chat-typing > span[aria-hidden] {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--chat-text2);
+  animation: ms-pulse 1s ease-in-out infinite;
+}
+.ms-chat-typing > span[aria-hidden]:nth-child(3) {
+  animation-delay: 0.15s;
+}
+.ms-chat-typing > span[aria-hidden]:nth-child(4) {
+  animation-delay: 0.3s;
+}
+.ms-chat-composer {
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--chat-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ms-chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ms-chat-suggestion {
+  height: auto;
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  white-space: normal;
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 500;
+  background: transparent;
+}
+.ms-chat-input {
+  max-height: 128px;
+  font-size: 14px;
+}
+.ms-chat-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--chat-muted);
+}
+.ms-chat-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  font: inherit;
+  color: var(--chat-text2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+.ms-chat-reset:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .ms-chat-fab {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-chat-fab::after,
+  .ms-chat-typing > span[aria-hidden],
+  .ms-chat-msg {
+    animation: none;
+  }
+}
+
+/* Placeholders must not read as filled-in values. */
+.ms-contact-form ::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+/* Contact form: phone + email side by side, stacked on narrow columns. */
+.ms-contact-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 480px) {
+  .ms-contact-pair {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
 }

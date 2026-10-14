@@ -35,6 +35,14 @@ export default defineConfig({
           if (id.includes("node_modules/lucide-react/")) {
             return "vendor-icons";
           }
+          // Radix used only by the lazy AI chat demo: no manual chunk, so Rollup
+          // keeps them in its lazy chunk instead of the eager vendor-ui.
+          if (id.includes("node_modules/@radix-ui/react-scroll-area/") ||
+              id.includes("node_modules/@radix-ui/react-avatar/") ||
+              id.includes("node_modules/@radix-ui/react-use-is-hydrated/") ||
+              id.includes("node_modules/@radix-ui/number/")) {
+            return undefined;
+          }
           // Radix UI primitives + class-variance-authority + clsx
           if (id.includes("node_modules/@radix-ui/") ||
               id.includes("node_modules/class-variance-authority/") ||
