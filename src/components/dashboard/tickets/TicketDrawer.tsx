@@ -25,7 +25,6 @@ interface Props {
    * with no argument when a full reload is required (e.g. after conversion).
    */
   onUpdated: (updated?: Ticket) => void;
-  portalBaseUrl: string;
 }
 
 function ChatBubble({ msg }: { msg: TicketMessage }) {
@@ -46,7 +45,7 @@ function ChatBubble({ msg }: { msg: TicketMessage }) {
   );
 }
 
-export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalBaseUrl }: Props) {
+export default function TicketDrawer({ ticket, open, onClose, onUpdated }: Props) {
   const { toast } = useToast();
   const { userType } = useAuth();
   const isAdmin = userType === 0;
@@ -157,8 +156,11 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated, portalB
     if (!local || !reply.trim()) return;
     setSending(true);
     try {
-      await addTeamMessage(local.id, "MultiStack Team", reply.trim());
-      await notifyTeamReply(local, reply.trim(), `${portalBaseUrl}/client/[token]`);
+      const messageId = await addTeamMessage(local.id, "MultiStack Team", reply.trim());
+      // Internal sub-tickets have no client e-mail: nothing to notify.
+      if (local.client_email && !(await notifyTeamReply(local.id, messageId))) {
+        toast({ title: "Respuesta guardada", description: "No se pudo enviar el aviso por correo al cliente." });
+      }
       setReply("");
       loadMessages();
       applyPatch({ updated_at: new Date().toISOString() });

@@ -16,11 +16,16 @@ token_refresh      = 300
 enabled   = true
 sql_paths = ["./seed.sql"]
 
+# Called by Supabase Auth (Send Email Hook), not by browsers: no user JWT.
+# Authenticity is enforced in-function with the Standard Webhooks signature
+# (SEND_EMAIL_HOOK_SECRET) — see send-auth-email/handler.ts.
 [functions.send-auth-email]
 verify_jwt = false
 
+# Staff-only. The gateway requires a JWT and the function additionally resolves
+# the user, checks the role and reads the ticket under RLS (handler.ts).
 [functions.send-notification]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-welcome-email]
 verify_jwt = false
