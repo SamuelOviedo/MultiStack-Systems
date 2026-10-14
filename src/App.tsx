@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
 import BrandLoader from "@/components/common/BrandLoader";
+import RecoveryRedirect from "@/components/auth/RecoveryRedirect";
 
 // Pages cargadas al inicio (rutas públicas críticas — no se lazy-load)
 import Index from "./pages/marketing/Index.tsx";
@@ -22,6 +23,7 @@ const MisSolicitudes        = lazy(() => import("./pages/client/MisSolicitudes.t
 const ClientPortal          = lazy(() => import("./pages/client/ClientPortal.tsx"));
 const AuthCallback          = lazy(() => import("./pages/auth/AuthCallback.tsx"));
 const ResetPassword         = lazy(() => import("./pages/auth/ResetPassword.tsx"));
+const UpdatePassword        = lazy(() => import("./pages/auth/UpdatePassword.tsx"));
 const PoliticaDePrivacidad  = lazy(() => import("./pages/legal/PoliticaDePrivacidad.tsx"));
 const TerminosDelServicio   = lazy(() => import("./pages/legal/TerminosDelServicio.tsx"));
 const NotFound              = lazy(() => import("./pages/marketing/NotFound.tsx"));
@@ -42,6 +44,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <RecoveryRedirect />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -82,6 +85,7 @@ const App = () => (
               <Route path="/client/:token" element={<ClientPortal />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />
+              <Route path="/auth/update-password" element={<UpdatePassword />} />
               <Route path="/politica-de-privacidad" element={<PoliticaDePrivacidad />} />
               <Route path="/terminos-del-servicio" element={<TerminosDelServicio />} />
               <Route path="*" element={<NotFound />} />

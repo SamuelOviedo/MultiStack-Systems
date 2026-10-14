@@ -61,6 +61,8 @@ describe("ProtectedRoute — loading state", () => {
       user: null,
       userType: null,
       loading: true,
+      recoveryPending: false,
+      finishRecovery: vi.fn(),
       signOut: mockSignOut,
     });
 
@@ -78,6 +80,8 @@ describe("ProtectedRoute — no session", () => {
       user: null,
       userType: null,
       loading: false,
+      recoveryPending: false,
+      finishRecovery: vi.fn(),
       signOut: mockSignOut,
     });
 
@@ -95,6 +99,8 @@ describe("ProtectedRoute — email not confirmed", () => {
       user: unconfirmedSession.user as any,
       userType: 2,
       loading: false,
+      recoveryPending: false,
+      finishRecovery: vi.fn(),
       signOut: mockSignOut,
     });
 
@@ -112,6 +118,8 @@ describe("ProtectedRoute — authorized access", () => {
       user: confirmedSession.user as any,
       userType: 0,
       loading: false,
+      recoveryPending: false,
+      finishRecovery: vi.fn(),
       signOut: mockSignOut,
     });
 
@@ -126,6 +134,8 @@ describe("ProtectedRoute — authorized access", () => {
       user: confirmedSession.user as any,
       userType: 1,
       loading: false,
+      recoveryPending: false,
+      finishRecovery: vi.fn(),
       signOut: mockSignOut,
     });
 
@@ -142,6 +152,8 @@ describe("ProtectedRoute — redirect logic for unauthorized userType", () => {
       user: confirmedSession.user as any,
       userType: 2,
       loading: false,
+      recoveryPending: false,
+      finishRecovery: vi.fn(),
       signOut: mockSignOut,
     });
 
@@ -157,6 +169,8 @@ describe("ProtectedRoute — redirect logic for unauthorized userType", () => {
       user: confirmedSession.user as any,
       userType: 0,
       loading: false,
+      recoveryPending: false,
+      finishRecovery: vi.fn(),
       signOut: mockSignOut,
     });
 

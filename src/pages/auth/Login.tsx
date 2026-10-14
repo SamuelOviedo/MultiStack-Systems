@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { signInWithOAuth, signInWithPassword } from "@/lib/auth";
+import { describeAuthError, signInWithOAuth, signInWithPassword } from "@/lib/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,10 +50,11 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, userType, loading: authLoading } = useAuth();
+  const { user, userType, loading: authLoading, recoveryPending } = useAuth();
 
   useEffect(() => {
-    if (authLoading || !user || userType === null) return;
+    // A recovery-link session must set a new password first (RecoveryRedirect).
+    if (authLoading || !user || userType === null || recoveryPending) return;
 
     // Clean up any stored service intent from landing CTA
     sessionStorage.removeItem("postLoginIntent");
@@ -71,7 +72,7 @@ const Login = () => {
     } else {
       navigate("/solicitudes", { replace: true });
     }
-  }, [user, userType, authLoading, navigate, location.search]);
+  }, [user, userType, authLoading, recoveryPending, navigate, location.search]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +83,7 @@ const Login = () => {
     } catch (error) {
       toast({
         title: "Error de autenticación",
-        description: error instanceof Error ? error.message : String(error),
+        description: describeAuthError(error),
         variant: "destructive",
       });
       setLoading(false);

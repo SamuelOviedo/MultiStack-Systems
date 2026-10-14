@@ -6,7 +6,7 @@ import BrandLoader from "@/components/common/BrandLoader";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const { user, userType, loading } = useAuth();
+  const { user, userType, loading, recoveryPending } = useAuth();
   const exchanged = useRef(false);
 
   // Step 1: exchange the OAuth code for a session (runs once)
@@ -17,7 +17,9 @@ const AuthCallback = () => {
     const code = new URLSearchParams(window.location.search).get("code");
 
     if (!code) {
-      navigate("/login", { replace: true });
+      // Recovery links arrive via the URL hash (implicit flow): let
+      // RecoveryRedirect take the user to the new-password screen instead.
+      if (!recoveryPending) navigate("/login", { replace: true });
       return;
     }
 
@@ -26,11 +28,11 @@ const AuthCallback = () => {
     });
     // On success: onAuthStateChange in useAuth picks up the session.
     // Step 2 below waits for userType to resolve before redirecting.
-  }, [navigate]);
+  }, [navigate, recoveryPending]);
 
   // Step 2: once the session and userType are fully loaded, redirect
   useEffect(() => {
-    if (loading || !user || userType === null) return;
+    if (loading || !user || userType === null || recoveryPending) return;
 
     // Clean up any stored service intent from landing CTA
     sessionStorage.removeItem("postLoginIntent");
@@ -40,7 +42,7 @@ const AuthCallback = () => {
     } else {
       navigate("/solicitudes", { replace: true });
     }
-  }, [user, userType, loading, navigate]);
+  }, [user, userType, loading, recoveryPending, navigate]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">

@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { resolveSupabaseEnv } from './env';
+import { captureAuthRedirect } from '@/lib/authRedirect';
 
 // Fail fast: an empty, undefined or placeholder URL/key throws a descriptive
 // SupabaseConfigError here instead of creating a client that sends auth
@@ -11,6 +12,10 @@ const { url: SUPABASE_URL, publishableKey: SUPABASE_PUBLISHABLE_KEY } = resolveS
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
+
+// Must run before createClient(): supabase-js strips the URL hash while it
+// initializes, and the recovery / link-error markers live in that hash.
+if (typeof window !== 'undefined') captureAuthRedirect();
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
