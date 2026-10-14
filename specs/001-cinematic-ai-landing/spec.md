@@ -465,3 +465,9 @@ Pendiente: F4 (`AiChatWidgetDemo`), F5 (Lighthouse, SEO/OG del pivot). QA de scr
 Mediciones: entrada 28.37 KB gzip (+0.40 KB vs F3: FAB + wrapper lazy); `vendor-ui` 37.56 KB (+0.03 KB); chat en chunk lazy de 8.06 KB gzip.
 
 Pendiente: QA de scrub con videos reales; Lighthouse sobre build de producción desplegado (SC-001…SC-007); regenerar la imagen OG cuando exista el poster definitivo del hero.
+
+## Auditoría Navbar (2026-10-13)
+
+Hallazgos (medidos con Playwright antes del cambio): (1) hamburguesa visible en desktop — el `display:flex` inline anulaba `md:hidden`; (2) breakpoint `md` → a 800px la barra desbordaba 133px; (3) `offsetTop - 60` dejaba las secciones 12px bajo la barra de 72px; (4) panel móvil sin semántica de diálogo; (5) sin estado activo.
+
+Cambios: enlaces y auth desktop desde `lg` (1024px), debajo solo hamburguesa; drawer con shadcn `Sheet` (`MobileNavDrawer`, lazy al primer hover/focus/touch del botón para no sumar react-remove-scroll al chunk de entrada), cierre automático al elegir enlace, cierre al crecer a desktop, foco devuelto al botón; `useScrollSpy` (línea al 40% del viewport) → `aria-current="location"` en desktop y drawer; hover con subrayado `scaleX` (sin layout shift) y `transition-colors duration-200`; navegación por rect (`top − 72`); overlay solo si `variant="overlay"` **y** ruta `/`. Entrada +0.66 KB gzip.

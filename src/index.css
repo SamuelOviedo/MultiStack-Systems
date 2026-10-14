@@ -222,9 +222,10 @@
 @keyframes ms-pulse   { 0%,100%{opacity:1} 50%{opacity:0.35} }
 @keyframes ms-spin    { to{transform:rotate(360deg)} }
 
-/* Nav section links + ghost command buttons */
-.ms-navlink { transition: color .2s, background .2s; }
-.ms-navlink:hover { color: var(--text); background: var(--hover-bg); }
+/* Nav ghost command buttons (section links use Tailwind classes in Navbar.tsx) */
+.ms-mobile-link { transition: background .2s; }
+.ms-mobile-link:hover { background: var(--hover-bg); }
+.ms-mobile-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .ms-cmd { transition: all .2s; }
 .ms-cmd-ghost:hover { color: var(--text); background: var(--hover-bg); border-color: var(--border); }
