@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { chatReducer, initialChatState } from "./chatMachine";
+import { AGENT_NAME } from "./agent";
 import { SUGGESTIONS, getDemoReply, typingDelay } from "./demoScript";
 
 const MOBILE_QUERY = "(max-width: 767px)";
@@ -30,10 +31,11 @@ interface AiChatWidgetDemoProps {
  * del fondo; el retorno del foco al disparador (FAB o CTA del hero) se hace
  * aquí, porque sin <SheetTrigger> Radix no sabe a quién devolverlo.
  *
- * Se fuerza el tema oscuro con la clase `dark` (tokens HSL de shadcn) porque
- * el panel flota sobre las escenas cinemáticas (spec C-3). NO se le aplican
- * los tokens MS: `--primary`/`--accent` en hex romperían `hsl(var(--primary))`
- * de los primitivos shadcn. El CSS propio usa variables `--chat-*`.
+ * Sigue el tema GLOBAL (clase `dark` en <html>, next-themes) con las clases
+ * semánticas de shadcn (bg-background, text-foreground, bg-muted, border-border…),
+ * así cambia en vivo con el Theme Switcher. NO se le aplican los tokens MS
+ * (hex): romperían `hsl(var(--primary))` de los primitivos. Los tokens que no
+ * llegan a AA en texto pequeño se ajustan solo dentro del panel (.ms-chat-panel).
  */
 const AiChatWidgetDemo = ({ open, onOpenChange, onRequestDiagnosis }: AiChatWidgetDemoProps) => {
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
@@ -97,9 +99,11 @@ const AiChatWidgetDemo = ({ open, onOpenChange, onRequestDiagnosis }: AiChatWidg
       <SheetContent
         side={mobile ? "bottom" : "right"}
         closeLabel="Cerrar chat"
-        overlayClassName="bg-black/40 backdrop-blur-[2px]"
+        overlayClassName="bg-slate-950/25 backdrop-blur-[2px] dark:bg-black/50"
         className={cn(
-          "dark ms-chat-panel flex flex-col gap-0 p-0 text-foreground",
+          "ms-chat-panel flex flex-col gap-0 border-border p-0 text-foreground",
+          // 95%: a hint of glass without the page's blurred shapes ghosting through.
+          "bg-background/95 backdrop-blur-xl",
           mobile ? "h-[85dvh] rounded-t-2xl" : "w-full sm:max-w-md",
         )}
         onOpenAutoFocus={(e) => {
@@ -125,35 +129,48 @@ const AiChatWidgetDemo = ({ open, onOpenChange, onRequestDiagnosis }: AiChatWidg
           target?.focus({ preventScroll: true });
         }}
       >
-        <SheetHeader className="ms-chat-head space-y-0 text-left">
+        <SheetHeader className="ms-chat-head space-y-0 border-b border-border text-left">
           <div className="flex items-center gap-3 pr-8">
             <Avatar className="h-10 w-10 rounded-xl">
-              <AvatarFallback className="ms-chat-avatar rounded-xl">IA</AvatarFallback>
+              <AvatarFallback className="ms-chat-avatar rounded-xl bg-gradient-to-br from-sky-700 to-cyan-700 text-white">
+                OT
+              </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <SheetTitle className="text-base">Agente MultiStack</SheetTitle>
-              <div className="ms-chat-online">
-                <span aria-hidden="true" className="ms-chip-dot" style={{ background: "var(--chat-success)" }} />
-                en línea
+              <SheetTitle className="text-base">{AGENT_NAME}</SheetTitle>
+              <div className="ms-chat-online text-muted-foreground">
+                <span aria-hidden="true" className="h-1.5 w-1.5 flex-none rounded-full bg-emerald-500" />
+                en línea · asistente de MultiStack
               </div>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 pt-3">
-            <Badge variant="outline" className="ms-chat-badge">
+            <Badge
+              variant="outline"
+              className="ms-chat-badge border-amber-600/40 bg-amber-50 text-amber-800 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-300"
+            >
               Demo — respuestas simuladas
             </Badge>
           </div>
           <SheetDescription className="sr-only">
-            Conversación de demostración con un agente de IA. Las respuestas son simuladas y nada sale de tu
-            navegador.
+            Conversación de demostración con {AGENT_NAME}, el asistente de IA de MultiStack. Las respuestas son
+            simuladas y nada sale de tu navegador.
           </SheetDescription>
         </SheetHeader>
 
         <ScrollArea ref={scrollRef} className="min-h-0 flex-1">
           <div role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversación" className="ms-chat-messages">
             {state.messages.map((msg) => (
-              <div key={msg.id} className={cn("ms-chat-msg", msg.from === "user" && "is-user")}>
-                <span className="sr-only">{msg.from === "user" ? "Tú:" : "Agente:"} </span>
+              <div
+                key={msg.id}
+                className={cn(
+                  "ms-chat-msg border text-foreground",
+                  msg.from === "user"
+                    ? "is-user border-primary/30 bg-primary/10"
+                    : "border-border bg-muted/60 dark:bg-muted/40",
+                )}
+              >
+                <span className="sr-only">{msg.from === "user" ? "Tú:" : `${AGENT_NAME}:`} </span>
                 <p>{msg.text}</p>
                 {msg.cta && (
                   <Button size="sm" className="ms-chat-cta" onClick={requestDiagnosis}>
@@ -163,17 +180,17 @@ const AiChatWidgetDemo = ({ open, onOpenChange, onRequestDiagnosis }: AiChatWidg
               </div>
             ))}
             {typing && (
-              <div className="ms-chat-msg ms-chat-typing">
-                <span className="sr-only">El agente está escribiendo…</span>
-                <span aria-hidden="true" />
-                <span aria-hidden="true" />
-                <span aria-hidden="true" />
+              <div className="ms-chat-msg ms-chat-typing border border-border bg-muted/60 dark:bg-muted/40">
+                <span className="sr-only">{AGENT_NAME} está escribiendo…</span>
+                <span aria-hidden="true" className="bg-muted-foreground" />
+                <span aria-hidden="true" className="bg-muted-foreground" />
+                <span aria-hidden="true" className="bg-muted-foreground" />
               </div>
             )}
           </div>
         </ScrollArea>
 
-        <div className="ms-chat-composer">
+        <div className="ms-chat-composer border-t border-border">
           {suggestions.length > 0 && (
             <div className="ms-chat-suggestions" aria-label="Preguntas sugeridas">
               {suggestions.map((s) => (
@@ -182,7 +199,7 @@ const AiChatWidgetDemo = ({ open, onOpenChange, onRequestDiagnosis }: AiChatWidg
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="ms-chat-suggestion"
+                  className="ms-chat-suggestion bg-transparent hover:border-primary/40 hover:bg-primary/10 hover:text-foreground"
                   disabled={typing}
                   onClick={() => send(s)}
                 >
@@ -212,11 +229,11 @@ const AiChatWidgetDemo = ({ open, onOpenChange, onRequestDiagnosis }: AiChatWidg
               <SendHorizontal />
             </Button>
           </form>
-          <div className="ms-chat-foot">
+          <div className="ms-chat-foot text-muted-foreground">
             <span>Demo sin conexión: tus mensajes no salen de tu navegador.</span>
             <button
               type="button"
-              className="ms-chat-reset"
+              className="ms-chat-reset text-muted-foreground transition-colors hover:text-foreground"
               onClick={() => dispatch({ type: "RESET" })}
               disabled={state.messages.length === 1}
             >
