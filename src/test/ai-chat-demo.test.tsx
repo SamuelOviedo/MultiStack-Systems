@@ -78,7 +78,7 @@ describe("AiChatLauncher · carga diferida", () => {
     await act(() => new Promise((r) => setTimeout(r, 20)));
     expect(screen.queryByTestId("chat-panel")).toBeNull();
 
-    fireEvent.pointerEnter(screen.getByRole("button", { name: /Probar el agente de IA/ }));
+    fireEvent.pointerEnter(screen.getByRole("button", { name: /Hablar con Otto/ }));
     expect(props.onArm).toHaveBeenCalled();
     rerender(<AiChatLauncher {...props} armed />);
     expect(await screen.findByTestId("chat-panel")).toBeInTheDocument();
@@ -93,9 +93,14 @@ describe("AiChatWidgetDemo", () => {
     return { onOpenChange, onRequestDiagnosis };
   };
 
-  it("se rotula como demo, saluda y ofrece sugerencias", () => {
+  it("se presenta como Otto, se rotula como demo, saluda y ofrece sugerencias", () => {
     renderOpen();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Otto" })).toBeInTheDocument();
+    expect(screen.getByText("OT")).toBeInTheDocument();
+    expect(GREETING).toBe(
+      "¡Hola! Soy Otto, el asistente de MultiStack. Pregúntame cómo puedo quitarte el trabajo manual de encima, cuánto tardamos en conectar tus sistemas o cómo funcionan nuestros agentes RAG.",
+    );
     expect(screen.getByText("Demo — respuestas simuladas")).toBeInTheDocument();
     expect(screen.getByText(GREETING)).toBeInTheDocument();
     expect(screen.getByRole("log")).toHaveAttribute("aria-live", "polite");
@@ -105,11 +110,11 @@ describe("AiChatWidgetDemo", () => {
   it("muestra 'escribiendo…' y luego la respuesta guionizada", async () => {
     renderOpen();
     fireEvent.click(screen.getByRole("button", { name: SUGGESTIONS[1] }));
-    expect(screen.getByText("El agente está escribiendo…")).toBeInTheDocument();
+    expect(screen.getByText("Otto está escribiendo…")).toBeInTheDocument();
     // La sugerencia usada desaparece de los chips.
     expect(screen.queryByRole("button", { name: SUGGESTIONS[1] })).toBeNull();
     await waitFor(() => expect(screen.getByText(/3 a 4 semanas/)).toBeInTheDocument(), { timeout: 2500 });
-    expect(screen.queryByText("El agente está escribiendo…")).toBeNull();
+    expect(screen.queryByText("Otto está escribiendo…")).toBeNull();
   });
 
   it("Enter envía, Shift+Enter no", async () => {
@@ -121,6 +126,15 @@ describe("AiChatWidgetDemo", () => {
     fireEvent.keyDown(input, { key: "Enter" });
     expect((input as HTMLTextAreaElement).value).toBe("");
     expect(screen.getByText("¿cuánto cuesta?")).toBeInTheDocument();
+  });
+
+  it("no fuerza un tema: hereda el global con tokens semánticos de shadcn", () => {
+    renderOpen();
+    const panel = screen.getByRole("dialog");
+    const classes = panel.className.split(/\s+/);
+    expect(classes).not.toContain("dark"); // antes forzaba el modo oscuro
+    expect(classes).toEqual(expect.arrayContaining(["ms-chat-panel", "bg-background/95", "text-foreground"]));
+    expect(panel.getAttribute("style") ?? "").not.toMatch(/--chat-|#[0-9a-f]{6}|rgba\(/i);
   });
 
   it("el CTA cierra el panel para llevar al formulario de contacto", async () => {

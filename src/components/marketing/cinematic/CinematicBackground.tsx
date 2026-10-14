@@ -1,194 +1,142 @@
-import { useEffect, useRef, useState } from "react";
-import type { CinematicScene, CinematicSceneId, ScrubSource } from "@/types/cinematic";
-import { useAfterLoadIdle, useCinematicEnabled } from "@/hooks/useCinematicEnabled";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import type { CinematicScene, CinematicSceneId, CinematicTheme, ScrubSource } from "@/types/cinematic";
+import { sceneImages } from "@/lib/cinematicScenes";
+import { cinematicVars } from "@/lib/msTokens";
+import { preloadImage } from "@/lib/preloadImage";
+import { isConstrainedNetwork, useAfterLoadIdle, useCinematicEnabled } from "@/hooks/useCinematicEnabled";
+import { useCinematicTheme } from "@/hooks/useCinematicTheme";
 
-/** Max time a pending scene waits for its first video frame before crossfading on its poster. */
-const VIDEO_WAIT_MS = 1200;
-const MOBILE_QUERY = "(max-width: 768px)";
-/** Seek threshold for scrub mode: one frame at 24 fps. Skips redundant seeks. */
-const FRAME_S = 1 / 24;
+// Ken Burns / slideshow / scrub (framer-motion) live in a lazy chunk shared
+// with CinematicChapters: this component sits in the entry chunk that
+// /dashboard also loads.
+const AnimatedSequence = lazy(() => import("./AnimatedSequence"));
 
 type Slot = 0 | 1;
 type SlotPair<T> = [T, T];
 
-let webmSupport: boolean | undefined;
-function canPlayWebm(): boolean {
-  if (webmSupport === undefined) {
-    webmSupport = document.createElement("video").canPlayType('video/webm; codecs="vp9"') !== "";
-  }
-  return webmSupport;
+/** What a buffer shows: a scene, in a theme, resuming at a frame. */
+interface LayerSpec {
+  key: string;
+  sceneId: CinematicSceneId;
+  theme: CinematicTheme;
+  startIndex: number;
 }
 
-const isMobileViewport = () =>
-  typeof window.matchMedia === "function" && window.matchMedia(MOBILE_QUERY).matches;
+const layerKey = (sceneId: CinematicSceneId, theme: CinematicTheme) => `${sceneId}:${theme}`;
 
 interface SceneLayerProps {
+  spec: LayerSpec;
   scene: CinematicScene;
   /** Front layer: on top, fully opaque (fades in when it takes over). */
   isFront: boolean;
-  /** Hidden buffer preparing the next scene. */
+  /** Hidden buffer preparing the next scene or theme. */
   isPending: boolean;
-  /** Layer may request its video (global gates passed + layer is front or pending). */
-  loadVideo: boolean;
+  /**
+   * Mount the animated sequence (motion allowed + after load/idle). Stays
+   * mounted on the outgoing layer too, paused: unmounting it mid-crossfade
+   * would reveal the static frame 1 underneath (a visible jump).
+   */
+  animate: boolean;
   playing: boolean;
-  mobile: boolean;
-  /** Smoothed scroll progress for scrub scenes; ignored in loop mode. */
   scrub?: ScrubSource;
-  onReady: (id: CinematicSceneId) => void;
+  onReady: (key: string) => void;
+  onFrameReport: (sceneId: CinematicSceneId, index: number) => void;
 }
 
-type VideoState = "loading" | "shown" | "failed";
-
 /**
- * One buffer of the A/B pair. The poster <img> is always painted underneath;
- * the <video> sits on top at opacity 0 and is revealed only once a real frame
- * has been presented, so neither a black frame nor a src swap is ever visible.
+ * One buffer of the A/B pair, bound to ONE theme: its frames, its scrims and
+ * its token values switch together, so a theme change crossfades the whole
+ * look (image + scrim) instead of snapping the scrim over the old image.
+ * The static frame is instant/LCP-friendly and is the whole experience under
+ * reduced motion; the animated sequence mounts on top when allowed. Ready =
+ * that static frame is decoded.
  */
 const SceneLayer = ({
+  spec,
   scene,
   isFront,
   isPending,
-  loadVideo,
+  animate,
   playing,
-  mobile,
   scrub,
   onReady,
+  onFrameReport,
 }: SceneLayerProps) => {
   const imgRef = useRef<HTMLImageElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [posterLoaded, setPosterLoaded] = useState(false);
-  const [videoState, setVideoState] = useState<VideoState>("loading");
-  const [waitExpired, setWaitExpired] = useState(false);
+  const [ready, setReady] = useState(false);
+  const currentImages = sceneImages(scene, spec.theme);
+  const startIndex = scene.mode === "loop" ? spec.startIndex % currentImages.length : 0;
 
-  const wantsVideo = loadVideo && scene.videoReady && videoState !== "failed";
-  const isScrub = scene.mode === "scrub";
-  const sources = mobile ? scene.video.mobile : scene.video.desktop;
-  const src = canPlayWebm() ? sources.webm : sources.mp4;
-
-  // Cached posters can finish before React attaches onLoad.
   useEffect(() => {
-    if (imgRef.current?.complete) setPosterLoaded(true);
+    const img = imgRef.current;
+    if (!img) return;
+    let cancelled = false;
+    let frame = 0;
+    // Two frames after decode: guarantees the hidden (opacity 0) state was
+    // painted, so promoting this layer to front always runs the CSS crossfade
+    // instead of popping in when the frame came straight from cache.
+    const markReady = () => {
+      if (cancelled || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => {
+          if (!cancelled) setReady(true);
+        });
+      });
+    };
+    // decode() resolves once the bitmap can be painted (immediately if cached).
+    const decodeThenReady = () => {
+      if (typeof img.decode === "function") img.decode().then(markReady, markReady);
+      else markReady();
+    };
+    if (img.complete) decodeThenReady();
+    else img.addEventListener("load", decodeThenReady, { once: true });
+    img.addEventListener("error", markReady, { once: true });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      img.removeEventListener("load", decodeThenReady);
+      img.removeEventListener("error", markReady);
+    };
   }, []);
 
-  // Video mount: force muted state (React does not reflect `muted` as an
-  // attribute, and iOS checks it for inline autoplay) + cap the wait.
   useEffect(() => {
-    const el = videoRef.current;
-    if (!wantsVideo || !el) return;
-    el.muted = true;
-    el.defaultMuted = true;
-    el.setAttribute("muted", "");
-    el.setAttribute("disableremoteplayback", "");
-    const timer = window.setTimeout(() => setWaitExpired(true), VIDEO_WAIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [wantsVideo]);
+    if (ready) onReady(spec.key);
+  }, [ready, spec.key, onReady]);
 
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!wantsVideo || !el) return;
-    if (isScrub) {
-      el.pause(); // scrub: position comes from scroll, never from playback
-    } else if (playing) {
-      el.play().catch((err: DOMException) => {
-        // Autoplay blocked / unsupported → keep the poster. AbortError just
-        // means a pause() interrupted play(); not a failure.
-        if (err.name === "NotAllowedError" || err.name === "NotSupportedError") {
-          setVideoState((s) => (s === "shown" ? s : "failed"));
-        }
-      });
-    } else {
-      el.pause();
-    }
-  }, [playing, wantsVideo, isScrub]);
-
-  // Scrub ("steady gimbal"): map the spring-smoothed progress to currentTime.
-  // Smoothing lives in the source (framer-motion useSpring); here we only
-  // avoid redundant seeks and never queue a seek on top of one in flight.
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!wantsVideo || !el || !isScrub || !scrub) return;
-    let pending = false;
-    const seek = () => {
-      if (!Number.isFinite(el.duration) || el.duration <= 0) return;
-      if (el.seeking) {
-        pending = true;
-        return;
-      }
-      const p = Math.min(Math.max(scrub.get(), 0), 1);
-      const t = p * Math.max(el.duration - 0.05, 0);
-      if (Math.abs(t - el.currentTime) >= FRAME_S) el.currentTime = t;
-    };
-    const onSeeked = () => {
-      if (!pending) return;
-      pending = false;
-      seek();
-    };
-    const unsubscribe = scrub.on("change", seek);
-    el.addEventListener("loadedmetadata", seek);
-    el.addEventListener("seeked", onSeeked);
-    seek();
-    return () => {
-      unsubscribe();
-      el.removeEventListener("loadedmetadata", seek);
-      el.removeEventListener("seeked", onSeeked);
-    };
-  }, [wantsVideo, isScrub, scrub]);
-
-  const reveal = () => {
-    const el = videoRef.current;
-    if (!el || videoState === "shown") return;
-    if (typeof el.requestVideoFrameCallback === "function") {
-      el.requestVideoFrameCallback(() => setVideoState("shown"));
-    } else {
-      setVideoState("shown");
-    }
-  };
-
-  const ready =
-    posterLoaded && (!wantsVideo || videoState !== "loading" || waitExpired);
-
-  useEffect(() => {
-    if (ready) onReady(scene.id);
-  }, [ready, scene.id, onReady]);
+  const reportFrame = useCallback((index: number) => onFrameReport(scene.id, index), [onFrameReport, scene.id]);
 
   return (
     // Incoming layer fades in on top while the outgoing one stays opaque
     // underneath → no mid-crossfade brightness dip.
     <div
       className="ms-cine-layer"
-      style={{ zIndex: isFront ? 2 : 1, opacity: isFront || !isPending ? 1 : 0 }}
+      data-theme={spec.theme}
+      style={{ ...cinematicVars(spec.theme), zIndex: isFront ? 2 : 1, opacity: isFront || !isPending ? 1 : 0 }}
     >
       <img
         ref={imgRef}
         className="ms-cine-media"
-        src={scene.poster.desktop}
-        srcSet={`${scene.poster.mobile} 1280w, ${scene.poster.desktop} 1920w`}
-        sizes="100vw"
+        src={currentImages[startIndex]}
         width={1920}
         height={1080}
         alt=""
         decoding="async"
         draggable={false}
-        onLoad={() => setPosterLoaded(true)}
-        onError={() => setPosterLoaded(true)}
       />
-      {wantsVideo && (
-        <video
-          ref={videoRef}
-          className="ms-cine-media ms-cine-video"
-          style={{ opacity: videoState === "shown" ? 1 : 0 }}
-          src={src}
-          muted
-          playsInline
-          loop={!isScrub}
-          preload="auto"
-          disablePictureInPicture
-          onPlaying={isScrub ? undefined : reveal}
-          // Scrub videos stay paused: loadeddata = first frame decoded.
-          onLoadedData={isScrub ? () => setVideoState("shown") : undefined}
-          onError={() => setVideoState("failed")}
-        />
+      {animate && (
+        <Suspense fallback={null}>
+          <AnimatedSequence
+            images={currentImages}
+            mode={scene.mode}
+            playing={playing}
+            scrub={scrub}
+            startIndex={startIndex}
+            onFrameChange={isFront ? reportFrame : undefined}
+          />
+        </Suspense>
       )}
+      <div className="ms-cine-scrim" />
+      {scene.scrim === "side" && <div className="ms-cine-scrim-side" />}
     </div>
   );
 };
@@ -203,18 +151,18 @@ interface CinematicBackgroundProps {
 }
 
 /**
- * Cinematic "steady gimbal" backdrop (spec Parte B §4).
+ * Cinematic "steady gimbal" backdrop built from theme-aware .webp sequences.
  *
  * - Fills its positioned parent; decorative (aria-hidden, no pointer events).
- * - Two permanent layers (A/B). A scene change loads into the hidden layer and
- *   crossfades only when that layer is ready → no flicker, no src swap on the
- *   visible element.
- * - No video byte is requested before `load` + idle, and never under reduced
- *   motion / Save-Data / 2g. Posters carry LCP.
- * - Plays only while on screen and the tab is visible.
- *
- * - "loop" scenes play continuously; "scrub" scenes stay paused and follow
- *   their scroll progress source (`scrubSources`).
+ * - Two permanent layers (A/B) keyed by scene + theme. A scene change OR a
+ *   theme change loads into the hidden layer and crossfades (0.8s) only once
+ *   its frame is decoded → never a blank or half-painted frame. On a theme
+ *   change the new layer resumes the frame on screen (same shot, new light).
+ * - After `load` + idle (and not on Save-Data) the opposite theme's frame for
+ *   the shot on screen is preloaded, so the Navbar theme switch is instant.
+ * - Animation (Ken Burns slideshow / scroll scrub + parallax) is lazy and
+ *   never runs under reduced motion / Save-Data / 2g.
+ * - Advances only while on screen and the tab is visible.
  */
 const CinematicBackground = ({
   scenes,
@@ -223,36 +171,55 @@ const CinematicBackground = ({
   scrubSources,
 }: CinematicBackgroundProps) => {
   const rootRef = useRef<HTMLDivElement>(null);
+  const theme = useCinematicTheme();
   const motionAllowed = useCinematicEnabled();
   const afterIdle = useAfterLoadIdle();
-  const [mobile] = useState(isMobileViewport); // fixed at mount: never swap sources mid-session
   const [inView, setInView] = useState(true);
   const [pageVisible, setPageVisible] = useState(() => document.visibilityState !== "hidden");
+  const [frameIndex, setFrameIndex] = useState<Partial<Record<CinematicSceneId, number>>>({});
 
-  const [slots, setSlots] = useState<SlotPair<CinematicSceneId | null>>([activeSceneId, null]);
-  const [readyIds, setReadyIds] = useState<SlotPair<CinematicSceneId | null>>([null, null]);
+  const activeKey = layerKey(activeSceneId, theme);
+  const [slots, setSlots] = useState<SlotPair<LayerSpec | null>>(() => [
+    { key: activeKey, sceneId: activeSceneId, theme, startIndex: 0 },
+    null,
+  ]);
+  const [readyKeys, setReadyKeys] = useState<SlotPair<string | null>>([null, null]);
   const [front, setFront] = useState<Slot>(0);
   const back: Slot = front === 0 ? 1 : 0;
 
-  // Queue a new active scene into the hidden buffer.
+  // Queue the active scene/theme into the hidden buffer.
   useEffect(() => {
-    if (slots[front] === activeSceneId || slots[back] === activeSceneId) return;
-    setReadyIds((prev) => {
-      const next: SlotPair<CinematicSceneId | null> = [...prev];
+    if (slots[front]?.key === activeKey || slots[back]?.key === activeKey) return;
+    // Theme change on the same scene → keep the shot; new scene → its first frame.
+    const sameScene = slots[front]?.sceneId === activeSceneId;
+    const startIndex = sameScene ? (frameIndex[activeSceneId] ?? 0) : 0;
+    if (!sameScene) setFrameIndex((prev) => ({ ...prev, [activeSceneId]: 0 }));
+    setReadyKeys((prev) => {
+      const next: SlotPair<string | null> = [...prev];
       next[back] = null;
       return next;
     });
     setSlots((prev) => {
-      const next: SlotPair<CinematicSceneId | null> = [...prev];
-      next[back] = activeSceneId;
+      const next: SlotPair<LayerSpec | null> = [...prev];
+      next[back] = { key: activeKey, sceneId: activeSceneId, theme, startIndex };
       return next;
     });
-  }, [activeSceneId, slots, front, back]);
+  }, [activeKey, activeSceneId, theme, slots, front, back, frameIndex]);
 
-  // Swap buffers once the pending scene is ready and still the one we want.
+  // Swap buffers once the pending layer is ready and still the one we want.
   useEffect(() => {
-    if (slots[back] === activeSceneId && readyIds[back] === activeSceneId) setFront(back);
-  }, [slots, readyIds, back, activeSceneId]);
+    if (slots[back]?.key === activeKey && readyKeys[back] === activeKey) setFront(back);
+  }, [slots, readyKeys, back, activeKey]);
+
+  // Silent preload: the opposite theme's version of the frame on screen.
+  const shownIndex = frameIndex[activeSceneId] ?? 0;
+  useEffect(() => {
+    if (!afterIdle || isConstrainedNetwork()) return;
+    const scene = scenes.find((s) => s.id === activeSceneId);
+    if (!scene) return;
+    const opposite = sceneImages(scene, theme === "light" ? "dark" : "light");
+    void preloadImage(opposite[shownIndex % opposite.length]);
+  }, [afterIdle, scenes, activeSceneId, theme, shownIndex]);
 
   useEffect(() => {
     const el = rootRef.current;
@@ -268,38 +235,40 @@ const CinematicBackground = ({
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
-  const readyHandlers = useRef<SlotPair<(id: CinematicSceneId) => void>>([
-    (id) => setReadyIds((prev) => [id, prev[1]]),
-    (id) => setReadyIds((prev) => [prev[0], id]),
+  const readyHandlers = useRef<SlotPair<(key: string) => void>>([
+    (key) => setReadyKeys((prev) => [key, prev[1]]),
+    (key) => setReadyKeys((prev) => [prev[0], key]),
   ]).current;
 
-  const videoAllowed = enabled && motionAllowed && afterIdle;
-  const activeScene = scenes.find((s) => s.id === slots[front]);
+  const handleFrameReport = useCallback((sceneId: CinematicSceneId, index: number) => {
+    setFrameIndex((prev) => (prev[sceneId] === index ? prev : { ...prev, [sceneId]: index }));
+  }, []);
+
+  const animationAllowed = enabled && motionAllowed && afterIdle;
 
   return (
     <div ref={rootRef} className="ms-cine-bg" aria-hidden="true">
       {([0, 1] as const).map((slot) => {
-        const id = slots[slot];
-        const scene = id ? scenes.find((s) => s.id === id) : undefined;
-        if (!scene) return null;
+        const spec = slots[slot];
+        const scene = spec ? scenes.find((s) => s.id === spec.sceneId) : undefined;
+        if (!spec || !scene) return null;
         const isFront = slot === front;
-        const isPending = !isFront && id === activeSceneId;
+        const isPending = !isFront && spec.key === activeKey;
         return (
           <SceneLayer
-            key={`${slot}-${scene.id}`}
+            key={`${slot}-${spec.key}`}
+            spec={spec}
             scene={scene}
             isFront={isFront}
             isPending={isPending}
-            loadVideo={videoAllowed && (isFront || isPending)}
+            animate={animationAllowed}
             playing={(isFront || isPending) && inView && pageVisible}
-            mobile={mobile}
             scrub={scrubSources?.[scene.id]}
             onReady={readyHandlers[slot]}
+            onFrameReport={handleFrameReport}
           />
         );
       })}
-      <div className="ms-cine-scrim" />
-      <div className="ms-cine-scrim-side" style={{ opacity: activeScene?.scrim === "side" ? 1 : 0 }} />
     </div>
   );
 };

@@ -1,6 +1,18 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { getSiteOrigin, getAuthEmailRedirectUrl } from "@/lib/siteUrl";
 
+/** Temporarily replaces window.location (jsdom) without `any`. */
+function withLocation<T>(location: { hostname: string; origin: string }, run: () => T): T {
+  const original = window.location;
+  Reflect.deleteProperty(window, "location");
+  Reflect.set(window, "location", location);
+  try {
+    return run();
+  } finally {
+    Reflect.set(window, "location", original);
+  }
+}
+
 describe("getSiteOrigin — with VITE_SITE_URL set", () => {
   it("returns a non-empty string", () => {
     expect(getSiteOrigin()).toBeTypeOf("string");
@@ -11,10 +23,18 @@ describe("getSiteOrigin — with VITE_SITE_URL set", () => {
     expect(getSiteOrigin().endsWith("/")).toBe(false);
   });
 
-  it("strips trailing slash from env var", () => {
+  it("strips trailing slash from env var (deployed host)", () => {
     vi.stubEnv("VITE_SITE_URL", "https://multistacksystems.com/");
-    expect(getSiteOrigin()).toBe("https://multistacksystems.com");
+    const result = withLocation({ hostname: "multistacksystems.com", origin: "https://multistacksystems.com" }, getSiteOrigin);
     vi.unstubAllEnvs();
+    expect(result).toBe("https://multistacksystems.com");
+  });
+
+  it("on localhost the local origin wins over VITE_SITE_URL (OAuth must return to the origin that stores the session)", () => {
+    vi.stubEnv("VITE_SITE_URL", "https://multistacksystems.com");
+    const result = withLocation({ hostname: "localhost", origin: "http://localhost:8080" }, getSiteOrigin);
+    vi.unstubAllEnvs();
+    expect(result).toBe("http://localhost:8080");
   });
 });
 
@@ -25,21 +45,13 @@ describe("getSiteOrigin — without VITE_SITE_URL (fallback logic)", () => {
 
   it("returns production URL when host is not localhost", () => {
     vi.stubEnv("VITE_SITE_URL", "");
-    const original = window.location;
-    delete (window as any).location;
-    (window as any).location = { hostname: "myapp.vercel.app", origin: "https://myapp.vercel.app" };
-    const result = getSiteOrigin();
-    (window as any).location = original;
+    const result = withLocation({ hostname: "myapp.vercel.app", origin: "https://myapp.vercel.app" }, getSiteOrigin);
     expect(result).toBe("https://multistacksystems.com");
   });
 
   it("returns localhost origin when host is localhost", () => {
     vi.stubEnv("VITE_SITE_URL", "");
-    const original = window.location;
-    delete (window as any).location;
-    (window as any).location = { hostname: "localhost", origin: "http://localhost:5173" };
-    const result = getSiteOrigin();
-    (window as any).location = original;
+    const result = withLocation({ hostname: "localhost", origin: "http://localhost:5173" }, getSiteOrigin);
     expect(result).toBe("http://localhost:5173");
   });
 });

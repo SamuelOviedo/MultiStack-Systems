@@ -10,11 +10,8 @@ vi.mock("@/lib/tickets", () => ({ getOpenTicketsCount: vi.fn().mockResolvedValue
 import Navbar from "@/components/common/Navbar";
 import ContactForm from "@/components/marketing/ContactForm";
 import AiServicesCatalog from "@/components/marketing/AiServicesCatalog";
-import CinematicBackground from "@/components/marketing/cinematic/CinematicBackground";
 import { useActiveScene } from "@/hooks/useActiveScene";
 import { AI_SERVICES, getAiService, serviceContactMessage } from "@/lib/aiServices";
-import { CINEMATIC_SCENES } from "@/lib/cinematicScenes";
-import type { ScrubSource } from "@/types/cinematic";
 
 // ---------------------------------------------------------------- helpers
 
@@ -33,32 +30,12 @@ class FakeIntersectionObserver {
   }
 }
 
-/** Minimal MotionValue-like source the test can drive. */
-function makeScrubSource(initial = 0) {
-  let value = initial;
-  const listeners = new Set<(v: number) => void>();
-  const source = {
-    get: () => value,
-    on: (_event: "change", cb: (v: number) => void) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-  } as unknown as ScrubSource;
-  const set = (v: number) => {
-    value = v;
-    listeners.forEach((cb) => cb(v));
-  };
-  return { source, set };
-}
-
 beforeEach(() => {
   ioCallbacks = [];
   vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
   window.requestIdleCallback = ((cb: IdleRequestCallback) =>
     window.setTimeout(() => cb({} as IdleDeadline), 0)) as typeof window.requestIdleCallback;
   window.cancelIdleCallback = (id: number) => window.clearTimeout(id);
-  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
-  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -81,39 +58,6 @@ describe("useActiveScene", () => {
       ioCallbacks.at(-1)!([{ target: document.getElementById("agente")!, isIntersecting: true }]);
     });
     expect(result.current).toBe("agent");
-  });
-});
-
-describe("CinematicBackground · modo scrub", () => {
-  it("mantiene el video en pausa y mapea el progreso a currentTime", async () => {
-    const scenes = CINEMATIC_SCENES.map((s) => ({ ...s, videoReady: true }));
-    const { source, set } = makeScrubSource(0);
-    const { container } = render(
-      <CinematicBackground scenes={scenes} activeSceneId="agent" scrubSources={{ agent: source }} />,
-    );
-    await waitFor(() => expect(container.querySelector("video")).not.toBeNull());
-    const video = container.querySelector("video")!;
-    expect(video.loop).toBe(false);
-    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
-
-    let currentTime = 0;
-    Object.defineProperty(video, "duration", { configurable: true, get: () => 8.05 });
-    Object.defineProperty(video, "seeking", { configurable: true, get: () => false });
-    Object.defineProperty(video, "currentTime", {
-      configurable: true,
-      get: () => currentTime,
-      set: (v: number) => {
-        currentTime = v;
-      },
-    });
-
-    fireEvent(video, new Event("loadedmetadata"));
-    act(() => set(0.5));
-    expect(currentTime).toBeCloseTo(4, 5);
-
-    // Cambios menores a un frame no generan seek.
-    act(() => set(0.502));
-    expect(currentTime).toBeCloseTo(4, 5);
   });
 });
 

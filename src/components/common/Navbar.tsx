@@ -1,12 +1,18 @@
-import { useState, useEffect, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
+import { useScrollSpy } from "@/hooks/useScrollSpy";
 import { getOpenTicketsCount } from "@/lib/tickets";
 import Logo from "@/components/common/Logo";
-import { CINEMATIC_VARS, useMsThemeVars } from "@/lib/msTokens";
+import { cinematicToken, cinematicVars, useMsThemeVars } from "@/lib/msTokens";
+import { useCinematicTheme } from "@/hooks/useCinematicTheme";
 
 const MONO = "'JetBrains Mono', monospace";
+
+// Drawer (shadcn Sheet + react-remove-scroll…) en su propio chunk: el Navbar
+// vive en el chunk de entrada que comparte /dashboard.
+const MobileNavDrawer = lazy(() => import("@/components/common/MobileNavDrawer"));
 
 const cmdGhost: CSSProperties = {
   fontFamily: MONO,
@@ -73,10 +79,42 @@ const MARKETING_SECTIONS = [
   { label: "Empresa", id: "empresa" },
   { label: "Contacto", id: "contacto" },
 ] as const;
+const MARKETING_IDS: readonly string[] = MARKETING_SECTIONS.map((s) => s.id);
 
 const NAV_HEIGHT = 72;
-/** Theme toggle state must reflect the real theme even while the bar wears dark tokens. */
-const THEME_STATE_VARS = ["--knob-x", "--sun-op", "--moon-op"] as const;
+/** Desktop navigation from Tailwind `lg` (1024px) up; below it, only the drawer. */
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+/**
+ * Desktop link: color transition + underline that grows from the left via
+ * `transform: scaleX` (no layout shift). Active section = same underline,
+ * brighter text. Colors resolve from the bar's MS variables.
+ */
+const DESKTOP_LINK = [
+  "relative rounded-md px-3 py-2 text-[14.5px] font-medium xl:px-3.5",
+  "text-[color:var(--text2)] transition-colors duration-200 hover:text-[color:var(--text)]",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]",
+  "after:pointer-events-none after:absolute after:inset-x-3 after:bottom-1 after:h-px after:rounded-full xl:after:inset-x-3.5",
+  "after:origin-left after:scale-x-0 after:bg-[color:var(--primary)] after:transition-transform after:duration-200 after:ease-out",
+  "hover:after:scale-x-100 aria-[current=location]:text-[color:var(--text)] aria-[current=location]:after:scale-x-100",
+  "motion-reduce:transition-none motion-reduce:after:transition-none",
+].join(" ");
+
+/** Drawer link: full-width row, tinted when it is the active section. */
+const DRAWER_LINK = [
+  "flex min-h-[48px] w-full items-center justify-between rounded-lg px-3 text-left text-[15px] font-semibold",
+  "text-[color:var(--text)] transition-colors duration-200 hover:bg-[color:var(--hover-bg)]",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]",
+  "aria-[current=location]:bg-[color:var(--primary-soft)] aria-[current=location]:text-[color:var(--primary)]",
+].join(" ");
+
+/** Visibility ONLY through classes: an inline `display` would override `lg:hidden`. */
+const BURGER = [
+  "flex h-10 w-10 flex-none cursor-pointer flex-col items-center justify-center gap-[5px] p-0 lg:hidden",
+  "rounded-lg border border-solid border-[color:var(--border)] bg-transparent",
+  "transition-colors duration-200 hover:bg-[color:var(--hover-bg)]",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]",
+].join(" ");
 
 /**
  * overlay: true while an element marked `data-nav-overlay` (the cinematic
@@ -109,14 +147,19 @@ function useOverCinematic(enabled: boolean): boolean {
   return enabled && over;
 }
 
+const prefersReducedMotion = () =>
+  typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 /**
- * @param variant "overlay" (landing only): translucent bar with dark tokens and
- * white logo while over the cinematic scenes, regardless of theme; reverts to
- * the default themed bar below them. Default: unchanged behavior everywhere.
+ * @param variant "overlay": translucent glass bar that wears the cinematic
+ * scene tokens (light or dark, like the imagery) while over the scenes. Only
+ * honored on "/"; every other route always renders the solid themed bar.
  */
 const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) => {
   const [openTickets, setOpenTickets] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerArmed, setDrawerArmed] = useState(false);
+  const burgerRef = useRef<HTMLButtonElement>(null);
   const { user, userType, loading, signOut } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
   const msVars = useMsThemeVars();
@@ -124,50 +167,53 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
-  const overCinematic = useOverCinematic(variant === "overlay");
+  const overCinematic = useOverCinematic(variant === "overlay" && isHome);
+  const activeSection = useScrollSpy(MARKETING_IDS, isHome);
 
-  const navVars: CSSProperties = overCinematic
-    ? (() => {
-        const vars: Record<string, unknown> = { ...CINEMATIC_VARS };
-        for (const key of THEME_STATE_VARS) vars[key] = (msVars as Record<string, unknown>)[key];
-        return vars as CSSProperties;
-      })()
-    : msVars;
+  const cineTheme = useCinematicTheme();
+  const navVars: CSSProperties = overCinematic ? cinematicVars(cineTheme) : msVars;
 
   useEffect(() => {
     if (!user || isClient) return;
     getOpenTicketsCount().then(setOpenTickets).catch(() => {});
   }, [user, isClient, location.pathname]);
 
-  // Cerrar panel mobile al cambiar de ruta.
+  // Cerrar el drawer al cambiar de ruta.
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  // Cerrar panel mobile con Escape.
+  // Cerrar el drawer si la ventana crece hasta el layout de escritorio.
   useEffect(() => {
-    if (!mobileOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMobileOpen(false);
+    if (!mobileOpen || typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia(DESKTOP_QUERY);
+    const onChange = () => {
+      if (mql.matches) setMobileOpen(false);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
   }, [mobileOpen]);
 
-  const scrollTo = (id: string) => {
+  /** Navega a una sección de la landing (desde cualquier ruta) y cierra el drawer. */
+  const goToSection = (id: string) => {
     setMobileOpen(false);
     if (!isHome) {
       navigate(`/#${id}`);
       return;
     }
     const el = document.getElementById(id);
-    if (el) window.scrollTo({ top: el.offsetTop - 60, behavior: "smooth" });
+    if (!el) return;
+    // Rect-based: correct inside positioned containers and lands exactly below
+    // the fixed bar (the old `offsetTop - 60` hid 12px of the section).
+    const top = id === "hero" ? 0 : el.getBoundingClientRect().top + window.scrollY - NAV_HEIGHT;
+    window.scrollTo({ top: Math.max(0, top), behavior: prefersReducedMotion() ? "auto" : "smooth" });
   };
 
   const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (isHome) {
       e.preventDefault();
-      scrollTo("hero");
+      goToSection("hero");
     }
   };
 
@@ -179,9 +225,30 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
 
   const toggleTheme = () => setTheme(resolvedTheme === "light" ? "dark" : "light");
 
+  const ticketBadge = (style: CSSProperties) =>
+    openTickets > 0 && (
+      <span
+        style={{
+          minWidth: "16px",
+          height: "16px",
+          padding: "0 4px",
+          borderRadius: "8px",
+          background: "var(--accent)",
+          color: "#001018",
+          fontSize: "9px",
+          fontWeight: 700,
+          alignItems: "center",
+          justifyContent: "center",
+          ...style,
+        }}
+      >
+        {openTickets > 99 ? "99" : openTickets}
+      </span>
+    );
 
   return (
     <nav
+      aria-label="Principal"
       style={{
         ...navVars,
         position: "fixed",
@@ -189,14 +256,9 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
         left: 0,
         right: 0,
         zIndex: 50,
-        minHeight: "72px",
-        // Over video: lighter glass so the scene reads through; solid enough
-        // behind the open mobile panel to keep its links legible.
-        background: overCinematic
-          ? mobileOpen
-            ? "rgba(8,15,30,0.92)"
-            : "rgba(8,15,30,0.3)"
-          : "var(--nav-bg)",
+        minHeight: `${NAV_HEIGHT}px`,
+        // Over the cinematic scenes: lighter glass so the imagery reads through.
+        background: overCinematic ? cinematicToken(cineTheme, "cine-nav-bg") : "var(--nav-bg)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
         borderBottom: overCinematic ? "1px solid transparent" : "1px solid var(--border-soft)",
@@ -208,7 +270,7 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
           maxWidth: "1200px",
           margin: "0 auto",
           padding: "0 32px",
-          height: "72px",
+          height: `${NAV_HEIGHT}px`,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -218,9 +280,9 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
         <Link
           to="/"
           onClick={handleLogoClick}
-          style={{ display: "flex", alignItems: "center", gap: "11px", textDecoration: "none" }}
+          style={{ display: "flex", alignItems: "center", gap: "11px", textDecoration: "none", flex: "none" }}
         >
-          <Logo className="h-7" tone={overCinematic ? "light" : "auto"} />
+          <Logo className="h-7" tone={overCinematic && cineTheme === "dark" ? "light" : "auto"} />
           <span
             style={{
               fontFamily: "'Sora', sans-serif",
@@ -234,32 +296,25 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
           </span>
         </Link>
 
+        {/* Enlaces de sección: solo landing, solo ≥ 1024px */}
         {isHome && (
-          <div className="hidden md:flex" style={{ alignItems: "center", gap: "2px" }}>
+          <ul role="list" className="m-0 hidden list-none items-center gap-0.5 p-0 lg:flex">
             {MARKETING_SECTIONS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => scrollTo(item.id)}
-                className="ms-navlink"
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                  fontSize: "14.5px",
-                  fontWeight: 500,
-                  color: "var(--text2)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {item.label}
-              </button>
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => goToSection(item.id)}
+                  aria-current={activeSection === item.id ? "location" : undefined}
+                  className={DESKTOP_LINK}
+                >
+                  {item.label}
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: "none" }}>
           {/* Theme toggle — track + knob (Notion light ⟷ Kiro dark) */}
           <button
             type="button"
@@ -296,8 +351,8 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
             />
           </button>
 
-          {/* Auth desktop — intacto, oculto en mobile (vive en el panel) */}
-          <div className="hidden md:flex" style={{ alignItems: "center" }}>
+          {/* Auth desktop (≥ 1024px); debajo vive en el drawer */}
+          <div className="hidden items-center lg:flex">
             {loading ? (
               <span style={{ ...cmdGhost, border: "1px solid var(--border-soft)" }} aria-hidden>
                 [ ... ]
@@ -317,228 +372,107 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
                 <Link to="/dashboard" className="ms-cmd ms-cmd-primary" style={cmdPrimary}>[ PANEL ]</Link>
                 <Link to="/dashboard/tickets" className="ms-cmd ms-cmd-ghost" style={{ ...cmdGhost, position: "relative" }}>
                   [ SOPORTE ]
-                  {openTickets > 0 && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: "-4px",
-                        right: "-4px",
-                        minWidth: "16px",
-                        height: "16px",
-                        padding: "0 4px",
-                        borderRadius: "8px",
-                        background: "var(--accent)",
-                        color: "#001018",
-                        fontSize: "9px",
-                        fontWeight: 700,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {openTickets > 99 ? "99" : openTickets}
-                    </span>
-                  )}
+                  {ticketBadge({ position: "absolute", top: "-4px", right: "-4px", display: "flex" })}
                 </Link>
                 <button type="button" onClick={handleLogout} className="ms-cmd ms-cmd-danger" style={cmdGhost}>[ SALIR ]</button>
               </div>
             )}
           </div>
 
-          {/* Hamburger — solo mobile */}
+          {/* Drawer móvil/tablet (< 1024px). El botón es eager; el Sheet se
+              descarga en la primera intención (hover/focus/touch) o al clic.
+              Visibilidad SOLO por clases: un `display` inline anularía `lg:hidden`. */}
           <button
+            ref={burgerRef}
             type="button"
-            className="md:hidden ms-hamburger"
+            aria-label="Abrir menú"
+            aria-haspopup="dialog"
             aria-expanded={mobileOpen}
-            aria-controls="ms-mobile-nav"
-            aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
-            onClick={() => setMobileOpen((v) => !v)}
-            style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "8px",
-              border: "1px solid var(--border)",
-              background: "transparent",
-              cursor: "pointer",
-              flex: "none",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "5px",
-              padding: 0,
+            className={BURGER}
+            onPointerEnter={() => setDrawerArmed(true)}
+            onFocus={() => setDrawerArmed(true)}
+            onTouchStart={() => setDrawerArmed(true)}
+            onClick={() => {
+              setDrawerArmed(true);
+              setMobileOpen(true);
             }}
           >
-            <span
-              aria-hidden="true"
-              style={{
-                width: "18px",
-                height: "2px",
-                borderRadius: "2px",
-                background: "var(--text)",
-                transition: "transform .25s",
-                transform: mobileOpen ? "translateY(7px) rotate(45deg)" : "none",
-              }}
-            />
-            <span
-              aria-hidden="true"
-              style={{
-                width: "18px",
-                height: "2px",
-                borderRadius: "2px",
-                background: "var(--text)",
-                transition: "opacity .2s",
-                opacity: mobileOpen ? 0 : 1,
-              }}
-            />
-            <span
-              aria-hidden="true"
-              style={{
-                width: "18px",
-                height: "2px",
-                borderRadius: "2px",
-                background: "var(--text)",
-                transition: "transform .25s",
-                transform: mobileOpen ? "translateY(-7px) rotate(-45deg)" : "none",
-              }}
-            />
+            {[0, 1, 2].map((i) => (
+              <span key={i} aria-hidden="true" className="h-0.5 w-[18px] rounded-sm bg-[color:var(--text)]" />
+            ))}
           </button>
+          {(drawerArmed || mobileOpen) && (
+            <Suspense fallback={null}>
+              <MobileNavDrawer open={mobileOpen} onOpenChange={setMobileOpen} returnFocusRef={burgerRef} vars={msVars}>
+                {isHome && (
+                  <>
+                    <ul role="list" className="m-0 flex list-none flex-col gap-1 p-0">
+                      {MARKETING_SECTIONS.map((item) => (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            onClick={() => goToSection(item.id)}
+                            aria-current={activeSection === item.id ? "location" : undefined}
+                            className={DRAWER_LINK}
+                          >
+                            {item.label}
+                            <span aria-hidden="true" style={{ fontFamily: MONO, fontSize: "12px", opacity: 0.6 }}>
+                              →
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <div aria-hidden="true" style={{ height: "1px", background: "var(--border-soft)", margin: "14px 0" }} />
+                  </>
+                )}
+
+                {loading ? (
+                  <span style={{ ...cmdGhost, border: "1px solid var(--border-soft)" }} aria-hidden>
+                    [ ... ]
+                  </span>
+                ) : !user ? (
+                  <>
+                    <Link to="/login" className="ms-mobile-link" style={{ ...mobileLink, color: "var(--primary)" }} onClick={() => setMobileOpen(false)}>
+                      [ ACCEDER ]
+                    </Link>
+                    <Link to="/signup" className="ms-mobile-link" style={{ ...mobileLink, color: "var(--primary)" }} onClick={() => setMobileOpen(false)}>
+                      [ REGISTRARSE ]
+                    </Link>
+                  </>
+                ) : isClient ? (
+                  <>
+                    <Link to="/solicitudes" className="ms-mobile-link" style={{ ...mobileLink, color: "var(--primary)" }} onClick={() => setMobileOpen(false)}>
+                      [ SOLICITUDES ]
+                    </Link>
+                    <button type="button" onClick={handleLogout} className="ms-mobile-link" style={{ ...mobileLink, color: "var(--text2)" }}>
+                      [ SALIR ]
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/dashboard" className="ms-mobile-link" style={{ ...mobileLink, color: "var(--primary)" }} onClick={() => setMobileOpen(false)}>
+                      [ PANEL ]
+                    </Link>
+                    <Link
+                      to="/dashboard/tickets"
+                      className="ms-mobile-link"
+                      style={{ ...mobileLink, color: "var(--text2)", position: "relative" }}
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      [ SOPORTE ]
+                      {ticketBadge({ display: "inline-flex" })}
+                    </Link>
+                    <button type="button" onClick={handleLogout} className="ms-mobile-link" style={{ ...mobileLink, color: "var(--text2)" }}>
+                      [ SALIR ]
+                    </button>
+                  </>
+                )}
+              </MobileNavDrawer>
+            </Suspense>
+          )}
         </div>
       </div>
-
-      {/* Panel mobile — compacto, debajo del Navbar. Sin sidebar ni fullscreen. */}
-      {mobileOpen && (
-        <div
-          id="ms-mobile-nav"
-          className="md:hidden"
-          style={{
-            borderTop: "1px solid var(--border-soft)",
-          }}
-        >
-          <div
-            style={{
-              maxWidth: "1200px",
-              margin: "0 auto",
-              padding: "8px 32px 16px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "2px",
-            }}
-          >
-            {isHome &&
-              MARKETING_SECTIONS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => scrollTo(item.id)}
-                  className="ms-mobile-link"
-                  style={mobileLink}
-                >
-                  {item.label}
-                </button>
-              ))}
-            {isHome && (
-              <div
-                aria-hidden="true"
-                style={{
-                  height: "1px",
-                  background: "var(--border-soft)",
-                  margin: "8px 0",
-                }}
-              />
-            )}
-            {loading ? (
-              <span style={{ ...cmdGhost, border: "1px solid var(--border-soft)" }} aria-hidden>
-                [ ... ]
-              </span>
-            ) : !user ? (
-              <>
-                <Link
-                  to="/login"
-                  className="ms-mobile-link"
-                  style={{ ...mobileLink, color: "var(--primary)" }}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  [ ACCEDER ]
-                </Link>
-                <Link
-                  to="/signup"
-                  className="ms-mobile-link"
-                  style={{ ...mobileLink, color: "var(--primary)" }}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  [ REGISTRARSE ]
-                </Link>
-              </>
-            ) : isClient ? (
-              <>
-                <Link
-                  to="/solicitudes"
-                  className="ms-mobile-link"
-                  style={{ ...mobileLink, color: "var(--primary)" }}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  [ SOLICITUDES ]
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="ms-mobile-link"
-                  style={{ ...mobileLink, color: "var(--text2)" }}
-                >
-                  [ SALIR ]
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/dashboard"
-                  className="ms-mobile-link"
-                  style={{ ...mobileLink, color: "var(--primary)" }}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  [ PANEL ]
-                </Link>
-                <Link
-                  to="/dashboard/tickets"
-                  className="ms-mobile-link"
-                  style={{ ...mobileLink, color: "var(--text2)", position: "relative" }}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  [ SOPORTE ]
-                  {openTickets > 0 && (
-                    <span
-                      style={{
-                        minWidth: "16px",
-                        height: "16px",
-                        padding: "0 4px",
-                        borderRadius: "8px",
-                        background: "var(--accent)",
-                        color: "#001018",
-                        fontSize: "9px",
-                        fontWeight: 700,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {openTickets > 99 ? "99" : openTickets}
-                    </span>
-                  )}
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="ms-mobile-link"
-                  style={{ ...mobileLink, color: "var(--text2)" }}
-                >
-                  [ SALIR ]
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </nav>
   );
 };

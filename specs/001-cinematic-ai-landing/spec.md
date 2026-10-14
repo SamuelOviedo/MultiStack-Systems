@@ -465,3 +465,32 @@ Pendiente: F4 (`AiChatWidgetDemo`), F5 (Lighthouse, SEO/OG del pivot). QA de scr
 Mediciones: entrada 28.37 KB gzip (+0.40 KB vs F3: FAB + wrapper lazy); `vendor-ui` 37.56 KB (+0.03 KB); chat en chunk lazy de 8.06 KB gzip.
 
 Pendiente: QA de scrub con videos reales; Lighthouse sobre build de producción desplegado (SC-001…SC-007); regenerar la imagen OG cuando exista el poster definitivo del hero.
+
+## Auditoría Navbar (2026-10-13)
+
+Hallazgos (medidos con Playwright antes del cambio): (1) hamburguesa visible en desktop — el `display:flex` inline anulaba `md:hidden`; (2) breakpoint `md` → a 800px la barra desbordaba 133px; (3) `offsetTop - 60` dejaba las secciones 12px bajo la barra de 72px; (4) panel móvil sin semántica de diálogo; (5) sin estado activo.
+
+Cambios: enlaces y auth desktop desde `lg` (1024px), debajo solo hamburguesa; drawer con shadcn `Sheet` (`MobileNavDrawer`, lazy al primer hover/focus/touch del botón para no sumar react-remove-scroll al chunk de entrada), cierre automático al elegir enlace, cierre al crecer a desktop, foco devuelto al botón; `useScrollSpy` (línea al 40% del viewport) → `aria-current="location"` en desktop y drawer; hover con subrayado `scaleX` (sin layout shift) y `transition-colors duration-200`; navegación por rect (`top − 72`); overlay solo si `variant="overlay"` **y** ruta `/`. Entrada +0.66 KB gzip.
+
+## Pivote: video → secuencia de imágenes (2026-10-13)
+
+Se descarta `<video>` (.webm/.mp4) por rendimiento y memoria. **Sustituye** a FR-002/FR-004/FR-006/FR-007 y a la estructura `public/assets/video|posters`.
+
+- **Tipos**: `CinematicScene.images: SceneImage[]` (`{ desktop, mobile }` = 1920w/1280w, srcset compartido), sin `video`/`poster`/`videoReady`. `ScrubSource = MotionValue<number>` (type-only).
+- **Assets**: `public/assets/scenes/<escena>/<escena>-NN.<1080|720>.webp`, 3 frames por escena. Placeholders procedurales (`npm run assets:placeholders`): red neuronal (hero), anillos de señal + forma de onda (agent), tuberías de flujo (automation). 18 archivos, 193 KB.
+- **Arquitectura** (restricción de bundle): `CinematicBackground` (entrada, sin framer-motion) mantiene el A/B, el gating y la pausa, y pinta el **primer frame estático** (LCP, y experiencia completa con reduced motion / Save-Data). La animación vive en `AnimatedSequence` (lazy, `LazyMotion strict` + `m.img`), que comparte el chunk de framer-motion con `CinematicChapters` → /dashboard paga 0.
+  - **loop**: slideshow con doble búfer interno (el frame saliente queda opaco debajo; el siguiente se pre-decodifica con `img.decode()` antes del fundido de 1.4 s) + **Ken Burns** por frame (escala 1→1.06 y paneo sutil, `transform` en string → WAAPI/compositor). Avanza solo con la escena visible y la pestaña activa.
+  - **scrub**: el progreso suavizado (spring de `ScrollScene`) controla un fundido **acumulativo** entre frames (sin bajón de brillo) + **parallax Y** (±2.5 %, escala 1.08).
+- **Medido en navegador**: Ken Burns continuo, cambio a `hero-02` a ~8 s, scrub 1/0.82/0 → 1/1/1 con parallax +4 → −22 px; reduced motion = 1 frame y 1 request. Entrada 29.41 KB gzip (−0.58 KB al quitar el código de video); `AnimatedSequence` 1.24 KB.
+
+## Secuencias por tema claro/oscuro (2026-10-13)
+
+**Sustituye a C-3** ("escenas siempre oscuras"): cada escena sigue el tema activo — imágenes, scrims y tokens de texto cambian juntos.
+
+- **Tipos/rutas**: `CinematicScene.imagesLight: string[]` / `imagesDark: string[]` → `/assets/scenes/<escena>/<escena>-<light|dark>-<n>.webp` (1920×1080, mismo nº de frames por tema). `sceneImages(scene, theme)` = `currentImages`.
+- **Tema**: `useCinematicTheme()` sobre `next-themes` (`resolvedTheme`, síncrono desde localStorage en el primer render → sin swap oscuro→claro ni doble descarga). Preload LCP en `index.html` elige `hero-<tema>-1.webp` con la misma regla que el script de tema.
+- **Cambio de tema sin parpadeo**: el doble búfer A/B se indexa por **escena + tema**. El tema nuevo se decodifica en la capa oculta y entra con fundido de **0.8 s**; la saliente queda opaca debajo y **mantiene su secuencia montada** (corrige además un salto al frame 1 en los cambios de escena). Cada capa lleva **sus propios scrims y tokens**, así imagen y scrim se funden juntos; los colores de texto/vidrio transicionan 0.8 s a la par. La capa solo se declara lista tras dos `requestAnimationFrame` (garantiza que el estado opacity 0 se pintó → el fundido corre siempre, aunque el frame venga de caché). Retoma el **mismo índice de frame** (mismo plano, otra iluminación).
+  - El fundido lo hace la capa A/B en CSS (chunk de entrada) y no framer-motion: así funciona también sin la capa animada (reduced motion, antes de idle, Save-Data) y framer-motion sigue fuera de /dashboard. framer-motion mantiene Ken Burns y scrub dentro de cada capa.
+- **Precarga silenciosa**: tras `load` + idle (no con Save-Data) se precarga el frame del tema opuesto del plano en pantalla (`lib/preloadImage.ts`, deduplicado).
+- **Tokens**: `MS_CINEMATIC_DARK` / `MS_CINEMATIC_LIGHT` (+ `cinematicVars(theme)`); en claro `--primary #0369a1`, `--accent #0e7490`, `--muted #64748b`; en oscuro `--muted #7d8ca1`. Navbar overlay usa el vidrio y logo del tema de la escena.
+- **Auditoría AA** (`npm run audit:contrast`, servidor dev arriba): mide cada línea de texto contra los píxeles reales del fondo (texto oculto, percentil 5) por tema × viewport × escena × frame. Resultado con placeholders: **190/190 pass** (612 mediciones); encontró y se corrigió `--muted` en tarjetas de vidrio oscuras (3.57:1 → 4.97:1). **Re-ejecutar al colocar el arte final de Higgsfield.**

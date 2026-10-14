@@ -13,17 +13,21 @@
       })();
     </script>
     <script>
-      // Landing only: preload the hero poster (LCP candidate) at high priority.
-      // Injected by script so SPA routes like /dashboard never download it.
-      // Keep in sync with src/lib/cinematicScenes.ts.
+      // Landing only: preload the hero's first frame (LCP candidate) at high
+      // priority, in the variant of the saved theme (same rule as the theme
+      // script above: default dark). Injected by script so SPA routes like
+      // /dashboard never download it. Keep in sync with src/lib/cinematicScenes.ts.
       (function () {
         if (location.pathname !== "/") return;
+        var theme = "dark";
+        try {
+          if (localStorage.getItem("theme") === "light") theme = "light";
+        } catch (e) {}
         var l = document.createElement("link");
         l.rel = "preload";
         l.as = "image";
         l.type = "image/webp";
-        l.setAttribute("imagesrcset", "/assets/posters/hero.720.webp 1280w, /assets/posters/hero.1080.webp 1920w");
-        l.setAttribute("imagesizes", "100vw");
+        l.href = "/assets/scenes/hero/hero-" + theme + "-1.webp";
         l.setAttribute("fetchpriority", "high");
         document.head.appendChild(l);
       })();

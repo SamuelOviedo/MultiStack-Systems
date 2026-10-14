@@ -1,5 +1,5 @@
 /**
- * Guion del agente de demostración (spec Capa 5, C-7: puramente simulado).
+ * Guion de Otto, el agente de demostración (spec Capa 5, C-7: puramente simulado).
  * Sin red ni almacenamiento: todo se resuelve en el navegador.
  * Las cifras coinciden con el catálogo (lib/aiServices.ts) y el copy es
  * cualitativo mientras se validan métricas reales (C-1).
@@ -17,7 +17,7 @@ interface Intent {
 }
 
 export const GREETING =
-  "¡Hola! Soy el agente de demostración de MultiStack. Pregúntame cómo funciona un agente de IA, cuánto tarda implementarlo o cómo se conecta con tus sistemas.";
+  "¡Hola! Soy Otto, el asistente de MultiStack. Pregúntame cómo puedo quitarte el trabajo manual de encima, cuánto tardamos en conectar tus sistemas o cómo funcionan nuestros agentes RAG.";
 
 export const SUGGESTIONS = [
   "¿Cómo funciona un agente con mis documentos?",

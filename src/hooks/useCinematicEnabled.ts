@@ -19,7 +19,8 @@ function prefersReducedMotion(): boolean {
     : false;
 }
 
-function isConstrainedNetwork(): boolean {
+/** Save-Data or a 2g-class connection: skip anything optional (animation, preloads). */
+export function isConstrainedNetwork(): boolean {
   const c = getConnection();
   return !!c && (c.saveData === true || SLOW_NETWORKS.has(c.effectiveType ?? ""));
 }
@@ -27,8 +28,8 @@ function isConstrainedNetwork(): boolean {
 const computeEnabled = () => !prefersReducedMotion() && !isConstrainedNetwork();
 
 /**
- * Whether cinematic video may play at all (spec FR-011).
- * false → posters only: reduced motion, Save-Data, or a 2g-class connection.
+ * Whether the cinematic backdrop may animate at all (spec FR-011).
+ * false → static first frames only: reduced motion, Save-Data, or a 2g-class connection.
  * Reacts to live changes of either preference.
  */
 export function useCinematicEnabled(): boolean {
@@ -51,7 +52,7 @@ export function useCinematicEnabled(): boolean {
 
 /**
  * Flips to true once the page has fired `load` AND the browser is idle
- * (fallback: 1.5 s). Gates every video request so none competes with LCP
+ * (fallback: 1.5 s). Gates the animated sequences (and their extra frames) so nothing competes with LCP
  * (spec R-1, SC-003).
  */
 export function useAfterLoadIdle(): boolean {

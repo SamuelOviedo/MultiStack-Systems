@@ -5,8 +5,8 @@
  *          crawlers that reject WebP)
  *          public/assets/images/og/og-ai.1200x630.webp  (lighter variant)
  *
- * Composition: hero poster (cover-cropped) + white mark + headline. Re-run
- * after replacing the hero poster with the real first frame of the video.
+ * Composition: hero first frame (cover-cropped) + white mark + headline.
+ * Re-run after replacing the hero frames with the final art.
  *
  * Run: node scripts/generate-og-image.mjs
  */
@@ -45,7 +45,7 @@ const logo = await sharp(resolve(pub, "logo-white.png")).trim().resize({ height:
 
 await mkdir(OUT, { recursive: true });
 
-const base = sharp(resolve(pub, "assets", "posters", "hero.1080.webp"))
+const base = sharp(resolve(pub, "assets", "scenes", "hero", "hero-dark-1.webp"))
   .resize(W, H, { fit: "cover", position: "right" })
   .composite([
     { input: overlay, top: 0, left: 0 },

@@ -18,7 +18,7 @@ interface ZeroPaperSectionProps {
   onRequestService: (slug: AiServiceSlug) => void;
 }
 
-/** Escena 3 — Automatización Cero Papel con n8n (escena de video "automation"). */
+/** Escena 3 — Automatización Cero Papel con n8n (escena "automation", slideshow). */
 const ZeroPaperSection = ({ onScrubSource, onRequestService }: ZeroPaperSectionProps) => (
   <ScrollScene
     id="automatizacion"

@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Sparkles } from "lucide-react";
 import { useAfterLoadIdle } from "@/hooks/useCinematicEnabled";
+import { AGENT_NAME } from "./agent";
 
 // Panel + máquina de estados + guion: chunk propio, nunca en la carga inicial.
 const AiChatWidgetDemo = lazy(() => import("./AiChatWidgetDemo"));
@@ -15,7 +16,7 @@ interface AiChatLauncherProps {
 }
 
 /**
- * FAB del agente de demostración (eager, mínimo: un botón). El panel se
+ * FAB de Otto, el agente de demostración (eager, mínimo: un botón). El panel se
  * monta —y su chunk se descarga— solo cuando ocurre lo primero de:
  *   1. `load` + requestIdleCallback (useAfterLoadIdle), o
  *   2. la primera intención del usuario (pointerenter / focus / touchstart), o
@@ -32,7 +33,7 @@ const AiChatLauncher = ({ open, onOpenChange, armed, onArm, onRequestDiagnosis }
       <button
         type="button"
         className="ms-chat-fab"
-        aria-label="Probar el agente de IA (demo)"
+        aria-label={`Hablar con ${AGENT_NAME}, el asistente de IA (demo)`}
         aria-haspopup="dialog"
         aria-expanded={open}
         onPointerEnter={onArm}
@@ -45,7 +46,7 @@ const AiChatLauncher = ({ open, onOpenChange, armed, onArm, onRequestDiagnosis }
       >
         <Sparkles aria-hidden="true" size={22} />
         <span aria-hidden="true" className="ms-chat-fab-label">
-          Prueba nuestro agente de IA
+          Habla con {AGENT_NAME}
         </span>
       </button>
       {mounted && (

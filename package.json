@@ -8,6 +8,7 @@
     "favicons": "node scripts/generate-favicons.mjs",
     "assets:placeholders": "node scripts/generate-cinematic-placeholders.mjs",
     "assets:og": "node scripts/generate-og-image.mjs",
+    "audit:contrast": "node scripts/audit-cinematic-contrast.mjs",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -89,7 +90,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^15.15.0",
-    "jsdom": "^20.0.3",
+    "jsdom": "^29.1.1",
     "png-to-ico": "^3.0.2",
     "postcss": "^8.5.6",
     "sharp": "^0.35.3",
@@ -98,5 +99,9 @@
     "typescript-eslint": "^8.64.0",
     "vite": "^5.4.19",
     "vitest": "^3.2.4"
+  },
+  "allowScripts": {
+    "@swc/core": false,
+    "esbuild": false
   }
 }
