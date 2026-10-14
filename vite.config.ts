@@ -3,26 +3,50 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { getSupabaseEnvProblems } from "./src/integrations/supabase/env";
 
+type ViteEnv = Record<string, string>;
+
+/**
+ * One safe line in the build log (Vercel included) confirming what the build
+ * actually sees: the Supabase host and whether a key is present — never the
+ * key itself. Tolerates an undefined or malformed URL without breaking config.
+ */
+function logSupabaseEnv(env: ViteEnv, mode: string) {
+  let host = "not set";
+  const rawUrl = env.VITE_SUPABASE_URL?.trim();
+  if (rawUrl) {
+    try {
+      host = new URL(rawUrl).host;
+    } catch {
+      host = "invalid URL";
+    }
+  }
+  const keySet = Boolean((env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY)?.trim());
+  const target = process.env.VERCEL_ENV ?? "local";
+  console.log(`[env] Supabase host: ${host} | key set: ${keySet} | mode: ${mode} | target: ${target}`);
+}
+
 /**
  * Build-time twin of the runtime guard in src/integrations/supabase/client.ts.
  * On Vercel a missing/placeholder Supabase config FAILS the build, so a deploy
  * that would throw on load never replaces the live one. Elsewhere (CI without
  * secrets, local) it only warns.
  */
-function checkSupabaseEnv(mode: string) {
-  const problems = getSupabaseEnvProblems(loadEnv(mode, process.cwd(), "VITE_"));
+function checkSupabaseEnv(env: ViteEnv) {
+  const problems = getSupabaseEnvProblems(env);
   if (!problems.length) return;
   const message = `Missing or invalid Supabase environment variables. ${problems.join(" ")}`;
   if (process.env.VERCEL) {
     throw new Error(`${message} Set them in Vercel → Project → Settings → Environment Variables.`);
   }
-  console.warn(`
-⚠ ${message} The built app will refuse to start until they are set.
-`);
+  console.warn(`\n⚠ ${message} The built app will refuse to start until they are set.\n`);
 }
 
 export default defineConfig(({ command, mode }) => {
-  if (command === "build") checkSupabaseEnv(mode);
+  if (command === "build") {
+    const env = loadEnv(mode, process.cwd(), "VITE_");
+    logSupabaseEnv(env, mode); // first, so it shows even when the guard fails
+    checkSupabaseEnv(env);
+  }
   return {
     server: {
       host: "::",

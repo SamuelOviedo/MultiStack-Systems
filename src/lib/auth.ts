@@ -3,8 +3,17 @@ import { getAuthEmailRedirectUrl, getSiteOrigin } from '@/lib/siteUrl';
 
 export type OAuthProvider = 'google' | 'github';
 
-function getAuthCallbackUrl(): string {
-  return `${getSiteOrigin()}/auth/callback`;
+/**
+ * Where OAuth and password-reset flows return: the origin that STARTED them,
+ * so a Vercel Preview comes back to that same Preview (not production) and
+ * localhost to localhost. Supabase only honors it if the origin matches an
+ * entry in Auth → URL Configuration → Redirect URLs (wildcards allowed);
+ * otherwise it falls back to the project's Site URL.
+ * (Signup confirmation e-mails keep the canonical origin: getAuthEmailRedirectUrl.)
+ */
+export function getAuthCallbackUrl(): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : getSiteOrigin();
+  return `${origin}/auth/callback`;
 }
 
 export async function signInWithPassword(email: string, password: string): Promise<void> {
