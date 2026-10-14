@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
+import type { CinematicTheme } from "@/types/cinematic";
 
 /**
  * MultiStack "Notion (light) + Kiro (dark)" design tokens.
@@ -124,21 +125,55 @@ export const MS_LIGHT: MsTokens = {
 };
 
 /**
- * Extra tokens for the cinematic (video-backed) landing scenes. Always layered
- * on top of MS_DARK: cinematic scenes ignore the light theme (spec C-3).
- * Prefixed `cine-` so they never shadow global or shadcn variables.
+ * Tokens for the cinematic (image-sequence) landing scenes, one set per theme,
+ * layered over MS_DARK / MS_LIGHT. `cine-` prefixed so they never shadow
+ * global or shadcn variables. Each scene follows the active theme: its
+ * imagery, scrims and text tokens switch together.
  */
-export const MS_CINEMATIC: MsTokens = {
-  // Base scrim: lets the video breathe at the top, fades into --bg (#080f1e)
+export const MS_CINEMATIC_DARK: MsTokens = {
+  // AA for 11px captions on dark glass over imagery (audit: MS_DARK's #64748b
+  // measured 3.6:1). Still quieter than --text2 (#94a3b8).
+  muted: "#7d8ca1",
+  // Base scrim: lets the imagery breathe at the top, fades into --bg (#080f1e)
   // at the bottom so the scene meets the solid sections without a seam.
   "cine-scrim":
     "linear-gradient(180deg, rgba(8,15,30,0.35) 0%, rgba(8,15,30,0.15) 30%, rgba(8,15,30,0.65) 78%, #080f1e 100%)",
   // Behind left-aligned copy columns.
   "cine-scrim-side": "linear-gradient(90deg, rgba(8,15,30,0.85) 0%, rgba(8,15,30,0.5) 38%, rgba(8,15,30,0) 65%)",
+  // Phones: the 16:9 frame is center-cropped behind full-width copy.
+  "cine-scrim-mobile": "linear-gradient(180deg, rgba(8,15,30,0.45) 0%, rgba(8,15,30,0.7) 100%)",
   "cine-glass-bg": "rgba(15,28,53,0.55)",
+  "cine-glass-bg-hover": "rgba(15,28,53,0.75)",
   "cine-glass-border": "rgba(14,165,233,0.22)",
   "cine-glass-blur": "blur(14px)",
   "cine-glow": "0 0 0 1px rgba(14,165,233,0.35), 0 10px 40px -8px rgba(14,165,233,0.55)",
+  "cine-text-shadow": "0 2px 30px rgba(8,15,30,0.55)",
+  "cine-card-shadow": "0 30px 80px -30px rgba(0,0,0,0.8)",
+  "cine-bubble-bg": "rgba(255,255,255,0.06)",
+  "cine-nav-bg": "rgba(8,15,30,0.3)",
+};
+
+export const MS_CINEMATIC_LIGHT: MsTokens = {
+  // AA over light imagery (contrast vs #fff): MS_LIGHT's #0284c7 / #0891b2 /
+  // #9b9a97 fall short for small text, so the scenes use one step darker.
+  primary: "#0369a1", // 5.9:1
+  accent: "#0e7490", // 5.4:1
+  muted: "#64748b", // 4.8:1
+  "btn-primary-text": "#ffffff", // on #0369a1: 5.9:1
+  "cine-scrim":
+    "linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.12) 30%, rgba(255,255,255,0.7) 78%, #ffffff 100%)",
+  "cine-scrim-side":
+    "linear-gradient(90deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 38%, rgba(255,255,255,0) 65%)",
+  "cine-scrim-mobile": "linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.82) 100%)",
+  "cine-glass-bg": "rgba(255,255,255,0.7)",
+  "cine-glass-bg-hover": "rgba(255,255,255,0.9)",
+  "cine-glass-border": "rgba(3,105,161,0.2)",
+  "cine-glass-blur": "blur(14px)",
+  "cine-glow": "0 0 0 1px rgba(3,105,161,0.25), 0 10px 30px -10px rgba(3,105,161,0.45)",
+  "cine-text-shadow": "0 1px 22px rgba(255,255,255,0.7)",
+  "cine-card-shadow": "0 24px 60px -28px rgba(15,23,42,0.35)",
+  "cine-bubble-bg": "rgba(15,23,42,0.05)",
+  "cine-nav-bg": "rgba(255,255,255,0.5)",
 };
 
 /** Turn a token map into an inline-style object of `--token` custom props. */
@@ -161,5 +196,15 @@ export function useMsThemeVars(): React.CSSProperties {
   return toCssVars(isLight ? MS_LIGHT : MS_DARK);
 }
 
-/** Theme-independent variables for cinematic scenes: MS_DARK + MS_CINEMATIC. */
-export const CINEMATIC_VARS: React.CSSProperties = toCssVars({ ...MS_DARK, ...MS_CINEMATIC });
+const CINEMATIC_VARS_DARK = toCssVars({ ...MS_DARK, ...MS_CINEMATIC_DARK });
+const CINEMATIC_VARS_LIGHT = toCssVars({ ...MS_LIGHT, ...MS_CINEMATIC_LIGHT });
+
+/** CSS variables for a cinematic scene in the given theme (stable objects). */
+export function cinematicVars(theme: CinematicTheme): React.CSSProperties {
+  return theme === "light" ? CINEMATIC_VARS_LIGHT : CINEMATIC_VARS_DARK;
+}
+
+/** Raw token lookup for values used outside CSS (e.g. the Navbar overlay glass). */
+export function cinematicToken(theme: CinematicTheme, key: string): string {
+  return (theme === "light" ? MS_CINEMATIC_LIGHT : MS_CINEMATIC_DARK)[key];
+}

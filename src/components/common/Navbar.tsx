@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useScrollSpy } from "@/hooks/useScrollSpy";
 import { getOpenTicketsCount } from "@/lib/tickets";
 import Logo from "@/components/common/Logo";
-import { CINEMATIC_VARS, useMsThemeVars } from "@/lib/msTokens";
+import { cinematicToken, cinematicVars, useMsThemeVars } from "@/lib/msTokens";
+import { useCinematicTheme } from "@/hooks/useCinematicTheme";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -83,8 +84,6 @@ const MARKETING_IDS: readonly string[] = MARKETING_SECTIONS.map((s) => s.id);
 const NAV_HEIGHT = 72;
 /** Desktop navigation from Tailwind `lg` (1024px) up; below it, only the drawer. */
 const DESKTOP_QUERY = "(min-width: 1024px)";
-/** Theme toggle state must reflect the real theme even while the bar wears dark tokens. */
-const THEME_STATE_VARS = ["--knob-x", "--sun-op", "--moon-op"] as const;
 
 /**
  * Desktop link: color transition + underline that grows from the left via
@@ -152,9 +151,9 @@ const prefersReducedMotion = () =>
   typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
- * @param variant "overlay": translucent bar with dark tokens and white logo
- * while over the cinematic scenes, regardless of theme. Only honored on "/";
- * every other route always renders the solid themed bar (default).
+ * @param variant "overlay": translucent glass bar that wears the cinematic
+ * scene tokens (light or dark, like the imagery) while over the scenes. Only
+ * honored on "/"; every other route always renders the solid themed bar.
  */
 const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) => {
   const [openTickets, setOpenTickets] = useState(0);
@@ -171,13 +170,8 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
   const overCinematic = useOverCinematic(variant === "overlay" && isHome);
   const activeSection = useScrollSpy(MARKETING_IDS, isHome);
 
-  const navVars: CSSProperties = overCinematic
-    ? (() => {
-        const vars: Record<string, unknown> = { ...CINEMATIC_VARS };
-        for (const key of THEME_STATE_VARS) vars[key] = (msVars as Record<string, unknown>)[key];
-        return vars as CSSProperties;
-      })()
-    : msVars;
+  const cineTheme = useCinematicTheme();
+  const navVars: CSSProperties = overCinematic ? cinematicVars(cineTheme) : msVars;
 
   useEffect(() => {
     if (!user || isClient) return;
@@ -264,7 +258,7 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
         zIndex: 50,
         minHeight: `${NAV_HEIGHT}px`,
         // Over the cinematic scenes: lighter glass so the imagery reads through.
-        background: overCinematic ? "rgba(8,15,30,0.3)" : "var(--nav-bg)",
+        background: overCinematic ? cinematicToken(cineTheme, "cine-nav-bg") : "var(--nav-bg)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
         borderBottom: overCinematic ? "1px solid transparent" : "1px solid var(--border-soft)",
@@ -288,7 +282,7 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
           onClick={handleLogoClick}
           style={{ display: "flex", alignItems: "center", gap: "11px", textDecoration: "none", flex: "none" }}
         >
-          <Logo className="h-7" tone={overCinematic ? "light" : "auto"} />
+          <Logo className="h-7" tone={overCinematic && cineTheme === "dark" ? "light" : "auto"} />
           <span
             style={{
               fontFamily: "'Sora', sans-serif",

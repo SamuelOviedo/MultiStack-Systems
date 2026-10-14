@@ -6,6 +6,10 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: null, userType: null, loading: false, signOut: vi.fn() }),
 }));
 vi.mock("@/lib/tickets", () => ({ getOpenTicketsCount: vi.fn().mockResolvedValue(0) }));
+const themeState = vi.hoisted(() => ({ resolvedTheme: "dark" }));
+vi.mock("next-themes", () => ({
+  useTheme: () => ({ resolvedTheme: themeState.resolvedTheme, setTheme: vi.fn() }),
+}));
 
 import Navbar from "@/components/common/Navbar";
 import { useScrollSpy } from "@/hooks/useScrollSpy";
@@ -33,6 +37,7 @@ const cross = (id: string, isIntersecting: boolean) =>
 const SECTIONS = '<section id="productos"></section><section id="stack"></section><div id="empresa"></div><section id="contacto"></section>';
 
 beforeEach(() => {
+  themeState.resolvedTheme = "dark";
   ioCallbacks = [];
   vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
 });
@@ -90,6 +95,23 @@ describe("Navbar", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: 5000 });
     expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 500 + window.scrollY - 72 }));
+  });
+
+  it("overlay sigue el tema de las escenas: vidrio oscuro + logo blanco / vidrio claro + logo con tema", () => {
+    const cine = document.createElement("div");
+    cine.setAttribute("data-nav-overlay", "");
+    cine.getBoundingClientRect = () => ({ bottom: 900 }) as DOMRect;
+    document.body.appendChild(cine);
+
+    const dark = renderAt("/", "overlay");
+    expect(dark.container.querySelector("nav")!.style.background).toBe("rgba(8, 15, 30, 0.3)");
+    expect(dark.container.querySelectorAll("nav img")).toHaveLength(1); // solo logo blanco
+    dark.unmount();
+
+    themeState.resolvedTheme = "light";
+    const light = renderAt("/", "overlay");
+    expect(light.container.querySelector("nav")!.style.background).toBe("rgba(255, 255, 255, 0.5)");
+    expect(light.container.querySelectorAll("nav img")).toHaveLength(2); // logo según tema (negro en claro)
   });
 
   it("fuera de la landing ignora variant='overlay' y no muestra enlaces de sección", () => {

@@ -1,25 +1,22 @@
-import type { CinematicScene, CinematicSceneId, SceneImage, SceneMode } from "@/types/cinematic";
+import type { CinematicScene, CinematicSceneId, CinematicTheme, SceneMode } from "@/types/cinematic";
 
 /**
  * Single source of truth for cinematic asset paths. Components never
  * hardcode /assets/... URLs.
  *
- * Naming: public/assets/scenes/<scene>/<scene>-<NN>.<1080|720>.webp
- *   1080 → 1920×1080 · 720 → 1280×720 · NN = 01, 02, … (frame order)
+ * Naming: public/assets/scenes/<scene>/<scene>-<light|dark>-<n>.webp
+ *   e.g. /assets/scenes/hero/hero-dark-1.webp · /assets/scenes/hero/hero-light-1.webp
+ *   n = 1, 2, … (frame order). Recommended export: 1920×1080, WebP q≈75–80.
  *
- * To replace placeholders with final art: overwrite the files keeping the
- * names. To change the number of frames, change `frames` below.
+ * To replace placeholders with final art (Higgsfield): overwrite the files
+ * keeping the names. To change the number of frames, change `frames` below
+ * (light and dark must have the same count).
  *
- * NOTE: the hero's first frame is duplicated in the preload script of
- * index.html (LCP). Keep both in sync.
+ * NOTE: the hero's first frame (both themes) is duplicated in the preload
+ * script of index.html (LCP). Keep both in sync.
  */
-const frame = (id: CinematicSceneId, n: number): SceneImage => {
-  const nn = String(n).padStart(2, "0");
-  return {
-    desktop: `/assets/scenes/${id}/${id}-${nn}.1080.webp`,
-    mobile: `/assets/scenes/${id}/${id}-${nn}.720.webp`,
-  };
-};
+const sequence = (id: CinematicSceneId, theme: CinematicTheme, frames: number): string[] =>
+  Array.from({ length: frames }, (_, i) => `/assets/scenes/${id}/${id}-${theme}-${i + 1}.webp`);
 
 const scene = (
   id: CinematicSceneId,
@@ -30,7 +27,8 @@ const scene = (
   id,
   mode,
   scrim,
-  images: Array.from({ length: frames }, (_, i) => frame(id, i + 1)),
+  imagesLight: sequence(id, "light", frames),
+  imagesDark: sequence(id, "dark", frames),
 });
 
 export const CINEMATIC_SCENES: CinematicScene[] = [
@@ -45,5 +43,6 @@ export function getScene(id: CinematicSceneId): CinematicScene {
   return found;
 }
 
-/** srcset shared by the static frame and the animated layer (same cache entry). */
-export const imageSrcSet = (img: SceneImage) => `${img.mobile} 1280w, ${img.desktop} 1920w`;
+/** The frames to show for the active theme. */
+export const sceneImages = (scene: CinematicScene, theme: CinematicTheme): string[] =>
+  theme === "light" ? scene.imagesLight : scene.imagesDark;

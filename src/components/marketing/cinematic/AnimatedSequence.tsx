@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { LazyMotion, m, useTransform, type MotionValue } from "framer-motion";
-import { imageSrcSet } from "@/lib/cinematicScenes";
-import type { CinematicScene, SceneImage } from "@/types/cinematic";
+import { preloadImage } from "@/lib/preloadImage";
+import type { SceneMode } from "@/types/cinematic";
 
 const loadMotionFeatures = () => import("./motionFeatures").then((mod) => mod.default);
 
@@ -24,26 +24,12 @@ const KEN_BURNS = [
   { from: "scale(1.01) translate(0%, 1%)", to: "scale(1.06) translate(1.5%, -1%)" },
 ];
 
-/** Fetch + decode ahead of time so a frame never appears half-painted. */
-function preloadFrame(img: SceneImage): Promise<void> {
-  const el = new Image();
-  el.sizes = "100vw";
-  el.srcset = imageSrcSet(img);
-  el.src = img.desktop;
-  if (typeof el.decode === "function") return el.decode().catch(() => undefined);
-  return new Promise((done) => {
-    el.onload = el.onerror = () => done();
-  });
-}
-
-const KenBurnsFrame = ({ image, index, onTop }: { image: SceneImage; index: number; onTop: boolean }) => {
+const KenBurnsFrame = ({ src, index, onTop }: { src: string; index: number; onTop: boolean }) => {
   const kb = KEN_BURNS[index % KEN_BURNS.length];
   return (
     <m.img
       className="ms-cine-media"
-      src={image.desktop}
-      srcSet={imageSrcSet(image)}
-      sizes="100vw"
+      src={src}
       alt=""
       draggable={false}
       style={{ zIndex: onTop ? 2 : 1 }}
@@ -57,15 +43,26 @@ const KenBurnsFrame = ({ image, index, onTop }: { image: SceneImage; index: numb
   );
 };
 
+interface LoopSequenceProps {
+  images: string[];
+  playing: boolean;
+  startIndex: number;
+  onFrameChange?: (index: number) => void;
+}
+
 /**
  * Dynamic slideshow with an internal double buffer: the outgoing frame stays
  * fully opaque underneath while the next one (already decoded) fades in on
  * top, so there is no brightness dip. Advances only while `playing`.
  */
-const LoopSequence = ({ images, playing }: { images: SceneImage[]; playing: boolean }) => {
-  const [current, setCurrent] = useState(0);
-  const [previous, setPrevious] = useState<number | null>(null);
+const LoopSequence = ({ images, playing, startIndex, onFrameChange }: LoopSequenceProps) => {
   const count = images.length;
+  const [current, setCurrent] = useState(() => startIndex % count);
+  const [previous, setPrevious] = useState<number | null>(null);
+
+  useEffect(() => {
+    onFrameChange?.(current);
+  }, [current, onFrameChange]);
 
   useEffect(() => {
     if (!playing || count < 2) return;
@@ -73,7 +70,7 @@ const LoopSequence = ({ images, playing }: { images: SceneImage[]; playing: bool
     let timer: number | undefined;
     const next = (current + 1) % count;
     const startedAt = performance.now();
-    preloadFrame(images[next]).then(() => {
+    preloadImage(images[next]).then(() => {
       if (cancelled) return;
       const wait = Math.max(0, FRAME_MS - (performance.now() - startedAt));
       timer = window.setTimeout(() => {
@@ -97,9 +94,9 @@ const LoopSequence = ({ images, playing }: { images: SceneImage[]; playing: bool
   return (
     <>
       {previous !== null && (
-        <KenBurnsFrame key={`frame-${previous}`} image={images[previous]} index={previous} onTop={false} />
+        <KenBurnsFrame key={`frame-${previous}`} src={images[previous]} index={previous} onTop={false} />
       )}
-      <KenBurnsFrame key={`frame-${current}`} image={images[current]} index={current} onTop />
+      <KenBurnsFrame key={`frame-${current}`} src={images[current]} index={current} onTop />
     </>
   );
 };
@@ -110,12 +107,12 @@ const LoopSequence = ({ images, playing }: { images: SceneImage[]; playing: bool
  * backwards or forwards).
  */
 const ScrubFrame = ({
-  image,
+  src,
   index,
   count,
   progress,
 }: {
-  image: SceneImage;
+  src: string;
   index: number;
   count: number;
   progress: MotionValue<number>;
@@ -123,50 +120,46 @@ const ScrubFrame = ({
   const opacity = useTransform(progress, (p) =>
     index === 0 ? 1 : Math.min(1, Math.max(0, p * (count - 1) - (index - 1))),
   );
-  return (
-    <m.img
-      className="ms-cine-media"
-      src={image.desktop}
-      srcSet={imageSrcSet(image)}
-      sizes="100vw"
-      alt=""
-      draggable={false}
-      style={{ opacity }}
-    />
-  );
+  return <m.img className="ms-cine-media" src={src} alt="" draggable={false} style={{ opacity }} />;
 };
 
 /** Scroll-driven sequence + parallax ("steady gimbal"); the spring smoothing comes from ScrollScene. */
-const ScrubSequence = ({ images, progress }: { images: SceneImage[]; progress: MotionValue<number> }) => {
+const ScrubSequence = ({ images, progress }: { images: string[]; progress: MotionValue<number> }) => {
   const y = useTransform(progress, [0, 1], ["2.5%", "-2.5%"]);
   return (
     // Scaled up so the parallax travel never reveals the edges.
     <m.div className="ms-cine-media" style={{ y, scale: 1.08 }}>
-      {images.map((image, i) => (
-        <ScrubFrame key={image.desktop} image={image} index={i} count={images.length} progress={progress} />
+      {images.map((src, i) => (
+        <ScrubFrame key={src} src={src} index={i} count={images.length} progress={progress} />
       ))}
     </m.div>
   );
 };
 
 interface AnimatedSequenceProps {
-  scene: CinematicScene;
+  /** Frames for the layer's theme (already resolved by CinematicBackground). */
+  images: string[];
+  mode: SceneMode;
   playing: boolean;
   scrub?: MotionValue<number>;
+  /** Loop mode: frame to resume at (keeps the shot when the theme changes). */
+  startIndex?: number;
+  /** Loop mode: reports the frame on screen. */
+  onFrameChange?: (index: number) => void;
 }
 
 /**
  * Animated layer of a cinematic scene, lazy-loaded by CinematicBackground once
  * motion is allowed (after `load` + idle; never under reduced motion /
- * Save-Data). It paints over the static first frame, which keeps carrying LCP.
+ * Save-Data). It paints over the static frame, which keeps carrying LCP.
  * Shares the framer-motion chunk with CinematicChapters, so /dashboard pays 0.
  */
-const AnimatedSequence = ({ scene, playing, scrub }: AnimatedSequenceProps) => (
+const AnimatedSequence = ({ images, mode, playing, scrub, startIndex = 0, onFrameChange }: AnimatedSequenceProps) => (
   <LazyMotion features={loadMotionFeatures} strict>
-    {scene.mode === "scrub" && scrub ? (
-      <ScrubSequence images={scene.images} progress={scrub} />
+    {mode === "scrub" && scrub ? (
+      <ScrubSequence images={images} progress={scrub} />
     ) : (
-      <LoopSequence images={scene.images} playing={playing} />
+      <LoopSequence images={images} playing={playing} startIndex={startIndex} onFrameChange={onFrameChange} />
     )}
   </LazyMotion>
 );

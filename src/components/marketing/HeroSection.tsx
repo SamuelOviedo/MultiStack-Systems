@@ -54,7 +54,7 @@ const HeroSection = ({ onTryAgent, onTryAgentIntent }: HeroSectionProps) => {
               letterSpacing: "-0.035em",
               color: "var(--text)",
               textWrap: "balance",
-              textShadow: "0 2px 30px rgba(8,15,30,0.55)",
+              textShadow: "var(--cine-text-shadow)",
             }}
           >
             Tu operación,{" "}

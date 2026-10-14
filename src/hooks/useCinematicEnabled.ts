@@ -19,7 +19,8 @@ function prefersReducedMotion(): boolean {
     : false;
 }
 
-function isConstrainedNetwork(): boolean {
+/** Save-Data or a 2g-class connection: skip anything optional (animation, preloads). */
+export function isConstrainedNetwork(): boolean {
   const c = getConnection();
   return !!c && (c.saveData === true || SLOW_NETWORKS.has(c.effectiveType ?? ""));
 }

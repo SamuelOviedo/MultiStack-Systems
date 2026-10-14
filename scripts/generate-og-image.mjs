@@ -45,7 +45,7 @@ const logo = await sharp(resolve(pub, "logo-white.png")).trim().resize({ height:
 
 await mkdir(OUT, { recursive: true });
 
-const base = sharp(resolve(pub, "assets", "scenes", "hero", "hero-01.1080.webp"))
+const base = sharp(resolve(pub, "assets", "scenes", "hero", "hero-dark-1.webp"))
   .resize(W, H, { fit: "cover", position: "right" })
   .composite([
     { input: overlay, top: 0, left: 0 },

@@ -2,6 +2,9 @@ import type { MotionValue } from "framer-motion";
 
 export type CinematicSceneId = "hero" | "agent" | "automation";
 
+/** Theme a sequence was art-directed for (mirrors next-themes' resolvedTheme). */
+export type CinematicTheme = "light" | "dark";
+
 /**
  * loop: dynamic slideshow — frames crossfade on a timer, each with a slow
  *       Ken Burns camera move.
@@ -16,16 +19,15 @@ export type SceneMode = "loop" | "scrub";
  */
 export type ScrubSource = MotionValue<number>;
 
-/** One frame of a sequence, in two widths (srcset 1280w / 1920w). */
-export interface SceneImage {
-  desktop: string;
-  mobile: string;
-}
-
 export interface CinematicScene {
   id: CinematicSceneId;
   mode: SceneMode;
-  /** Ordered .webp frames. images[0] is the static/LCP frame. */
-  images: SceneImage[];
+  /**
+   * Ordered .webp frames per theme. Both arrays should describe the same shots
+   * (same length, same composition) so a theme switch reads as a lighting
+   * change: the incoming theme resumes at the frame index currently on screen.
+   */
+  imagesLight: string[];
+  imagesDark: string[];
   scrim: "strong" | "side";
 }

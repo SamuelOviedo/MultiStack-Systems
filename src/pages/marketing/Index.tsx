@@ -11,10 +11,11 @@ import ContactSplit from "@/components/marketing/ContactSplit";
 import type { ContactPrefill } from "@/components/marketing/ContactForm";
 import Footer from "@/components/common/Footer";
 import AiChatLauncher from "@/components/marketing/ai-demo/AiChatLauncher";
-import { CINEMATIC_VARS, useMsThemeVars } from "@/lib/msTokens";
+import { cinematicVars, useMsThemeVars } from "@/lib/msTokens";
 import { CINEMATIC_SCENES } from "@/lib/cinematicScenes";
 import { getAiService, serviceContactMessage } from "@/lib/aiServices";
 import { useActiveScene } from "@/hooks/useActiveScene";
+import { useCinematicTheme } from "@/hooks/useCinematicTheme";
 import type { CinematicSceneId, ScrubSource } from "@/types/cinematic";
 import type { AiService, AiServiceSlug } from "@/types/aiServices";
 
@@ -29,6 +30,7 @@ type ScrubSources = Partial<Record<CinematicSceneId, ScrubSource>>;
 const Index = () => {
   const location = useLocation();
   const msVars = useMsThemeVars();
+  const cineTheme = useCinematicTheme();
   const [chaptersReady, setChaptersReady] = useState(false);
   const [scrubSources, setScrubSources] = useState<ScrubSources>({});
   const [contactPrefill, setContactPrefill] = useState<ContactPrefill>();
@@ -82,8 +84,8 @@ const Index = () => {
           color: "var(--text)",
         }}
       >
-        {/* Escenas cinemáticas: siempre tokens oscuros (spec C-3). */}
-        <div className="ms-cine" style={CINEMATIC_VARS} data-nav-overlay>
+        {/* Escenas cinemáticas: imágenes, scrims y tokens siguen el tema activo. */}
+        <div className="ms-cine" style={cinematicVars(cineTheme)} data-nav-overlay>
           <div className="ms-cine-stage">
             <div className="ms-cine-stage-pin">
               <CinematicBackground
