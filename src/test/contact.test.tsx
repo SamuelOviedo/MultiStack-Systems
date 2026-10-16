@@ -30,6 +30,12 @@ describe("validateContact", () => {
     expect(isValidPhone("9999-9999")).toBe(true); // 8 dígitos (HN)
     expect(isValidPhone("123")).toBe(false);
   });
+
+  it("limita la longitud del mensaje (S4)", () => {
+    const ok = { ...base, phone: "9999-9999" };
+    expect(validateContact({ ...ok, message: "x".repeat(5000) }).message).toBeUndefined();
+    expect(validateContact({ ...ok, message: "x".repeat(5001) }).message).toBe("El mensaje es demasiado largo.");
+  });
 });
 
 describe("normalizeContact", () => {
@@ -40,9 +46,22 @@ describe("normalizeContact", () => {
       message: "hola mundo",
     });
   });
+
+  it("solo envía el honeypot cuando tiene contenido (S4)", () => {
+    expect(normalizeContact({ ...base, website: "  " })).not.toHaveProperty("website");
+    expect(normalizeContact({ ...base, website: "http://spam" }).website).toBe("http://spam");
+  });
 });
 
 describe("ContactForm", () => {
+  it("el honeypot queda fuera del orden de tabulación y oculto a lectores de pantalla (S4)", () => {
+    const { container } = render(<ContactForm idPrefix="h" />);
+    const trap = container.querySelector<HTMLInputElement>('input[name="website"]');
+    expect(trap).not.toBeNull();
+    expect(trap?.tabIndex).toBe(-1);
+    expect(trap?.closest('[aria-hidden="true"]')).not.toBeNull();
+  });
+
   it("muestra los errores al intentar enviar vacío y enfoca el nombre", () => {
     render(<ContactForm idPrefix="c" />);
     fireEvent.click(screen.getByRole("button", { name: "Enviar mensaje" }));

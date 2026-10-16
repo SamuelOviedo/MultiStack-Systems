@@ -9,26 +9,41 @@ export interface ContactPayload {
   phone?: string;
   email?: string;
   message: string;
+  /** Honeypot (S4): hidden field that only bots fill in. */
+  website?: string;
 }
 
 export const CONTACT_LIMITS = {
   nameMin: 2,
   nameMax: 120,
+  emailMax: 254,
+  phoneMax: 40,
   messageMin: 5,
+  // Same limits as the Edge Function (S4, supabase/functions/send-contact-email/lead.ts).
+  messageMax: 5000,
 } as const;
+
+/** The server rejected the message because of its abuse limits (HTTP 429). */
+export class ContactRateLimitError extends Error {
+  constructor() {
+    super('contact rate limited');
+    this.name = 'ContactRateLimitError';
+  }
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Digits plus common separators; 7–15 digits covers local (HN: 8) and E.164.
 const PHONE_CHARS_RE = /^\+?[\d\s().-]+$/;
 
 export function isValidEmail(email: string): boolean {
-  return EMAIL_RE.test(email.trim());
+  const value = email.trim();
+  return value.length <= CONTACT_LIMITS.emailMax && EMAIL_RE.test(value);
 }
 
 export function isValidPhone(phone: string): boolean {
   const value = phone.trim();
   const digits = value.replace(/\D/g, '').length;
-  return PHONE_CHARS_RE.test(value) && digits >= 7 && digits <= 15;
+  return value.length <= CONTACT_LIMITS.phoneMax && PHONE_CHARS_RE.test(value) && digits >= 7 && digits <= 15;
 }
 
 export type ContactField = keyof ContactPayload | 'contact';
@@ -48,7 +63,9 @@ export function validateContact(form: ContactPayload): Partial<Record<ContactFie
   if (phone && !isValidPhone(phone)) errors.phone = 'Revisa el número de teléfono.';
   if (email && !isValidEmail(email)) errors.email = 'Revisa el correo electrónico.';
   if (!phone && !email) errors.contact = 'Déjanos un teléfono o un correo para responderte.';
-  if (form.message.trim().length < CONTACT_LIMITS.messageMin) errors.message = 'Cuéntanos un poco más.';
+  const message = form.message.trim();
+  if (message.length < CONTACT_LIMITS.messageMin) errors.message = 'Cuéntanos un poco más.';
+  else if (message.length > CONTACT_LIMITS.messageMax) errors.message = 'El mensaje es demasiado largo.';
   return errors;
 }
 
@@ -56,11 +73,13 @@ export function validateContact(form: ContactPayload): Partial<Record<ContactFie
 export function normalizeContact(form: ContactPayload): ContactPayload {
   const phone = form.phone?.trim();
   const email = form.email?.trim().toLowerCase();
+  const website = form.website?.trim();
   return {
     name: form.name.trim(),
     ...(phone ? { phone } : {}),
     ...(email ? { email } : {}),
     message: form.message.trim(),
+    ...(website ? { website } : {}),
   };
 }
 
@@ -68,5 +87,9 @@ export async function sendContactMessage(form: ContactPayload): Promise<void> {
   const { error } = await supabase.functions.invoke('send-contact-email', {
     body: normalizeContact(form),
   });
-  if (error) throw error;
+  if (!error) return;
+  // FunctionsHttpError carries the HTTP response as `context`.
+  const status = (error as { context?: { status?: unknown } }).context?.status;
+  if (status === 429) throw new ContactRateLimitError();
+  throw error;
 }

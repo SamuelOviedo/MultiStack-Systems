@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { CONTACT_LIMITS, sendContactMessage, validateContact, type ContactPayload } from "@/lib/contact";
+import {
+  CONTACT_LIMITS,
+  ContactRateLimitError,
+  sendContactMessage,
+  validateContact,
+  type ContactPayload,
+} from "@/lib/contact";
 import { trackContactConversion } from "@/lib/analytics";
 
 const MONO = "'JetBrains Mono', monospace";
@@ -31,6 +37,9 @@ export interface ContactPrefill {
 
 const EMPTY_FORM: ContactPayload = { name: "", phone: "", email: "", message: "" };
 
+// Honeypot (S4): off-screen and out of the tab order; people never see it.
+const honeypotStyle: CSSProperties = { position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" };
+
 /**
  * Formulario de contacto MultiStack (vía lib/contact → Edge Function).
  * Nombre y mensaje obligatorios; teléfono y correo opcionales, pero se pide al
@@ -40,7 +49,7 @@ const EMPTY_FORM: ContactPayload = { name: "", phone: "", email: "", message: ""
 const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; prefill?: ContactPrefill }) => {
   const [form, setForm] = useState<ContactPayload>(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "rate-limited">("idle");
   const nameRef = useRef<HTMLInputElement>(null);
 
   // Prefill desde un CTA de servicio: reemplaza el mensaje y deja el foco en el
@@ -78,8 +87,8 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       setStatus("success");
       setForm(EMPTY_FORM);
       setSubmitted(false);
-    } catch {
-      setStatus("error");
+    } catch (err) {
+      setStatus(err instanceof ContactRateLimitError ? "rate-limited" : "error");
     }
   };
 
@@ -91,6 +100,18 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
 
   return (
     <form onSubmit={handleSubmit} noValidate className="ms-contact-form" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div aria-hidden="true" style={honeypotStyle}>
+        <label htmlFor={id("website")}>Sitio web</label>
+        <input
+          id={id("website")}
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={form.website ?? ""}
+          onChange={update("website")}
+        />
+      </div>
       <label htmlFor={id("name")} style={labelStyle}>
         Nombre completo
       </label>
@@ -129,6 +150,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
             disabled={status === "loading"}
             autoComplete="tel"
             inputMode="tel"
+            maxLength={CONTACT_LIMITS.phoneMax}
             aria-invalid={!!shown.phone || contactInvalid}
             aria-describedby={describedBy("phone")}
             style={{ ...fieldStyle, ...(shown.phone || contactInvalid ? invalidStyle : {}) }}
@@ -151,6 +173,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
             placeholder="tu@email.com"
             disabled={status === "loading"}
             autoComplete="email"
+            maxLength={CONTACT_LIMITS.emailMax}
             aria-invalid={!!shown.email || contactInvalid}
             aria-describedby={describedBy("email")}
             style={{ ...fieldStyle, ...(shown.email || contactInvalid ? invalidStyle : {}) }}
@@ -177,6 +200,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
         onChange={update("message")}
         placeholder="Cuéntanos qué necesitas construir…"
         rows={3}
+        maxLength={CONTACT_LIMITS.messageMax}
         disabled={status === "loading"}
         required
         aria-invalid={!!shown.message}
@@ -215,6 +239,11 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       {status === "error" && (
         <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
           No se pudo enviar. Intenta de nuevo.
+        </div>
+      )}
+      {status === "rate-limited" && (
+        <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
+          Recibimos demasiados mensajes. Intenta de nuevo más tarde.
         </div>
       )}
     </form>
