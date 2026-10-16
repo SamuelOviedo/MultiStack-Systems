@@ -1,8 +1,10 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail, FROM_DEV, FROM_VERIFIED } from "../_shared/resend.ts";
 import { edgeFunctionsKey } from "../_shared/keys.ts";
-import { replyToFor } from "./reply-to.ts";
-import { contactHtml, contactSubject, type Lead } from "./templates.ts";
+import { createContactHandler, type ContactStore } from "./handler.ts";
+
+// Request handling and abuse rules: see handler.ts. This file only wires the
+// runtime (secrets, supabase-js, Resend) into it.
 
 // ── Runtime config ────────────────────────────────────────────────────────────
 //
@@ -23,118 +25,79 @@ const FROM_ADDRESS =
   RESEND_FROM_ENV === "verified" ? FROM_VERIFIED : FROM_DEV;
 
 // Server-side key selected by name (see _shared/keys.ts); only its logical
-// name is logged, never the key.
+// name is logged, never the key. Without it the function refuses requests (503).
 const SECRET = edgeFunctionsKey();
+
+// CONTACT_RATE_SALT (Supabase secret, ≥32 chars): HMAC key of the per-IP and
+// per-e-mail buckets, so raw IPs and addresses are never stored. Deliberately no
+// fallback to any API key: without it the function refuses requests with 503
+// (fail closed, see handler.ts).
+const RATE_SALT = Deno.env.get("CONTACT_RATE_SALT") ?? "";
 
 // RESEND_DEST (optional): override delivery address.
 // In sandbox mode Resend only delivers to the account owner — set this to
 // isaaccoviedo@gmail.com for testing, remove once domain is verified.
 const DEST = Deno.env.get("RESEND_DEST") ?? "samuel.oviedo@multistacksystems.com";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// ── Data store (supabase-js, edge_functions secret key) ───────────────────────
 
-// ── Handler ───────────────────────────────────────────────────────────────────
+// deno-lint-ignore no-explicit-any
+type Db = SupabaseClient<any>;
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+const since = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Método no permitido" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Startup diagnostics logged to Supabase function logs
-  console.log(`[contact] FROM_ADDRESS: ${FROM_ADDRESS}`);
-  console.log(`[contact] DEST: ${DEST}`);
-  console.log(`[contact] RESEND_API_KEY present: ${Boolean(Deno.env.get("RESEND_API_KEY"))}`);
-  if (SECRET.key) console.log(`[contact] secret key source: ${SECRET.source}`);
-  else console.error(`[contact] ⚠ secret key missing: ${SECRET.source} — leads are e-mailed but NOT stored`);
-
-  try {
-    // Payload: { name, phone?, email?, message } (see src/lib/contact.ts).
-    // Legacy clients still send { email, message }: name falls back to email.
-    const body = await req.json().catch(() => ({}));
-    const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-    const message     = str(body?.message);
-    const senderEmail = str(body?.email).toLowerCase();
-    const phone       = str(body?.phone);
-    // Single line: the name ends up in the email subject header.
-    const name        = str(body?.name).replace(/\s+/g, " ") || senderEmail;
-
-    const phoneDigits = phone.replace(/\D/g, "").length;
-    const emailOk = !senderEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(senderEmail);
-    const phoneOk = !phone || (/^\+?[\d\s().-]+$/.test(phone) && phoneDigits >= 7 && phoneDigits <= 15);
-    const nameOk  = name.length >= 2 && name.length <= 120;
-    const hasContactMethod = Boolean(senderEmail || phone);
-
-    if (!nameOk || !emailOk || !phoneOk || !hasContactMethod || message.length < 5) {
-      console.warn(
-        `[contact] Rejected — name ok: ${nameOk}, email ok: ${emailOk}, phone ok: ${phoneOk}, ` +
-        `contact method: ${hasContactMethod}, message chars: ${message.length}`,
-      );
-      return new Response(
-        JSON.stringify({
-          error: "Se requiere nombre, un teléfono o email válido y un mensaje de al menos 5 caracteres",
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-    const lead: Lead = { name, phone, email: senderEmail, message };
-
-    // Persist the lead as a 'received' ticket with the edge_functions secret
-    // key only — no fallback to another key (see _shared/keys.ts).
-    // Non-fatal: a DB hiccup or a missing key must never lose the email
-    // notification; both are logged and the e-mail says it was not stored.
-    let stored = false;
-    try {
-      if (!SECRET.key) throw new Error(`${SECRET.source} missing`);
-
-      const admin = createClient(Deno.env.get("SUPABASE_URL")!, SECRET.key, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      });
+function supabaseStore(db: Db): ContactStore {
+  return {
+    async recordAndCount(bucket) {
+      const ins = await db.from("contact_rate_events").insert({ bucket });
+      if (ins.error) throw ins.error;
+      const r = await db.from("contact_rate_events").select("id", { count: "exact", head: true })
+        .eq("bucket", bucket).gte("created_at", since(60));
+      if (r.error) throw r.error;
+      return r.count ?? 0;
+    },
+    async record(bucket) {
+      await db.from("contact_rate_events").insert({ bucket });
+    },
+    async purge() {
+      await db.from("contact_rate_events").delete().lt("created_at", since(24 * 60));
+    },
+    async countLeads(minutes) {
+      const r = await db.from("tickets").select("id", { count: "exact", head: true })
+        .eq("type", "consulta").is("project_id", null).is("client_id", null)
+        .gte("created_at", since(minutes));
+      if (r.error) throw r.error;
+      return r.count ?? 0;
+    },
+    async insertLead(lead) {
       // tickets has no phone column: it leads the description so the team sees it.
-      const { error: dbError } = await admin.from("tickets").insert({
+      const { error } = await db.from("tickets").insert({
         project_id:   null,
-        client_name:  name,
-        client_email: senderEmail || null,
+        client_name:  lead.name,
+        client_email: lead.email || null,
         type:         "consulta",
         priority:     "media",
         status:       "abierto",
-        title:        `Mensaje web de ${name}`,
-        description:  phone ? `Teléfono: ${phone}\n\n${message}` : message,
+        title:        `Mensaje web de ${lead.name}`,
+        description:  lead.phone ? `Teléfono: ${lead.phone}\n\n${lead.message}` : lead.message,
       });
-      if (dbError) console.error(`[contact] ⚠ ticket insert failed: ${dbError.message}`);
-      else {
-        stored = true;
-        console.log("[contact] ✅ ticket row created");
-      }
-    } catch (e) {
-      console.error(`[contact] ⚠ ticket insert threw: ${e instanceof Error ? e.message : e}`);
-    }
+      return error ? error.message : null;
+    },
+  };
+}
 
-    await sendEmail({
-      from:    FROM_ADDRESS,
-      // The visitor's plain address, or the support mailbox (see reply-to.ts).
-      replyTo: replyToFor(senderEmail),
-      to:      DEST,
-      subject: contactSubject(name),
-      html:    contactHtml(lead, stored),
-    });
-
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    console.error(`[contact] ❌ ${msg}`);
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+Deno.serve(createContactHandler({
+  openStore: () =>
+    SECRET.key
+      ? supabaseStore(createClient(Deno.env.get("SUPABASE_URL")!, SECRET.key, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      }))
+      : null,
+  secretSource: SECRET.source,
+  rateSalt: RATE_SALT,
+  resendConfigured: Boolean(Deno.env.get("RESEND_API_KEY")),
+  fromAddress: FROM_ADDRESS,
+  dest: DEST,
+  sendEmail,
+  log: (level, message) => console[level === "info" ? "log" : level](message),
+}));
