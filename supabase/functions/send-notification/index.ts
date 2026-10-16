@@ -1,14 +1,50 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.5";
+import { createNotificationHandler, type CallerContext, type OutgoingEmail } from "./handler.ts";
 
+// Request contract & security model: see handler.ts.
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "onboarding@resend.dev";
-const TEAM_EMAIL = Deno.env.get("TEAM_EMAIL") ?? "";
+const SITE_URL = (Deno.env.get("SITE_URL") ?? "https://www.multistacksystems.com").replace(/\/+$/, "");
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+async function authenticate(accessToken: string): Promise<CallerContext | null> {
+  // Every query below runs with the caller's JWT → RLS applies.
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
-async function sendEmail(to: string, subject: string, html: string) {
+  const { data, error } = await supabase.auth.getUser(accessToken);
+  if (error || !data.user) return null;
+
+  return {
+    userId: data.user.id,
+    async getUserType() {
+      const { data: type, error: rpcError } = await supabase.rpc("get_user_type");
+      return rpcError || typeof type !== "number" ? null : type;
+    },
+    async getTicket(ticketId) {
+      const { data: ticket } = await supabase
+        .from("tickets")
+        .select("id, title, client_email, project_id")
+        .eq("id", ticketId)
+        .maybeSingle();
+      return ticket ?? null;
+    },
+    async getMessage(messageId, ticketId) {
+      const { data: message } = await supabase
+        .from("ticket_messages")
+        .select("id, ticket_id, sender_type, message, created_at")
+        .eq("id", messageId)
+        .eq("ticket_id", ticketId)
+        .maybeSingle();
+      return message ?? null;
+    },
+  };
+}
+
+async function sendEmail({ to, subject, html }: OutgoingEmail): Promise<void> {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -17,57 +53,14 @@ async function sendEmail(to: string, subject: string, html: string) {
     },
     body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  // Resend's error body can echo the recipient: keep only the status.
+  if (!res.ok) throw new Error(`Resend HTTP ${res.status}`);
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-
-  try {
-    const body = await req.json();
-    const { type, ticket, projectName, message, portalUrl } = body;
-
-    if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
-
-    if (type === "new_ticket") {
-      if (!TEAM_EMAIL) throw new Error("TEAM_EMAIL not set");
-      await sendEmail(
-        TEAM_EMAIL,
-        `[MultiStack] Nuevo ticket: ${ticket.title}`,
-        `
-          <h2>Nuevo ticket recibido</h2>
-          <p><strong>Proyecto:</strong> ${projectName ?? "—"}</p>
-          <p><strong>Título:</strong> ${ticket.title}</p>
-          <p><strong>Tipo:</strong> ${ticket.type}</p>
-          <p><strong>Prioridad:</strong> ${ticket.priority}</p>
-          ${ticket.description ? `<p><strong>Descripción:</strong> ${ticket.description}</p>` : ""}
-          ${ticket.client_name ? `<p><strong>Cliente:</strong> ${ticket.client_name}</p>` : ""}
-          ${ticket.client_email ? `<p><strong>Email:</strong> ${ticket.client_email}</p>` : ""}
-        `,
-      );
-    } else if (type === "team_reply") {
-      if (!ticket.client_email) throw new Error("No client email on ticket");
-      await sendEmail(
-        ticket.client_email,
-        `[MultiStack] Respuesta a tu ticket: ${ticket.title}`,
-        `
-          <h2>El equipo de MultiStack ha respondido tu ticket</h2>
-          <p><strong>Ticket:</strong> ${ticket.title}</p>
-          <blockquote style="border-left:3px solid #00ff88;padding-left:12px;margin:12px 0;">
-            ${message}
-          </blockquote>
-          ${portalUrl ? `<p><a href="${portalUrl}" style="color:#00ff88;">Ver conversación completa →</a></p>` : ""}
-        `,
-      );
-    }
-
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+Deno.serve(createNotificationHandler({
+  authenticate,
+  sendEmail,
+  siteUrl: SITE_URL,
+  emailConfigured: Boolean(RESEND_API_KEY),
+  log: (event, detail) => console.log(`[send-notification] ${event}`, detail ? JSON.stringify(detail) : ""),
+}));

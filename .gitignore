@@ -24,6 +24,10 @@ dist-ssr/
 
 # Supabase CLI temp files
 supabase/.temp/
+supabase/.branches/
+
+# Deno lockfile created by `deno check` on Edge Functions (not used by deploys)
+deno.lock
 
 # Graphify generated artifacts (regenerate with `npm run graph`)
 graph/
@@ -41,3 +45,25 @@ graph/
 
 # CodeGraph local index (regenerate with `codegraph init`)
 .codegraph/
+
+# Local generated artifacts — never commit
+email-previews/
+supabase/.branches/
+e2e-artifacts/
+*.bundle
+
+# Database dumps / backups (may contain personal data) — never commit
+/*.sql
+*.dump
+*.sql.gz
+backups/
+
+# Credentials and keys
+*.pem
+*.key
+*.p12
+id_rsa*
+id_ed25519*
+*service-account*.json
+credentials*.json
+.vercel/
