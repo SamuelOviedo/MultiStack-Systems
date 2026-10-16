@@ -19,7 +19,7 @@ export interface ProjectRequirements {
 
 export interface Project {
   id: string;
-  user_id: string;
+  user_id: string | null;   // creator (staff); NULL once that account is deleted
   nombre_proyecto: string;
   descripcion: string | null;
   estado: ProjectStatus;
