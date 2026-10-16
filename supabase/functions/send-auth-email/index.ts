@@ -1,4 +1,5 @@
 import { createAuthEmailHandler, type AuthEmail } from "./handler.ts";
+import { BRAND } from "../_shared/email/layout.ts";
 
 // Supabase Auth Send Email Hook. Security model & behaviour: see handler.ts.
 // Required secret: SEND_EMAIL_HOOK_SECRET (Dashboard → Authentication → Hooks).
@@ -13,7 +14,8 @@ async function sendEmail({ to, subject, html }: AuthEmail): Promise<void> {
       "Authorization": `Bearer ${RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
+    // Replies go to the support mailbox (the mail. sending subdomain has no MX).
+    body: JSON.stringify({ from: FROM_EMAIL, to, subject, html, reply_to: BRAND.supportEmail }),
   });
   // Resend's error body can echo the recipient: keep only the status.
   if (!res.ok) throw new Error(`Resend HTTP ${res.status}`);

@@ -186,7 +186,7 @@ describe("send-notification · admin happy path", () => {
     expect(await res.json()).toEqual({ ok: true });
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe("cliente@example.com");
-    expect(sent[0].subject).toBe("[MultiStack] Respuesta a tu ticket: Tienda online");
+    expect(sent[0].subject).toBe("Respuesta a tu ticket: Tienda online — MultiStack Systems");
     expect(sent[0].html).toContain("Hola, ya revisamos tu solicitud.");
   });
 
@@ -202,7 +202,8 @@ describe("send-notification · admin happy path", () => {
     const { deps, sent } = makeDeps({ a: { id: "u", userType: 0, visibleTickets: [projectTicket] } });
     await createNotificationHandler(deps)(post(validBody, "a"));
     expect(sent[0].html).not.toContain("/client/");
-    expect(sent[0].html).not.toContain("href=");
+    expect(sent[0].html).not.toContain("/solicitudes");
+    expect(sent[0].html).not.toContain("token");
   });
 });
 
@@ -233,7 +234,8 @@ describe("send-notification · tampering", () => {
     await createNotificationHandler(deps)(post(validBody, "a"));
     const html = sent[0].html;
     expect(html).not.toContain("<script>");
-    expect(html).not.toContain("<img");
+    expect(html).not.toContain("<img src=x"); // the layout's own logo <img> is fine
+    expect(html).not.toContain('onerror="'); // only the escaped text form may appear
     expect(html).not.toContain('href="https://evil.test"');
     expect(html).toContain("&lt;script&gt;");
     expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");

@@ -29,3 +29,7 @@ verify_jwt = true
 
 [functions.send-welcome-email]
 verify_jwt = false
+
+# Public by design (the browser calls it with the publishable key); verify_jwt stays true as in production (contact v32).
+[functions.send-contact-email]
+verify_jwt = true

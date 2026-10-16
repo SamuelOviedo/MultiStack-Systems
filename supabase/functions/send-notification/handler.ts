@@ -16,7 +16,8 @@
  * Pure module (no Deno globals, no remote imports): index.ts wires the real
  * Supabase client and Resend; tests inject fakes.
  */
-import { escapeHtml, isUuid, isValidEmail, toSubjectText } from "../_shared/html.ts";
+import { isUuid, isValidEmail, toSubjectText } from "../_shared/html.ts";
+import { teamReplyHtml, teamReplySubject } from "./templates.ts";
 
 export interface NotificationTicket {
   id: string;
@@ -78,22 +79,6 @@ function json(status: number, body: Record<string, unknown>): Response {
 }
 
 const fail = (status: number, code: string) => json(status, { error: code });
-
-export function teamReplyHtml(params: {
-  ticketTitle: string;
-  message: string;
-  link: string | null;
-}): string {
-  const linkBlock = params.link
-    ? `<p><a href="${escapeHtml(params.link)}" style="color:#00ff88;">Ver tus solicitudes →</a></p>`
-    : `<p style="color:#64748b;font-size:13px;">Puedes responder a este correo o usar el enlace de seguimiento que te compartió el equipo.</p>`;
-  return `
-          <h2>El equipo de MultiStack ha respondido tu ticket</h2>
-          <p><strong>Ticket:</strong> ${escapeHtml(params.ticketTitle)}</p>
-          <blockquote style="border-left:3px solid #00ff88;padding-left:12px;margin:12px 0;white-space:pre-wrap;">${escapeHtml(params.message)}</blockquote>
-          ${linkBlock}
-        `;
-}
 
 export function createNotificationHandler(deps: NotificationDeps) {
   const log = deps.log ?? (() => {});
@@ -169,7 +154,7 @@ export function createNotificationHandler(deps: NotificationDeps) {
     try {
       await deps.sendEmail({
         to: recipient,
-        subject: `[MultiStack] Respuesta a tu ticket: ${toSubjectText(ticket.title)}`,
+        subject: teamReplySubject(toSubjectText(ticket.title)),
         html: teamReplyHtml({
           ticketTitle: ticket.title,
           message: message.message.slice(0, MESSAGE_MAX_CHARS),
