@@ -69,11 +69,11 @@ describe("send-auth-email · signed requests (legit Supabase Auth)", () => {
     expect(await res.json()).toEqual({});
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe("nuevo@cliente.com");
-    expect(sent[0].subject).toBe("Confirmá tu cuenta — MultiStack Systems");
+    expect(sent[0].subject).toBe("Confirma tu cuenta — MultiStack Systems");
     // Template preserved: brand markers + escaped verify link
-    expect(sent[0].html).toContain("[ CONFIRM_SIGNUP ]");
-    expect(sent[0].html).toContain("[ CONFIRMAR CUENTA ]");
-    expect(sent[0].html).toContain("https://multistacksystems.com/logo-white.png");
+    expect(sent[0].html).toContain("Confirma tu correo electrónico");
+    expect(sent[0].html).toContain(">Confirmar mi cuenta</a>");
+    expect(sent[0].html).toContain("https://www.multistacksystems.com/logo-black.png");
     expect(sent[0].html).toContain(
       'href="https://ckyqrdemgssbrqfnkxsr.supabase.co/auth/v1/verify?token=pkce_4f0e2b9c1a&amp;type=signup&amp;redirect_to=https%3A%2F%2Fwww.multistacksystems.com%2Fauth%2Fcallback"',
     );
@@ -84,14 +84,16 @@ describe("send-auth-email · signed requests (legit Supabase Auth)", () => {
     const res = await handler(hookRequest(bodyOf(payload("recovery"))));
     expect(res.status).toBe(200);
     expect(sent[0].subject).toBe("Recuperar contraseña — MultiStack Systems");
-    expect(sent[0].html).toContain("[ RESET_PASSWORD ]");
+    expect(sent[0].html).toContain(">Restablecer contraseña</a>");
+    expect(sent[0].html).toContain("¿No fuiste tú?");
     expect(sent[0].html).toContain("type=recovery");
   });
 
   it("invite → invitation e-mail (confirmation template)", async () => {
     const { handler, sent } = setup();
     await handler(hookRequest(bodyOf(payload("invite"))));
-    expect(sent[0].subject).toBe("Fuiste invitado a MultiStack Systems");
+    expect(sent[0].subject).toBe("Te invitaron a MultiStack Systems");
+    expect(sent[0].html).toContain(">Aceptar invitación</a>");
     expect(sent[0].html).toContain("type=invite");
   });
 

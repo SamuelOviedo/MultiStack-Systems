@@ -1,5 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendEmail, FROM_DEV, REPLY_TO } from "../_shared/resend.ts";
+import { sendEmail, FROM_DEV, FROM_VERIFIED } from "../_shared/resend.ts";
+import { edgeFunctionsKey } from "../_shared/keys.ts";
+import { replyToFor } from "./reply-to.ts";
+import { contactHtml, contactSubject, type Lead } from "./templates.ts";
 
 // ── Runtime config ────────────────────────────────────────────────────────────
 //
@@ -7,18 +10,21 @@ import { sendEmail, FROM_DEV, REPLY_TO } from "../_shared/resend.ts";
 //   Unset / missing  →  uses onboarding@resend.dev  (Resend sandbox — no domain
 //                        verification needed; delivers only to the Resend account
 //                        owner's email address).
-//   "verified"       →  uses MultiStack Systems <soporte@multistacksystems.com>
-//                        (requires multistacksystems.com to be verified in the
-//                        Resend dashboard → Domains → Add Domain).
+//   "verified"       →  uses FROM_VERIFIED: the corporate sender from the
+//                        FROM_EMAIL secret, shared with the other e-mail
+//                        functions (see _shared/sender.ts), so the Resend key
+//                        can be restricted to that domain.
 //
 // To activate the verified sender once the domain is confirmed:
 //   supabase secrets set RESEND_FROM=verified
 //
 const RESEND_FROM_ENV = Deno.env.get("RESEND_FROM");
 const FROM_ADDRESS =
-  RESEND_FROM_ENV === "verified"
-    ? "MultiStack Systems <soporte@multistacksystems.com>"
-    : FROM_DEV;
+  RESEND_FROM_ENV === "verified" ? FROM_VERIFIED : FROM_DEV;
+
+// Server-side key selected by name (see _shared/keys.ts); only its logical
+// name is logged, never the key.
+const SECRET = edgeFunctionsKey();
 
 // RESEND_DEST (optional): override delivery address.
 // In sandbox mode Resend only delivers to the account owner — set this to
@@ -29,116 +35,6 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// ── HTML template ─────────────────────────────────────────────────────────────
-
-function escape(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-interface Lead {
-  name: string;
-  phone: string;   // "" when not provided
-  email: string;   // "" when not provided
-  message: string;
-}
-
-function contactHtml(lead: Lead): string {
-  const ts = new Date().toLocaleString("es-HN", { timeZone: "America/Tegucigalpa" });
-  const safeMsg  = escape(lead.message);
-  const safeName = escape(lead.name);
-  const telHref  = lead.phone.replace(/[^\d+]/g, "");
-
-  const row = (label: string, value: string) => `
-              <tr>
-                <td style="padding:10px 20px;border-bottom:1px solid #0ea5e914;">
-                  <p style="margin:0;font-size:11px;color:#475569;letter-spacing:0.06em;">${label}</p>
-                  ${value}
-                </td>
-              </tr>`;
-  const link = (href: string, text: string) =>
-    `<a href="${href}" style="font-size:13px;color:#0ea5e9;text-decoration:none;">${text}</a>`;
-
-  const senderRows = [
-    row("NOMBRE", `<p style="margin:0;font-size:13px;color:#e2e8f0;">${safeName}</p>`),
-    lead.phone ? row("TELÉFONO", link(`tel:${escape(telHref)}`, escape(lead.phone))) : "",
-    lead.email ? row("CORREO", link(`mailto:${escape(lead.email)}`, escape(lead.email))) : "",
-  ].join("");
-
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <title>Nuevo mensaje — MultiStack Systems</title>
-</head>
-<body style="margin:0;padding:0;background:#0a0e14;font-family:'Consolas','Monaco','Courier New',monospace;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-         style="background:#0a0e14;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-               style="max-width:560px;border:1px solid #0ea5e933;border-radius:8px;background:#0f1419;overflow:hidden;">
-
-          <!-- Header -->
-          <tr>
-            <td style="padding:20px 24px;border-bottom:1px solid #0ea5e922;background:#0b1120;text-align:center;">
-              <img src="https://multistacksystems.com/logo-white.png"
-                   alt="MultiStack Systems Logo"
-                   width="48" style="height:auto;display:block;margin:0 auto 10px;" />
-              <p style="margin:0;font-size:11px;color:#0ea5e9;letter-spacing:0.1em;">
-                NUEVO MENSAJE DESDE EL SITIO WEB
-              </p>
-            </td>
-          </tr>
-
-          <!-- Body -->
-          <tr>
-            <td style="padding:28px 24px;">
-              <p style="margin:0 0 16px;font-size:13px;color:#94a3b8;">
-                Recibiste un nuevo mensaje a través del formulario de contacto:
-              </p>
-
-              <!-- Sender rows: name + whichever contact methods were provided -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-                     style="background:#0b1120;border:1px solid #0ea5e922;border-radius:4px 4px 0 0;margin:0;border-bottom:none;">${senderRows}
-              </table>
-
-              <!-- Message row -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-                     style="background:#0b1120;border:1px solid #0ea5e922;border-radius:0 0 4px 4px;margin:0 0 20px;">
-                <tr>
-                  <td style="padding:16px 20px;">
-                    <p style="margin:0;font-size:14px;color:#cbd5e1;line-height:1.7;white-space:pre-wrap;">${safeMsg}</p>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="margin:0;font-size:11px;color:#475569;">
-                Enviado el ${ts} (HN)
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="padding:14px 24px;border-top:1px solid #0ea5e918;background:#080c10;">
-              <p style="margin:0;font-size:10px;color:#475569;">
-                multistacksystems.com — Formulario de contacto público
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -156,6 +52,8 @@ Deno.serve(async (req) => {
   console.log(`[contact] FROM_ADDRESS: ${FROM_ADDRESS}`);
   console.log(`[contact] DEST: ${DEST}`);
   console.log(`[contact] RESEND_API_KEY present: ${Boolean(Deno.env.get("RESEND_API_KEY"))}`);
+  if (SECRET.key) console.log(`[contact] secret key source: ${SECRET.source}`);
+  else console.error(`[contact] ⚠ secret key missing: ${SECRET.source} — leads are e-mailed but NOT stored`);
 
   try {
     // Payload: { name, phone?, email?, message } (see src/lib/contact.ts).
@@ -188,17 +86,17 @@ Deno.serve(async (req) => {
     }
     const lead: Lead = { name, phone, email: senderEmail, message };
 
-    // Persist the lead as a 'received' ticket.
-    // Preferred: service role (bypasses RLS). Fallback: anon key — covered by
-    // the "public inserts contact lead" RLS policy.
-    // Non-fatal: a DB hiccup must never lose the email notification.
+    // Persist the lead as a 'received' ticket with the edge_functions secret
+    // key only — no fallback to another key (see _shared/keys.ts).
+    // Non-fatal: a DB hiccup or a missing key must never lose the email
+    // notification; both are logged and the e-mail says it was not stored.
+    let stored = false;
     try {
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-      const anonKey    = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-      const dbKey      = serviceKey || anonKey;
-      console.log(`[contact] db client: ${serviceKey ? "service_role" : anonKey ? "anon (fallback)" : "NO KEY"}`);
+      if (!SECRET.key) throw new Error(`${SECRET.source} missing`);
 
-      const admin = createClient(Deno.env.get("SUPABASE_URL")!, dbKey);
+      const admin = createClient(Deno.env.get("SUPABASE_URL")!, SECRET.key, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
       // tickets has no phone column: it leads the description so the team sees it.
       const { error: dbError } = await admin.from("tickets").insert({
         project_id:   null,
@@ -211,18 +109,21 @@ Deno.serve(async (req) => {
         description:  phone ? `Teléfono: ${phone}\n\n${message}` : message,
       });
       if (dbError) console.error(`[contact] ⚠ ticket insert failed: ${dbError.message}`);
-      else console.log("[contact] ✅ ticket row created");
+      else {
+        stored = true;
+        console.log("[contact] ✅ ticket row created");
+      }
     } catch (e) {
       console.error(`[contact] ⚠ ticket insert threw: ${e instanceof Error ? e.message : e}`);
     }
 
     await sendEmail({
       from:    FROM_ADDRESS,
-      // No email → default REPLY_TO; the phone is in the body.
-      ...(senderEmail ? { replyTo: senderEmail } : {}),
+      // The visitor's plain address, or the support mailbox (see reply-to.ts).
+      replyTo: replyToFor(senderEmail),
       to:      DEST,
-      subject: `Nuevo mensaje de ${name} — MultiStack Systems`,
-      html:    contactHtml(lead),
+      subject: contactSubject(name),
+      html:    contactHtml(lead, stored),
     });
 
     return new Response(JSON.stringify({ ok: true }), {

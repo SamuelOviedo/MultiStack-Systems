@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.5";
 import { createNotificationHandler, type CallerContext, type OutgoingEmail } from "./handler.ts";
+import { BRAND } from "../_shared/email/layout.ts";
 
 // Request contract & security model: see handler.ts.
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -51,7 +52,8 @@ async function sendEmail({ to, subject, html }: OutgoingEmail): Promise<void> {
       "Authorization": `Bearer ${RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
+    // Replies go to the support mailbox (the mail. sending subdomain has no MX).
+    body: JSON.stringify({ from: FROM_EMAIL, to, subject, html, reply_to: BRAND.supportEmail }),
   });
   // Resend's error body can echo the recipient: keep only the status.
   if (!res.ok) throw new Error(`Resend HTTP ${res.status}`);

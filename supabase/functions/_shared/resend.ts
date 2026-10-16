@@ -1,8 +1,16 @@
+import { resolveSender, SUPPORT_REPLY_TO } from "./sender.ts";
+
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 
-export const FROM_VERIFIED = "MultiStack Systems <soporte@mail.multistacksystems.com>";
+// Corporate sender from the FROM_EMAIL secret (shared with send-auth-email and
+// send-notification); falls back to the mail. subdomain (see sender.ts).
+const SENDER = resolveSender(Deno.env.get("FROM_EMAIL"));
+if (SENDER.rejected) console.error(`[resend] ⚠ FROM_EMAIL ${SENDER.rejected} — using the default sender`);
+
+export const FROM_VERIFIED = SENDER.from;
 export const FROM_DEV      = "onboarding@resend.dev";
-export const REPLY_TO      = "soporte@mail.multistacksystems.com";
+// Replies must reach a mailbox with MX records: the mail. sending subdomain has none.
+export const REPLY_TO      = SUPPORT_REPLY_TO;
 
 export interface SendEmailOptions {
   to: string;

@@ -1,0 +1,2 @@
+# Byte-exact e-mail snapshots (vitest toMatchFileSnapshot) must not get CRLF on Windows checkouts
+supabase/functions/_shared/email/__snapshots__/*.html text eol=lf

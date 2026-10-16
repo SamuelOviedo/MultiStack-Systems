@@ -1,140 +1,109 @@
 /**
- * Branded Auth e-mails (MultiStack Systems). Markup is unchanged from the
- * original send-auth-email/index.ts; the only difference is that every
- * dynamic value now goes through escapeHtml (fix S3).
+ * Supabase Auth e-mails, built on the shared MultiStack design system
+ * (`_shared/email/layout.ts`). Only presentation lives here: signature
+ * verification, payload validation and the action → template mapping stay in
+ * handler.ts. Every dynamic value is escaped by the layout blocks.
  */
-import { escapeHtml } from "../_shared/html.ts";
+import { BRAND, renderEmail } from "../_shared/email/layout.ts";
 
-export function confirmSignupHtml(email: string, confirmUrl: string): string {
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Confirmar cuenta — MultiStack Systems</title>
-</head>
-<body style="margin:0;padding:0;background-color:#0a0e14;font-family:'Consolas','Monaco','Courier New',monospace;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#0a0e14;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;border:1px solid #00ff0033;border-radius:8px;background-color:#0f1419;overflow:hidden;">
-          <tr>
-            <td style="padding:20px 24px;border-bottom:1px solid #00ff0022;background-color:#0b1120;">
-              <p style="margin:0;font-size:11px;color:#00ff00;line-height:1.6;letter-spacing:0.08em;">
-                <span style="color:#00ff00;">&gt;</span> multistack-auth<span style="color:#7a8a99;">@</span>secure<span style="color:#00ff00;">:~</span><span style="color:#7a8a99;">$</span> <span style="color:#94a3b8;">verify --user</span>
-              </p>
-              <img src="https://multistacksystems.com/logo-white.png"
-                   alt="MultiStack Systems Logo"
-                   width="48" style="height:auto;display:block;margin:12px 0 0;" />
-              <p style="margin:6px 0 0;font-size:12px;color:#7a8a99;">High-Level Engineering</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:28px 24px;">
-              <p style="margin:0 0 8px;font-size:12px;color:#00ff00;text-transform:uppercase;letter-spacing:0.12em;">[ CONFIRM_SIGNUP ]</p>
-              <p style="margin:0 0 16px;font-size:14px;color:#cbd5e1;line-height:1.6;">
-                Recibimos una solicitud de registro para:
-              </p>
-              <p style="margin:0 0 24px;padding:12px 14px;background-color:#0b1120;border:1px solid #00ff0022;border-radius:4px;font-size:13px;color:#00ff00;word-break:break-all;">
-                ${escapeHtml(email)}
-              </p>
-              <p style="margin:0 0 24px;font-size:14px;color:#94a3b8;line-height:1.6;">
-                Ejecuta la verificación para activar tu cuenta. El enlace expira por seguridad.
-              </p>
-              <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto 24px;">
-                <tr>
-                  <td style="border-radius:4px;background-color:#00ff0014;border:1px solid #00ff0044;">
-                    <a href="${escapeHtml(confirmUrl)}" target="_blank" rel="noopener noreferrer"
-                       style="display:inline-block;padding:12px 28px;font-size:12px;font-weight:600;color:#00ff00;text-decoration:none;letter-spacing:0.1em;font-family:'Consolas','Monaco','Courier New',monospace;">
-                      [ CONFIRMAR CUENTA ]
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:0;font-size:11px;color:#64748b;line-height:1.6;word-break:break-all;">
-                Si el botón no funciona, pega esta URL en el navegador:<br />
-                <span style="color:#475569;">${escapeHtml(confirmUrl)}</span>
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 24px;border-top:1px solid #00ff0018;background-color:#080c10;">
-              <p style="margin:0;font-size:10px;color:#475569;line-height:1.5;">
-                ¿No solicitaste esta cuenta? Ignora este mensaje. No se realizará ningún cambio.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+const ignoreIfNotYou = (what: string) => ({
+  type: "notice" as const,
+  title: "¿No fuiste tú?",
+  content: [
+    `${what} Si recibes mensajes que no reconoces, escríbenos a `,
+    { strong: BRAND.supportEmail },
+    ".",
+  ],
+});
+
+/** Password recovery (action "recovery"). */
+export function passwordRecoveryHtml(email: string, confirmUrl: string): string {
+  return renderEmail({
+    preheader: "Usa este enlace para crear una nueva contraseña. Caduca en 1 hora.",
+    eyebrow: "Seguridad de la cuenta",
+    title: "Restablece tu contraseña",
+    blocks: [
+      {
+        type: "paragraph",
+        content: [
+          "Recibimos una solicitud para restablecer la contraseña de la cuenta asociada a ",
+          { strong: email },
+          ".",
+        ],
+      },
+      {
+        type: "paragraph",
+        content: "Pulsa el botón para continuar. Por seguridad, el enlace caduca en 1 hora y solo puede usarse una vez.",
+      },
+      { type: "button", label: "Restablecer contraseña", url: confirmUrl },
+      { type: "fallbackLink", url: confirmUrl },
+      ignoreIfNotYou("Si no solicitaste este cambio, ignora este correo: tu contraseña seguirá siendo la misma."),
+    ],
+    footerNote: `Recibes este correo porque se solicitó restablecer la contraseña de tu cuenta en ${BRAND.name}.`,
+  });
 }
 
-export function passwordRecoveryHtml(email: string, confirmUrl: string): string {
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Recuperar contraseña — MultiStack Systems</title>
-</head>
-<body style="margin:0;padding:0;background-color:#0a0e14;font-family:'Consolas','Monaco','Courier New',monospace;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#0a0e14;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;border:1px solid #00ff0033;border-radius:8px;background-color:#0f1419;overflow:hidden;">
-          <tr>
-            <td style="padding:20px 24px;border-bottom:1px solid #00ff0022;background-color:#0b1120;">
-              <p style="margin:0;font-size:11px;color:#00ff00;line-height:1.6;letter-spacing:0.08em;">
-                <span style="color:#00ff00;">&gt;</span> multistack-auth<span style="color:#7a8a99;">@</span>secure<span style="color:#00ff00;">:~</span><span style="color:#7a8a99;">$</span> <span style="color:#94a3b8;">reset --password</span>
-              </p>
-              <img src="https://multistacksystems.com/logo-white.png"
-                   alt="MultiStack Systems Logo"
-                   width="48" style="height:auto;display:block;margin:12px 0 0;" />
-              <p style="margin:6px 0 0;font-size:12px;color:#7a8a99;">High-Level Engineering</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:28px 24px;">
-              <p style="margin:0 0 8px;font-size:12px;color:#f59e0b;text-transform:uppercase;letter-spacing:0.12em;">[ RESET_PASSWORD ]</p>
-              <p style="margin:0 0 16px;font-size:14px;color:#cbd5e1;line-height:1.6;">
-                Solicitud de recuperación de contraseña para:
-              </p>
-              <p style="margin:0 0 24px;padding:12px 14px;background-color:#0b1120;border:1px solid #f59e0b22;border-radius:4px;font-size:13px;color:#f59e0b;word-break:break-all;">
-                ${escapeHtml(email)}
-              </p>
-              <p style="margin:0 0 24px;font-size:14px;color:#94a3b8;line-height:1.6;">
-                Este enlace es válido por 1 hora. Si no solicitaste este cambio, ignorá el mensaje.
-              </p>
-              <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto 24px;">
-                <tr>
-                  <td style="border-radius:4px;background-color:#f59e0b14;border:1px solid #f59e0b44;">
-                    <a href="${escapeHtml(confirmUrl)}" target="_blank" rel="noopener noreferrer"
-                       style="display:inline-block;padding:12px 28px;font-size:12px;font-weight:600;color:#f59e0b;text-decoration:none;letter-spacing:0.1em;font-family:'Consolas','Monaco','Courier New',monospace;">
-                      [ RESETEAR CONTRASEÑA ]
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:0;font-size:11px;color:#64748b;line-height:1.6;word-break:break-all;">
-                Si el botón no funciona:<br />
-                <span style="color:#475569;">${escapeHtml(confirmUrl)}</span>
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 24px;border-top:1px solid #f59e0b18;background-color:#080c10;">
-              <p style="margin:0;font-size:10px;color:#475569;line-height:1.5;">
-                Si no solicitaste este cambio, ignorá este mensaje. Tu contraseña no será modificada.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+/** Sign-up confirmation (action "signup"). */
+export function confirmSignupHtml(email: string, confirmUrl: string): string {
+  return renderEmail({
+    preheader: "Confirma tu correo para activar tu cuenta en MultiStack Systems.",
+    eyebrow: "Verificación de correo",
+    title: "Confirma tu correo electrónico",
+    blocks: [
+      {
+        type: "paragraph",
+        content: [
+          "Gracias por registrarte en MultiStack Systems. Para activar tu cuenta, confirma que ",
+          { strong: email },
+          " es tu dirección de correo.",
+        ],
+      },
+      { type: "button", label: "Confirmar mi cuenta", url: confirmUrl },
+      { type: "fallbackLink", url: confirmUrl },
+      ignoreIfNotYou("Si no creaste esta cuenta, ignora este correo: no se activará sin tu confirmación."),
+    ],
+    footerNote: `Recibes este correo porque se registró una cuenta con esta dirección en ${BRAND.name}.`,
+  });
+}
+
+/** New-address confirmation after an e-mail change (action "email_change_new"). */
+export function emailChangeHtml(email: string, confirmUrl: string): string {
+  return renderEmail({
+    preheader: "Confirma tu nueva dirección de correo en MultiStack Systems.",
+    eyebrow: "Verificación de correo",
+    title: "Confirma tu nuevo correo",
+    blocks: [
+      {
+        type: "paragraph",
+        content: ["Recibimos una solicitud para usar ", { strong: email }, " como el nuevo correo de tu cuenta."],
+      },
+      { type: "button", label: "Confirmar nuevo correo", url: confirmUrl },
+      { type: "fallbackLink", url: confirmUrl },
+      ignoreIfNotYou("Si no pediste este cambio, ignora este correo: tu dirección actual no se modificará."),
+    ],
+    footerNote: `Recibes este correo porque se solicitó un cambio de correo en una cuenta de ${BRAND.name}.`,
+  });
+}
+
+/** Invitation (action "invite"). */
+export function inviteHtml(email: string, confirmUrl: string): string {
+  return renderEmail({
+    preheader: "Acepta la invitación para acceder a la plataforma de MultiStack Systems.",
+    eyebrow: "Invitación",
+    title: "Te invitaron a MultiStack Systems",
+    blocks: [
+      {
+        type: "paragraph",
+        content: [
+          "Se creó una cuenta para ",
+          { strong: email },
+          " en la plataforma de MultiStack Systems. Acepta la invitación para activarla y acceder a tus proyectos y solicitudes.",
+        ],
+      },
+      { type: "button", label: "Aceptar invitación", url: confirmUrl },
+      { type: "fallbackLink", url: confirmUrl },
+      ignoreIfNotYou("Si no esperabas esta invitación, puedes ignorar este correo."),
+    ],
+    footerNote: `Recibes este correo porque alguien del equipo de ${BRAND.name} te invitó a la plataforma.`,
+  });
 }

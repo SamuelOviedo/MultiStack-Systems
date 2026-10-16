@@ -19,7 +19,7 @@ import {
   WebhookVerificationError,
 } from "../_shared/standard-webhooks.ts";
 import { isValidEmail } from "../_shared/html.ts";
-import { confirmSignupHtml, passwordRecoveryHtml } from "./templates.ts";
+import { confirmSignupHtml, emailChangeHtml, inviteHtml, passwordRecoveryHtml } from "./templates.ts";
 
 export interface AuthEmail {
   to: string;
@@ -45,10 +45,10 @@ type Template = (email: string, confirmUrl: string) => string;
 
 /** e-mail action → message. Unlisted actions are acknowledged without e-mail (unchanged behaviour). */
 const ACTIONS: Record<string, { subject: string; template: Template }> = {
-  signup:           { subject: "Confirmá tu cuenta — MultiStack Systems",     template: confirmSignupHtml },
-  email_change_new: { subject: "Confirmá tu cuenta — MultiStack Systems",     template: confirmSignupHtml },
-  recovery:         { subject: "Recuperar contraseña — MultiStack Systems",   template: passwordRecoveryHtml },
-  invite:           { subject: "Fuiste invitado a MultiStack Systems",        template: confirmSignupHtml },
+  signup:           { subject: "Confirma tu cuenta — MultiStack Systems",      template: confirmSignupHtml },
+  email_change_new: { subject: "Confirma tu nuevo correo — MultiStack Systems", template: emailChangeHtml },
+  recovery:         { subject: "Recuperar contraseña — MultiStack Systems",    template: passwordRecoveryHtml },
+  invite:           { subject: "Te invitaron a MultiStack Systems",            template: inviteHtml },
 };
 
 function hookError(status: number, message: string): Response {
