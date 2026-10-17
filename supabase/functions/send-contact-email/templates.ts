@@ -23,8 +23,15 @@ export function contactSubject(name: string): string {
 /**
  * @param stored whether the lead was saved as a ticket — the e-mail must not
  *   claim it is in the panel when the insert failed.
+ * @param flags.limitsUnchecked the shared rate limits could not be read for this message (database failure): the team
+ *   is told at the top of the e-mail, so a silently disabled limit does not depend on anyone reading the logs.
  */
-export function contactHtml(lead: Lead, stored: boolean, receivedAt: Date = new Date()): string {
+export function contactHtml(
+  lead: Lead,
+  stored: boolean,
+  receivedAt: Date = new Date(),
+  flags: { limitsUnchecked?: boolean } = {},
+): string {
   const received = receivedAt.toLocaleString("es-HN", { timeZone: "America/Tegucigalpa" });
   const telHref = lead.phone.replace(/[^\d+]/g, "");
   // Same rule as the Reply-To header: only a single plain address is linked.
@@ -53,11 +60,19 @@ export function contactHtml(lead: Lead, stored: boolean, receivedAt: Date = new 
     content: "La solicitud no pudo guardarse como ticket. Regístrala manualmente a partir de este correo.",
   }];
 
+  const limitsUnchecked: Block[] = flags.limitsUnchecked ? [{
+    type: "notice",
+    title: "Límites de seguridad no verificados",
+    content: "Este mensaje llegó mientras la base de datos no respondía, así que no se pudo comprobar el límite de envíos. " +
+      "Si recibes varios correos como este seguidos, o ves mensajes sospechosos, revisa los registros de la función send-contact-email.",
+  }] : [];
+
   return renderEmail({
     preheader: `${lead.name} escribió a través del formulario de contacto.`,
     eyebrow: "Nueva solicitud",
     title: "Nuevo mensaje desde el sitio web",
     blocks: [
+      ...limitsUnchecked,
       {
         type: "paragraph",
         content: ["Has recibido una nueva consulta a través del formulario de contacto de ", { strong: BRAND.name }, "."],

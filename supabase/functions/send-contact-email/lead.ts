@@ -35,6 +35,28 @@ export const THROTTLE = {
   globalHardPerHour: 300,
 } as const;
 
+/**
+ * Limits each function instance applies ALONE, from its own memory, while the shared counters above cannot be read
+ * (see limiter.ts). Instances do not share memory, so a visitor spread over several of them gets several times these
+ * numbers: they are deliberately far below THROTTLE so that the total stays small, and they are generous enough for a
+ * real visitor (a person rarely sends more than one or two messages).
+ */
+export const DEGRADED_THROTTLE = {
+  /** same client IP, per rolling hour, per instance */
+  perIpPerHour: 5,
+  /** same e-mail address, per rolling hour, per instance */
+  perEmailPerHour: 2,
+  /** all leads, per rolling 10 minutes, per instance */
+  globalPer10Min: 20,
+} as const;
+
+/** Per-instance counts, INCLUDING the current attempt (null when the IP / e-mail is unknown). */
+export interface LocalCounts {
+  perIp: number | null;
+  perEmail: number | null;
+  global10Min: number;
+}
+
 export interface ThrottleCounts {
   /** attempts from this IP in the last hour (null when the IP is unknown) */
   perIp: number | null;

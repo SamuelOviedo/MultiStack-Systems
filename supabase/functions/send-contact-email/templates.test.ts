@@ -18,6 +18,7 @@ const SAMPLES: Record<string, string> = {
   "contact-internal": contactHtml(FULL, true, RECEIVED),
   "contact-internal-phone-only": contactHtml(PHONE_ONLY, true, RECEIVED),
   "contact-internal-not-stored": contactHtml(FULL, false, RECEIVED),
+  "contact-internal-limits-unchecked": contactHtml(FULL, true, RECEIVED, { limitsUnchecked: true }),
 };
 
 /** Header (logo + wordmark) and footer as rendered for any e-mail. */
@@ -90,6 +91,20 @@ describe("contact e-mail — corporate design", () => {
     const html = SAMPLES["contact-internal-not-stored"];
     expect(html).toContain("No se registró en el panel");
     expect(html).not.toContain("también se registró como ticket");
+  });
+
+  it("tells the team at the top when the shared rate limits could not be checked, and only then", () => {
+    const flagged = SAMPLES["contact-internal-limits-unchecked"];
+    expect(flagged).toContain("Límites de seguridad no verificados");
+    expect(flagged).toContain("send-contact-email");
+    expect(flagged.indexOf("Límites de seguridad no verificados")).toBeLessThan(flagged.indexOf("Nombre completo"));
+    // everything else of the e-mail is the normal one
+    expect(flagged).toContain("La solicitud también se registró como ticket en el panel.");
+    for (const name of ["contact-internal", "contact-internal-phone-only", "contact-internal-not-stored"]) {
+      expect(SAMPLES[name]).not.toContain("Límites de seguridad no verificados");
+    }
+    expect(contactHtml(FULL, true, RECEIVED, {})).toBe(SAMPLES["contact-internal"]);
+    expect(contactHtml(FULL, true, RECEIVED, { limitsUnchecked: false })).toBe(SAMPLES["contact-internal"]);
   });
 });
 

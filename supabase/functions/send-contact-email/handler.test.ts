@@ -15,23 +15,47 @@ interface StoreOptions {
   insertError?: string | null;
   insertThrows?: boolean;
   recordThrows?: boolean;
+  /** failure injection per call: thrown as is (any value), checked at call time so a test can change it mid-way */
+  ipError?: unknown;
+  emailError?: unknown;
+  leadsError?: unknown;
+  honeypotError?: unknown;
+  /** calls that never answer (a hung database) */
+  hangIp?: boolean;
+  hangLeads?: boolean;
+  hangInsert?: boolean;
+  hangPurge?: boolean;
+  hangHoneypot?: boolean;
 }
+
+const never = () => new Promise<never>(() => {});
 
 function fakeStore(o: StoreOptions = {}) {
   const calls = { buckets: [] as string[], recorded: [] as string[], inserted: [] as Lead[], purges: 0, leadQueries: [] as number[] };
   const store: ContactStore = {
     async recordAndCount(bucket) {
+      const isIp = bucket.startsWith("ip:");
+      if (isIp && o.hangIp) return never();
       if (o.recordThrows) throw new Error("db down");
+      const injected = isIp ? o.ipError : o.emailError;
+      if (injected !== undefined) throw injected;
       calls.buckets.push(bucket);
-      return bucket.startsWith("ip:") ? (o.ipCount ?? 1) : (o.emailCount ?? 1);
+      return isIp ? (o.ipCount ?? 1) : (o.emailCount ?? 1);
     },
-    async record(bucket) { calls.recorded.push(bucket); },
-    async purge() { calls.purges++; },
+    async record(bucket) {
+      if (o.hangHoneypot) return never();
+      if (o.honeypotError !== undefined) throw o.honeypotError;
+      calls.recorded.push(bucket);
+    },
+    async purge() { if (o.hangPurge) return never(); calls.purges++; },
     async countLeads(minutes) {
       calls.leadQueries.push(minutes);
+      if (o.hangLeads) return never();
+      if (o.leadsError !== undefined) throw o.leadsError;
       return minutes === 10 ? (o.leads10 ?? 0) : (o.leads60 ?? 0);
     },
     async insertLead(lead) {
+      if (o.hangInsert) return never();
       if (o.insertThrows) throw new Error("insert exploded");
       if (o.insertError) return o.insertError;
       calls.inserted.push(lead);
@@ -200,13 +224,251 @@ describe("contact handler — abuse limits (S4)", () => {
     expect(t.emails[0].html).toContain("No se registró en el panel");
   });
 
-  it("a failing rate check fails OPEN for transient errors: the lead is not lost", async () => {
+  it("a transient failure of the rate check does not lose the lead (details: 'degraded rate limits' below)", async () => {
     const t = setup({ store: { recordThrows: true } });
     const res = await t.handle(post(lead()));
     expect(res.status).toBe(200);
     expect(t.calls!.inserted).toHaveLength(1);
     expect(t.emails).toHaveLength(1);
-    expect(t.logs.some(([l, m]) => l === "error" && m.includes("throttle check failed"))).toBe(true);
+    expect(t.logs.some(([l, m]) => l === "error" && m.includes("throttle degraded"))).toBe(true);
+  });
+});
+
+describe("contact handler — degraded rate limits (W2.1)", () => {
+  const BANNER = "Límites de seguridad no verificados";
+  const DOWN = new Error("fetch failed");
+  const errLog = (t: ReturnType<typeof setup>, needle: string) => t.logs.some(([l, m]) => l === "error" && m.includes(needle));
+
+  describe("a healthy check", () => {
+    it("is unchanged: no banner, no per-instance rejection, nothing logged as degraded", async () => {
+      const t = setup();
+      for (let i = 0; i < 30; i++) {
+        const res = await t.handle(post(lead({ email: `v${i}@example.com` }), { "cf-connecting-ip": "203.0.113.7" }));
+        expect(res.status).toBe(200);
+      }
+      expect(t.emails).toHaveLength(30);
+      expect(t.emails.every((e) => !e.html.includes(BANNER))).toBe(true);
+      expect(t.logs.some(([, m]) => /degraded|misconfigured/.test(m))).toBe(false);
+    });
+  });
+
+  describe("a transient failure (network, timeout, 5xx, unknown): the lead is accepted, flagged and bounded", () => {
+    it.each([
+      ["a plain error", new Error("fetch failed")],
+      ["a 503 from the gateway", Object.assign(new Error("upstream"), { status: 503 })],
+      ["a statement timeout", Object.assign(new Error("canceling statement"), { code: "57014" })],
+      ["too many connections", Object.assign(new Error("remaining connection slots"), { code: "53300" })],
+      ["a thrown string", "boom"],
+      ["a thrown null", null],
+    ])("%s on the IP count: 200, ticket stored, one e-mail with the banner, logged as degraded", async (_n, error) => {
+      const t = setup({ store: { ipError: error } });
+      const res = await t.handle(post(lead()));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+      expect(t.calls!.inserted).toHaveLength(1);
+      expect(t.emails).toHaveLength(1);
+      expect(t.emails[0].html).toContain(BANNER);
+      expect(errLog(t, "throttle degraded")).toBe(true);
+    });
+
+    it("the banner sits above the lead's details and names where to look", async () => {
+      const t = setup({ store: { leadsError: DOWN } });
+      await t.handle(post(lead()));
+      const html = t.emails[0].html;
+      expect(html.indexOf(BANNER)).toBeGreaterThan(-1);
+      expect(html.indexOf(BANNER)).toBeLessThan(html.indexOf("Nombre completo"));
+      expect(html).toContain("send-contact-email");
+    });
+
+    it("every one of the four calls is still attempted when the first fails (a failure never skips a measurement)", async () => {
+      const t = setup({ store: { ipError: DOWN } });
+      await t.handle(post(lead()));
+      expect(t.calls!.buckets.map((b) => b.slice(0, 3))).toEqual(["em:"]);
+      expect(t.calls!.leadQueries.sort()).toEqual([10, 60]);
+      expect(t.calls!.purges).toBe(1);
+    });
+
+    it("a hung database degrades after the timeout instead of holding the visitor", async () => {
+      const t = setup({ store: { hangIp: true, hangLeads: true }, storeTimeoutMs: 25 });
+      const started = Date.now();
+      const res = await t.handle(post(lead()));
+      expect(res.status).toBe(200);
+      expect(Date.now() - started).toBeLessThan(2000);
+      expect(t.emails[0].html).toContain(BANNER);
+      expect(errLog(t, "timed out")).toBe(true);
+    });
+
+    it("a hung ticket insert is time-boxed too: the e-mail goes out saying it was not stored", async () => {
+      const t = setup({ store: { hangInsert: true }, storeTimeoutMs: 25 });
+      const res = await t.handle(post(lead()));
+      expect(res.status).toBe(200);
+      expect(t.emails).toHaveLength(1);
+      expect(t.emails[0].html).toContain("No se registró en el panel");
+    });
+
+    it("a hung purge never holds the request nor counts as a failure", async () => {
+      const t = setup({ store: { hangPurge: true }, storeTimeoutMs: 25 });
+      const res = await t.handle(post(lead()));
+      expect(res.status).toBe(200);
+      expect(t.emails[0].html).not.toContain(BANNER);
+      expect(t.logs.some(([, m]) => /degraded|misconfigured/.test(m))).toBe(false);
+    });
+
+    it("keeps the soft global limit: leads stored without e-mail while the IP check is down", async () => {
+      const t = setup({ store: { ipError: DOWN, leads10: 30 } });
+      expect((await t.handle(post(lead()))).status).toBe(200);
+      expect(t.calls!.inserted).toHaveLength(1);
+      expect(t.emails).toEqual([]);
+    });
+  });
+
+  describe("a measurement that WAS taken is never thrown away", () => {
+    it("IP over the limit + the e-mail check failing: 429", async () => {
+      const t = setup({ store: { ipCount: 16, emailError: DOWN } });
+      expect((await t.handle(post(lead()))).status).toBe(429);
+      expect(t.calls!.inserted).toEqual([]);
+      expect(t.emails).toEqual([]);
+    });
+
+    it("e-mail over the limit + the IP check failing: 429", async () => {
+      const t = setup({ store: { emailCount: 4, ipError: DOWN } });
+      expect((await t.handle(post(lead()))).status).toBe(429);
+      expect(t.emails).toEqual([]);
+    });
+
+    it("hard global cap measured + both counters failing: 429", async () => {
+      const t = setup({ store: { leads60: 300, ipError: DOWN, emailError: DOWN } });
+      expect((await t.handle(post(lead()))).status).toBe(429);
+      expect(t.calls!.inserted).toEqual([]);
+    });
+
+    it("a measured breach wins over a configuration failure elsewhere (429, not 503)", async () => {
+      const t = setup({ store: { ipCount: 16, leadsError: Object.assign(new Error("denied"), { code: "42501" }) } });
+      expect((await t.handle(post(lead()))).status).toBe(429);
+    });
+  });
+
+  describe("a configuration failure refuses the form (fail closed): the controls are broken, not busy", () => {
+    const GENERIC503 = { error: "Servicio no disponible temporalmente. Intenta de nuevo más tarde." };
+    it.each([
+      ["permission denied (42501)", Object.assign(new Error("permission denied for table contact_rate_events"), { code: "42501" })],
+      ["table missing (42P01)", Object.assign(new Error('relation "public.contact_rate_events" does not exist'), { code: "42P01" })],
+      ["table not in the schema cache (PGRST205)", Object.assign(new Error("Could not find the table"), { code: "PGRST205" })],
+      ["rejected key (HTTP 401)", Object.assign(new Error("Invalid API key"), { status: 401 })],
+      ["forbidden (HTTP 403)", Object.assign(new Error("forbidden"), { status: 403 })],
+      ["no code, but a permission message", new Error("permission denied for table tickets")],
+    ])("%s on the IP count: 503, nothing stored or sent, logged as misconfigured", async (_n, error) => {
+      const t = setup({ store: { ipError: error } });
+      const res = await t.handle(post(lead()));
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual(GENERIC503);
+      expect(t.calls!.inserted).toEqual([]);
+      expect(t.emails).toEqual([]);
+      expect(errLog(t, "throttle misconfigured")).toBe(true);
+      expect(errLog(t, "fail closed")).toBe(true);
+    });
+
+    it("a configuration failure anywhere wins over transient failures elsewhere", async () => {
+      const t = setup({ store: { ipError: DOWN, emailError: DOWN, leadsError: Object.assign(new Error("denied"), { code: "42501" }) } });
+      const res = await t.handle(post(lead()));
+      expect(res.status).toBe(503);
+      expect(t.emails).toEqual([]);
+      expect(t.calls!.inserted).toEqual([]);
+    });
+
+    it("also when only the global counter is misconfigured", async () => {
+      const t = setup({ store: { leadsError: Object.assign(new Error("denied"), { code: "42501" }) } });
+      expect((await t.handle(post(lead()))).status).toBe(503);
+      expect(t.emails).toEqual([]);
+    });
+
+    it("the 503 body never names the table, the code or the key", async () => {
+      const t = setup({ store: { ipError: Object.assign(new Error("permission denied for table contact_rate_events"), { code: "42501" }) } });
+      const body = JSON.stringify(await (await t.handle(post(lead()))).json());
+      expect(body).not.toMatch(/contact_rate_events|42501|denied|table|key/i);
+    });
+  });
+
+  describe("the per-instance limits that bound a degraded period", () => {
+    const degradedStore = { recordThrows: true } as const;
+    const fromIp = (ip: string) => ({ "cf-connecting-ip": ip });
+
+    it("one IP: 5 messages per hour per instance, the 6th is a 429 (and says why in the log)", async () => {
+      const t = setup({ store: { ...degradedStore } });
+      const codes: number[] = [];
+      for (let i = 1; i <= 7; i++) codes.push((await t.handle(post(lead({ email: `p${i}@example.com` }), fromIp("203.0.113.9")))).status);
+      expect(codes).toEqual([200, 200, 200, 200, 200, 429, 429]);
+      expect(t.emails).toHaveLength(5);
+      expect(t.logs.some(([l, m]) => l === "warn" && m.includes("per-instance limits"))).toBe(true);
+    });
+
+    it("one e-mail address: 2 per hour per instance, the 3rd is a 429, whatever the IP", async () => {
+      const t = setup({ store: { ...degradedStore } });
+      const codes: number[] = [];
+      for (let i = 1; i <= 4; i++) codes.push((await t.handle(post(lead({ email: "same@example.com" }), fromIp(`198.51.100.${i}`)))).status);
+      expect(codes).toEqual([200, 200, 429, 429]);
+    });
+
+    it("all leads: 20 per 10 minutes per instance, the 21st is a 429 even from fresh IPs and e-mails", async () => {
+      const t = setup({ store: { ...degradedStore } });
+      const codes: number[] = [];
+      for (let i = 1; i <= 22; i++) codes.push((await t.handle(post(lead({ email: `g${i}@example.com` }), fromIp(`192.0.2.${i}`)))).status);
+      expect(codes.slice(0, 20).every((c) => c === 200)).toBe(true);
+      expect(codes.slice(20)).toEqual([429, 429]);
+    });
+
+    it("the window is warm before degradation starts: healthy leads already count", async () => {
+      const opts: StoreOptions = {};
+      const t = setup({ store: opts });
+      for (let i = 1; i <= 5; i++) expect((await t.handle(post(lead({ email: `w${i}@example.com` }), fromIp("203.0.113.50")))).status).toBe(200);
+      opts.recordThrows = true; // the database goes down now
+      expect((await t.handle(post(lead({ email: "w6@example.com" }), fromIp("203.0.113.50")))).status).toBe(429);
+    });
+
+    it("healthy requests are never rejected by the per-instance limits, however many", async () => {
+      const t = setup();
+      for (let i = 1; i <= 25; i++) expect((await t.handle(post(lead({ email: `h${i}@example.com` }), fromIp("203.0.113.60")))).status).toBe(200);
+    });
+
+    it("without cf-connecting-ip the per-instance IP limit is skipped, the e-mail and global ones still apply", async () => {
+      const t = setup({ store: { ...degradedStore } });
+      const codes: number[] = [];
+      for (let i = 1; i <= 3; i++) codes.push((await t.handle(post(lead({ email: "noip@example.com" }), {}))).status);
+      expect(codes).toEqual([200, 200, 429]);
+    });
+
+    it("the per-instance limits are per handler (instance): another instance has its own memory", async () => {
+      const a = setup({ store: { ...degradedStore } });
+      const b = setup({ store: { ...degradedStore } });
+      for (let i = 1; i <= 5; i++) await a.handle(post(lead({ email: `a${i}@example.com` }), fromIp("203.0.113.70")));
+      expect((await a.handle(post(lead({ email: "a6@example.com" }), fromIp("203.0.113.70")))).status).toBe(429);
+      expect((await b.handle(post(lead({ email: "b1@example.com" }), fromIp("203.0.113.70")))).status).toBe(200);
+    });
+  });
+
+  describe("the honeypot", () => {
+    it("a failure to count the attempt is logged, never changes the bot's answer", async () => {
+      const t = setup({ store: { honeypotError: DOWN } });
+      const res = await t.handle(post(lead({ website: "http://spam.example" })));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+      expect(t.calls!.inserted).toEqual([]);
+      expect(t.emails).toEqual([]);
+      expect(errLog(t, "honeypot attempt could not be counted")).toBe(true);
+    });
+
+    it("a hung database does not hold the bot's request either", async () => {
+      const t = setup({ store: { hangHoneypot: true }, storeTimeoutMs: 25 });
+      const res = await t.handle(post(lead({ website: "x" })));
+      expect(res.status).toBe(200);
+      expect(errLog(t, "honeypot attempt could not be counted")).toBe(true);
+    });
+
+    it("honeypot hits do not count in the per-instance limits", async () => {
+      const t = setup({ store: { recordThrows: true } });
+      for (let i = 0; i < 30; i++) await t.handle(post(lead({ website: "x" }), { "cf-connecting-ip": "203.0.113.80" }));
+      expect((await t.handle(post(lead(), { "cf-connecting-ip": "203.0.113.80" }))).status).toBe(200);
+    });
   });
 });
 

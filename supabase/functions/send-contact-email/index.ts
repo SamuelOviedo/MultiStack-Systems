@@ -46,27 +46,38 @@ type Db = SupabaseClient<any>;
 
 const since = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
+/**
+ * PostgREST's error code and the HTTP status travel with the thrown error, so the handler can tell a broken configuration
+ * (permission denied, missing table, rejected key) from a hiccup (see classifyStoreError in limiter.ts).
+ */
+function storeError(error: { message: string; code?: string }, status?: number): Error {
+  return Object.assign(new Error(error.message), { code: error.code, status });
+}
+
 function supabaseStore(db: Db): ContactStore {
   return {
     async recordAndCount(bucket) {
       const ins = await db.from("contact_rate_events").insert({ bucket });
-      if (ins.error) throw ins.error;
+      if (ins.error) throw storeError(ins.error, ins.status);
       const r = await db.from("contact_rate_events").select("id", { count: "exact", head: true })
         .eq("bucket", bucket).gte("created_at", since(60));
-      if (r.error) throw r.error;
+      if (r.error) throw storeError(r.error, r.status);
       return r.count ?? 0;
     },
     async record(bucket) {
-      await db.from("contact_rate_events").insert({ bucket });
+      const ins = await db.from("contact_rate_events").insert({ bucket });
+      if (ins.error) throw storeError(ins.error, ins.status);
     },
     async purge() {
-      await db.from("contact_rate_events").delete().lt("created_at", since(24 * 60));
+      try {
+        await db.from("contact_rate_events").delete().lt("created_at", since(24 * 60));
+      } catch { /* best effort: purging is housekeeping, never a reason to fail a request */ }
     },
     async countLeads(minutes) {
       const r = await db.from("tickets").select("id", { count: "exact", head: true })
         .eq("type", "consulta").is("project_id", null).is("client_id", null)
         .gte("created_at", since(minutes));
-      if (r.error) throw r.error;
+      if (r.error) throw storeError(r.error, r.status);
       return r.count ?? 0;
     },
     async insertLead(lead) {
