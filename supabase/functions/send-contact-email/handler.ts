@@ -6,10 +6,10 @@
  * Request contract: POST { name, phone?, email?, message, website? } (see
  * src/lib/contact.ts). `website` is the honeypot.
  */
-import { contactHtml, contactSubject, type Lead } from "./templates.ts";
+import { alertHtml, alertSubject, contactHtml, contactSubject, type Lead } from "./templates.ts";
 import { replyToFor } from "./reply-to.ts";
 import { checkLead, clientIp, decideThrottle, type ThrottleDecision } from "./lead.ts";
-import { classifyStoreError, decideDegraded, LocalLimiter, STORE_TIMEOUT_MS, withTimeout } from "./limiter.ts";
+import { classifyStoreError, decideDegraded, describeStoreError, LocalLimiter, STORE_TIMEOUT_MS, withTimeout } from "./limiter.ts";
 
 export interface OutgoingEmail {
   from: string;
@@ -29,7 +29,7 @@ export interface ContactStore {
   recordAndCount(bucket: string): Promise<number>;
   /** Records an attempt without counting it (honeypot hits). Throws on failure. */
   record(bucket: string): Promise<void>;
-  /** Opportunistic purge of events older than a day; never throws. */
+  /** Opportunistic purge of events older than a day. Throws on failure (the handler only logs it). */
   purge(): Promise<void>;
   /** Anonymous leads of the last `minutes`. Throws on failure. */
   countLeads(minutes: number): Promise<number>;
@@ -54,16 +54,22 @@ export interface ContactDeps {
   localLimiter?: LocalLimiter;
   /** Longest a database call of the limit check may take (default STORE_TIMEOUT_MS). Tests shorten it. */
   storeTimeoutMs?: number;
+  /** Clock for the alert cool-down (default Date.now). */
+  now?: () => number;
 }
 
 /**
- * What the limit check decided. `limitsUnchecked` is set when the shared counters could not be fully read and the lead
- * went through under the per-instance limits only: the team e-mail says so.
+ * What the limit check decided. `limitsUnchecked` is set when a shared counter could not be read and the lead went through
+ * under the per-instance limits for that dimension: the team e-mail says so. `unavailable` carries the log-safe detail of
+ * the configuration failure, for the team alert.
  */
 type ThrottleOutcome =
   | { decision: "reject" }
-  | { decision: "unavailable" }
+  | { decision: "unavailable"; detail: string }
   | { decision: Exclude<ThrottleDecision, "reject">; limitsUnchecked: boolean };
+
+/** At most one "the form is refusing messages" alert per instance in this time. */
+const ALERT_COOLDOWN_MS = 30 * 60_000;
 
 type Measure<T> = { ok: true; value: T } | { ok: false; error: unknown };
 
@@ -81,21 +87,18 @@ const json = (status: number, body: unknown) =>
   });
 
 /**
- * Answer to every POST while an indispensable credential is missing. Deliberately says nothing about WHICH one
- * (the reason goes to the log only).
- */
-/**
  * Answer to an unexpected failure (e-mail provider, database client, ...). The visitor never sees the internal message:
  * it can name secrets, the provider's account or a recipient. The detail goes to the log only (see describeError).
  */
 const internalError = () => json(500, { error: "No se pudo enviar el mensaje. Intenta de nuevo más tarde." });
 
 /** One-line, bounded rendering of an error for the log (diagnosis without log injection or unbounded output). */
-function describeError(e: unknown): string {
-  const m = e instanceof Error ? e.message : "unknown error";
-  return m.replace(/[\r\n\t]+/g, " ").slice(0, 300);
-}
+const describeError = describeStoreError;
 
+/**
+ * Answer to every POST while an indispensable credential is missing or the limit check is misconfigured. Deliberately says
+ * nothing about WHICH (the reason goes to the log only).
+ */
 const unavailable = () => json(503, { error: "Servicio no disponible temporalmente. Intenta de nuevo más tarde." });
 
 /** Keyed hash ("ip:…" / "em:…"): raw IPs and e-mails are never stored. */
@@ -125,20 +128,25 @@ export function createContactHandler(deps: ContactDeps) {
    * measured (see limiter.ts for the reasoning):
    *   1. a limit that was measured and exceeded rejects, even if another call failed;
    *   2. a failure that only a configuration change can cure refuses the form (the controls are broken, not busy);
-   *   3. a transient failure lets the lead through under the stricter per-instance limits, and the team e-mail says the
-   *      shared limits were not checked. A real lead is never lost to a database hiccup; the CHECK limits still apply.
-   * The calls are independent (different buckets / tables), so they run together: one round trip, not three.
+   *   3. a transient failure lets the lead through, bounded by the per-instance limits of the dimension whose check
+   *      failed, and the team e-mail says the shared limits were not checked. A real lead is never lost to a database
+   *      hiccup; the CHECK limits still apply.
+   * The calls are independent (different buckets / tables), so they run together: one round trip, not three. The
+   * per-instance counters only ever see requests that got past steps 1 and 2, so a flood the shared limits already stop
+   * cannot poison them.
    */
   async function throttle(store: ContactStore, ipBucket: string | null, emailBucket: string | null): Promise<ThrottleOutcome> {
-    const counts = local.observe(ipBucket, emailBucket);
+    // Housekeeping (events older than a day): best effort and NOT awaited — a slow or hung purge must add nothing to the
+    // visitor's wait, and a failure only gets logged (it never counts as a failure of the check).
+    void measure(() => store.purge()).then((m) => {
+      if (!m.ok) log("warn", `[contact] ⚠ purge of old attempts failed: ${describeError(m.error)}`);
+    });
+
     const [ip, em, g10, g60] = await Promise.all([
       measure(async () => (ipBucket ? await store.recordAndCount(ipBucket) : null)),
       measure(async () => (emailBucket ? await store.recordAndCount(emailBucket) : null)),
       measure(() => store.countLeads(10)),
       measure(() => store.countLeads(60)),
-      // housekeeping (events older than a day): best effort, never a failure, and in the same wave so that a slow or hung
-      // purge adds nothing to the visitor's wait
-      measure(() => store.purge()),
     ]);
 
     const known = decideThrottle({
@@ -150,19 +158,50 @@ export function createContactHandler(deps: ContactDeps) {
     if (known === "reject") return { decision: "reject" };
 
     const failures = [ip, em, g10, g60].filter((m): m is { ok: false; error: unknown } => !m.ok);
-    if (failures.length === 0) return { decision: known, limitsUnchecked: false };
-
-    const detail = `${failures.length}/4 checks failed; first: ${describeError(failures[0].error)}`;
-    if (failures.some((f) => classifyStoreError(f.error) === "config")) {
-      log("error", `[contact] ❌ throttle misconfigured — refusing requests (fail closed): ${detail}`);
-      return { decision: "unavailable" };
+    if (failures.length === 0) {
+      local.observe(ipBucket, emailBucket); // keeps the per-instance window warm for the day the database misbehaves
+      return { decision: known, limitsUnchecked: false };
     }
-    if (decideDegraded(counts) === "reject") {
+
+    const cause = failures.find((f) => classifyStoreError(f.error) === "config");
+    const detail = `${failures.length}/4 checks failed; ${cause ? "configuration" : "first"}: ${describeError((cause ?? failures[0]).error)}`;
+    if (cause) {
+      log("error", `[contact] ❌ throttle misconfigured — refusing requests (fail closed): ${detail}`);
+      return { decision: "unavailable", detail };
+    }
+
+    const verdict = decideDegraded(local.observe(ipBucket, emailBucket), { ip: !ip.ok, email: !em.ok, global: !g10.ok || !g60.ok });
+    if (verdict === "reject") {
       log("warn", `[contact] Throttled by the per-instance limits while the shared ones were unavailable: ${detail}`);
       return { decision: "reject" };
     }
     log("error", `[contact] ⚠ throttle degraded — allowing under per-instance limits: ${detail}`);
-    return { decision: known, limitsUnchecked: true };
+    return { decision: verdict === "store-only" ? "store-only" : known, limitsUnchecked: true };
+  }
+
+  /**
+   * A form that refuses everyone because its limit check is misconfigured is an outage nobody would notice from the logs, so
+   * the team is told by e-mail (which does not depend on the database): once per instance per ALERT_COOLDOWN_MS, best
+   * effort, never changes the visitor's answer, and carries nothing the visitor sent.
+   */
+  let lastAlertAt = -Infinity;
+  async function alertTeam(detail: string): Promise<void> {
+    const now = (deps.now ?? Date.now)();
+    if (now - lastAlertAt < ALERT_COOLDOWN_MS) return;
+    lastAlertAt = now;
+    try {
+      await withTimeout(
+        Promise.resolve().then(() => deps.sendEmail({
+          from: deps.fromAddress,
+          to: deps.dest,
+          subject: alertSubject(),
+          html: alertHtml(detail),
+        })),
+        timeoutMs * 2,
+      );
+    } catch (e) {
+      log("error", `[contact] ⚠ the outage alert could not be sent: ${describeError(e)}`);
+    }
   }
 
   return async function handle(req: Request): Promise<Response> {
@@ -171,7 +210,7 @@ export function createContactHandler(deps: ContactDeps) {
 
     // FAIL CLOSED: without CONTACT_RATE_SALT the per-IP and per-e-mail limits cannot work. Refusing is safer than silently
     // running without them; the secret is set BEFORE the function is deployed, so this only fires if it is later removed
-    // or shortened. Transient failures (a database hiccup) still fail open below: a real lead must not be lost.
+    // or shortened. A transient database failure does NOT refuse the form (a real lead must not be lost): see throttle().
     if (!saltOk) {
       log("error", `[contact] ❌ CONTACT_RATE_SALT missing or shorter than ${RATE_SALT_MIN_LENGTH} characters — refusing requests (fail closed)`);
       return unavailable();
@@ -226,7 +265,10 @@ export function createContactHandler(deps: ContactDeps) {
 
       const emailBucket = lead.email ? await keyedBucket("em", lead.email, deps.rateSalt) : null;
       const outcome = await throttle(store, bucket, emailBucket);
-      if (outcome.decision === "unavailable") return unavailable();
+      if (outcome.decision === "unavailable") {
+        await alertTeam(outcome.detail);
+        return unavailable();
+      }
       if (outcome.decision === "reject") {
         log("warn", "[contact] Throttled (rejected)");
         return json(429, { error: "Recibimos demasiados mensajes. Intenta de nuevo más tarde." });

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { classifyStoreError, decideDegraded, LocalLimiter, STORE_TIMEOUT_MS, withTimeout } from "./limiter";
+import { classifyStoreError, decideDegraded, describeStoreError, exactCount, LocalLimiter, storeError, withTimeout } from "./limiter";
 import { DEGRADED_THROTTLE, THROTTLE } from "./lead";
 
 describe("classifyStoreError — a broken configuration is not a hiccup", () => {
@@ -12,13 +12,13 @@ describe("classifyStoreError — a broken configuration is not a hiccup", () => 
     ["PGRST205", { code: "PGRST205" }],
     ["PGRST301", { code: "PGRST301" }],
     ["PGRST302", { code: "PGRST302" }],
+    ["HTTP 400 (a HEAD has no body, so no code)", { status: 400 }],
     ["HTTP 401", { status: 401 }],
     ["HTTP 403", { status: 403 }],
+    ["HTTP 404", { status: 404 }],
     ["Invalid API key", { message: "Invalid API key" }],
     ["permission denied", { message: "permission denied for table contact_rate_events" }],
-    ["JWT", { message: "JWT expired" }],
-    ["schema cache", { message: "Could not find the table 'public.x' in the schema cache" }],
-    ["does not exist", { message: 'relation "public.x" does not exist' }],
+    ["a code beats a transient-looking status (PGRST205 is a 404, 42501 a 403)", { code: "PGRST205", status: 404 }],
   ])("%s is config", (_n, e) => {
     expect(classifyStoreError(e)).toBe("config");
     expect(classifyStoreError(Object.assign(new Error(String((e as { message?: string }).message ?? "x")), e))).toBe("config");
@@ -27,14 +27,22 @@ describe("classifyStoreError — a broken configuration is not a hiccup", () => 
   it.each([
     ["a network error", new Error("fetch failed")],
     ["a timeout", new Error("timed out after 3000 ms")],
+    ["an aborted request", Object.assign(new Error("AbortError: The signal has been aborted"), { code: "", status: 0 })],
     ["HTTP 500", { status: 500 }],
     ["HTTP 502", { status: 502 }],
     ["HTTP 503", { status: 503 }],
+    ["HTTP 520", { status: 520 }],
+    ["HTTP 408", { status: 408 }],
+    ["HTTP 425", { status: 425 }],
     ["HTTP 429", { status: 429 }],
     ["statement timeout", { code: "57014" }],
     ["too many connections", { code: "53300" }],
     ["connection failure", { code: "08006" }],
-    ["an unknown PostgREST code", { code: "PGRST000" }],
+    ["PGRST000 (could not connect)", { code: "PGRST000", status: 503 }],
+    ["PGRST002: a restarting database / a reloading schema cache answers 503 and heals itself", Object.assign(new Error("Could not query the database for the schema cache. Retrying."), { code: "PGRST002", status: 503 })],
+    ["that same wording with no code at all", { status: 503, message: "Could not query the database for the schema cache. Retrying." }],
+    ["a message about the schema cache and nothing else", { message: "Could not query the database for the schema cache. Retrying." }],
+    ["Supavisor's \"prepared statement does not exist\"", { message: 'prepared statement "s1" does not exist' }],
     ["an empty code and status 0", { code: "", status: 0 }],
     ["a string", "boom"],
     ["null", null],
@@ -44,6 +52,79 @@ describe("classifyStoreError — a broken configuration is not a hiccup", () => 
     ["non-string fields", { code: 42501, status: "401", message: 7 }],
   ])("%s is transient (it must never take the form down)", (_n, e) => {
     expect(classifyStoreError(e)).toBe("transient");
+  });
+});
+
+describe("storeError / exactCount — what supabase-js actually hands the adapter", () => {
+  /** the shapes postgrest-js produces (index.cjs processResponse + its fetch-error branch) */
+  const classify = (r: { error: { message: string; code?: string } | null; count?: number | null; status: number }) => {
+    try {
+      if (r.error) throw storeError(r.error, r.status);
+      exactCount({ count: r.count ?? null, status: r.status });
+      return "ok";
+    } catch (e) { return classifyStoreError(e); }
+  };
+
+  it("a count is returned as is, 0 included", () => {
+    expect(exactCount({ count: 0, status: 200 })).toBe(0);
+    expect(exactCount({ count: 16, status: 200 })).toBe(16);
+  });
+
+  it("storeError carries the code and the status", () => {
+    const e = storeError({ message: "boom", code: "42501" }, 403);
+    expect(e).toBeInstanceOf(Error);
+    expect(e).toMatchObject({ message: "boom", code: "42501", status: 403 });
+  });
+
+  it.each([
+    ["a missing count", { count: null, status: 200 }],
+    ["NaN (parseInt of a content-range '*/*')", { count: NaN, status: 200 }],
+    ["a negative count", { count: -1, status: 200 }],
+    ["a fractional count", { count: 1.5, status: 200 }],
+  ])("%s is a failure of the check, never a silent 0 (transient)", (_n, r) => {
+    expect(() => exactCount(r)).toThrow("count unavailable");
+    expect(classifyStoreError((() => { try { exactCount(r); } catch (e) { return e; } })())).toBe("transient");
+  });
+
+  it("an empty 404 that supabase-js reports as 'no error', status 204, means the table is not there: config", () => {
+    expect(classify({ error: null, count: null, status: 204 })).toBe("config");
+  });
+
+  it.each([
+    ["network failure {code:'', status:0}", { error: { message: "TypeError: fetch failed", code: "" }, status: 0 }, "transient"],
+    ["POST 403 / 42501", { error: { message: "permission denied for table contact_rate_events", code: "42501" }, status: 403 }, "config"],
+    ["POST 404 / 42P01", { error: { message: 'relation "public.contact_rate_events" does not exist', code: "42P01" }, status: 404 }, "config"],
+    ["POST 404 / PGRST205", { error: { message: "Could not find the table", code: "PGRST205" }, status: 404 }, "config"],
+    ["POST 503 / PGRST002 (restart)", { error: { message: "Could not query the database for the schema cache. Retrying.", code: "PGRST002" }, status: 503 }, "transient"],
+    ["HEAD 503, empty body -> {message:''}", { error: { message: "" }, status: 503 }, "transient"],
+    ["HEAD 500, empty body", { error: { message: "" }, status: 500 }, "transient"],
+    ["HEAD 403, empty body", { error: { message: "" }, status: 403 }, "config"],
+    ["HEAD 401, empty body", { error: { message: "" }, status: 401 }, "config"],
+    ["HEAD 400, empty body (a missing column)", { error: { message: "" }, status: 400 }, "config"],
+    ["gateway 401 'Invalid API key' (no code)", { error: { message: "Invalid API key" }, status: 401 }, "config"],
+  ])("%s -> %s", (_n, r, expected) => {
+    expect(classify(r)).toBe(expected);
+  });
+});
+
+describe("describeStoreError — what the log says", () => {
+  it("leads with the code and the status the classifier read, then the message", () => {
+    expect(describeStoreError(storeError({ message: "permission denied", code: "42501" }, 403))).toBe("code=42501 status=403 permission denied");
+  });
+
+  it("an empty HEAD message still leaves the status to read", () => {
+    expect(describeStoreError(storeError({ message: "" }, 403))).toBe("status=403 ");
+  });
+
+  it("is one line and bounded, whatever it is given", () => {
+    const line = describeStoreError(Object.assign(new Error("a\nb\r\n" + "x".repeat(1000)), { code: "C".repeat(100), status: 500 }));
+    expect(line).not.toMatch(/[\r\n\t]/);
+    expect(line.length).toBeLessThanOrEqual(300);
+    expect(line.startsWith(`code=${"C".repeat(24)} status=500 a b`)).toBe(true);
+  });
+
+  it("never throws on odd values", () => {
+    for (const v of [null, undefined, "boom", 7, {}, { message: 5 }]) expect(typeof describeStoreError(v)).toBe("string");
   });
 });
 
@@ -63,13 +144,15 @@ describe("withTimeout", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("rejects after the given time when the promise never settles", async () => {
+  it("stays pending just before the deadline and rejects at it", async () => {
     vi.useFakeTimers();
-    const p = withTimeout(new Promise<never>(() => {}), 100);
-    const assertion = expect(p).rejects.toThrow("timed out after 100 ms");
+    let state = "pending";
+    const p = withTimeout(new Promise<never>(() => {}), 100).catch((e: Error) => { state = e.message; });
     await vi.advanceTimersByTimeAsync(99);
-    await vi.advanceTimersByTimeAsync(2);
-    await assertion;
+    expect(state).toBe("pending");
+    await vi.advanceTimersByTimeAsync(1);
+    await p;
+    expect(state).toBe("timed out after 100 ms");
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -83,10 +166,6 @@ describe("withTimeout", () => {
     await assertion;
     rejectLater(new Error("too late"));
     await vi.advanceTimersByTimeAsync(0);
-  });
-
-  it("defaults to the documented timeout", () => {
-    expect(STORE_TIMEOUT_MS).toBe(3000);
   });
 });
 
@@ -123,28 +202,28 @@ describe("LocalLimiter", () => {
     expect(l.observe("ip:d", null).global10Min).toBe(3);
   });
 
-  it("memory is bounded: at most maxKeys buckets, and a newcomer to a full table counts as over every limit", () => {
+  it("memory is bounded and a full table evicts the OLDEST bucket instead of refusing newcomers", () => {
     const c = clock(); const l = new LocalLimiter(c.now, 3);
     for (const k of ["ip:1", "ip:2", "ip:3"]) l.observe(k, null);
-    const saturated = l.observe("ip:4", null);
-    expect(saturated.perIp).toBe(Number.MAX_SAFE_INTEGER);
-    expect(decideDegraded(saturated)).toBe("reject");
-    expect(l.observe("ip:1", null).perIp).toBe(2); // known buckets keep counting
+    expect(l.observe("ip:4", null).perIp).toBe(1);        // a newcomer is counted normally, never rejected for lack of room
+    expect(l.observe("ip:1", null).perIp).toBe(1);        // ip:1 was the oldest: forgotten, so it starts again (and evicts ip:2)
+    expect(l.observe("ip:3", null).perIp).toBe(2);        // ip:3 survived
   });
 
-  it("a full table frees itself once its buckets expire", () => {
+  it("a full table frees itself first by dropping expired buckets, evicting nothing live", () => {
     const c = clock(); const l = new LocalLimiter(c.now, 3);
-    for (const k of ["ip:1", "ip:2", "ip:3"]) l.observe(k, null);
+    for (const k of ["ip:1", "ip:2"]) l.observe(k, null);
     c.advance(HOUR + 1);
-    expect(l.observe("ip:4", null).perIp).toBe(1);
+    l.observe("ip:3", null);                               // fresh
+    expect(l.observe("ip:4", null).perIp).toBe(1);        // table full: the two expired go, ip:3 stays
+    expect(l.observe("ip:3", null).perIp).toBe(2);
   });
 
-  it("the global cap does NOT depend on the bucket table: flooding it with distinct senders still hits the global limit", () => {
+  it("the global cap does NOT depend on the bucket table: flooding it with distinct senders still reaches the global limit", () => {
     const c = clock(); const l = new LocalLimiter(c.now, 3);
     let last = l.observe("ip:0", null);
-    for (let i = 1; i <= DEGRADED_THROTTLE.globalPer10Min; i++) last = l.observe(`ip:${i}`, null);
-    expect(last.global10Min).toBe(DEGRADED_THROTTLE.globalPer10Min + 1);
-    expect(decideDegraded(last)).toBe("reject");
+    for (let i = 1; i <= DEGRADED_THROTTLE.globalHardPer10Min; i++) last = l.observe(`ip:${i}`, null);
+    expect(last.global10Min).toBe(DEGRADED_THROTTLE.globalHardPer10Min + 1);
   });
 
   it("timestamps per bucket are capped, yet a count above a limit stays above it", () => {
@@ -155,33 +234,55 @@ describe("LocalLimiter", () => {
     expect(n).toBeGreaterThan(DEGRADED_THROTTLE.perIpPerHour);
   });
 
-  it("the global list is capped too (no unbounded growth under a flood)", () => {
-    const c = clock(); const l = new LocalLimiter(c.now, 10, 8);
+  it("the global list is capped too (no unbounded growth under a flood), above both global limits with the defaults", () => {
+    const c = clock(); const l = new LocalLimiter(c.now);
     let n = 0;
-    for (let i = 0; i < 500; i++) n = l.observe(null, null).global10Min;
-    expect(n).toBe(32);
-    expect(n).toBeGreaterThan(DEGRADED_THROTTLE.globalPer10Min);
+    for (let i = 0; i < 1000; i++) n = l.observe(null, null).global10Min;
+    expect(n).toBe(256);
+    expect(n).toBeGreaterThan(DEGRADED_THROTTLE.globalHardPer10Min);
   });
 });
 
-describe("decideDegraded", () => {
+describe("decideDegraded — a dimension is judged only if ITS shared check is missing", () => {
   const D = DEGRADED_THROTTLE;
-  it("allows up to the limit and rejects the next one, for each limit", () => {
-    expect(decideDegraded({ perIp: D.perIpPerHour, perEmail: null, global10Min: 1 })).toBe("allow");
-    expect(decideDegraded({ perIp: D.perIpPerHour + 1, perEmail: null, global10Min: 1 })).toBe("reject");
-    expect(decideDegraded({ perIp: null, perEmail: D.perEmailPerHour, global10Min: 1 })).toBe("allow");
-    expect(decideDegraded({ perIp: null, perEmail: D.perEmailPerHour + 1, global10Min: 1 })).toBe("reject");
-    expect(decideDegraded({ perIp: null, perEmail: null, global10Min: D.globalPer10Min })).toBe("allow");
-    expect(decideDegraded({ perIp: null, perEmail: null, global10Min: D.globalPer10Min + 1 })).toBe("reject");
+  const ALL = { ip: true, email: true, global: true };
+  const NONE = { ip: false, email: false, global: false };
+
+  it("per IP: allows up to the limit and rejects the next one", () => {
+    expect(decideDegraded({ perIp: D.perIpPerHour, perEmail: null, global10Min: 1 }, ALL)).toBe("allow");
+    expect(decideDegraded({ perIp: D.perIpPerHour + 1, perEmail: null, global10Min: 1 }, ALL)).toBe("reject");
+  });
+
+  it("per e-mail: allows up to the limit and rejects the next one", () => {
+    expect(decideDegraded({ perIp: null, perEmail: D.perEmailPerHour, global10Min: 1 }, ALL)).toBe("allow");
+    expect(decideDegraded({ perIp: null, perEmail: D.perEmailPerHour + 1, global10Min: 1 }, ALL)).toBe("reject");
+  });
+
+  it("global: allow, then store-only above the soft limit, then reject above the hard one", () => {
+    expect(decideDegraded({ perIp: null, perEmail: null, global10Min: D.globalSoftPer10Min }, ALL)).toBe("allow");
+    expect(decideDegraded({ perIp: null, perEmail: null, global10Min: D.globalSoftPer10Min + 1 }, ALL)).toBe("store-only");
+    expect(decideDegraded({ perIp: null, perEmail: null, global10Min: D.globalHardPer10Min }, ALL)).toBe("store-only");
+    expect(decideDegraded({ perIp: null, perEmail: null, global10Min: D.globalHardPer10Min + 1 }, ALL)).toBe("reject");
+  });
+
+  it("a dimension whose shared check WORKED is never judged by the local count", () => {
+    const over = { perIp: 99, perEmail: 99, global10Min: 999 };
+    expect(decideDegraded(over, NONE)).toBe("allow");
+    expect(decideDegraded(over, { ...NONE, global: true })).toBe("reject");
+    expect(decideDegraded({ ...over, global10Min: 1 }, { ...NONE, global: true })).toBe("allow");
+    expect(decideDegraded({ ...over, perEmail: 1, global10Min: 1 }, { ...NONE, ip: true })).toBe("reject");
+    expect(decideDegraded({ ...over, perIp: 1, global10Min: 1 }, { ...NONE, email: true })).toBe("reject");
+    expect(decideDegraded({ ...over, perIp: 1, global10Min: 1 }, { ...NONE, ip: true })).toBe("allow");
   });
 
   it("unknown IP and e-mail are not rejected on their own", () => {
-    expect(decideDegraded({ perIp: null, perEmail: null, global10Min: 1 })).toBe("allow");
+    expect(decideDegraded({ perIp: null, perEmail: null, global10Min: 1 }, ALL)).toBe("allow");
   });
 
-  it("is always stricter than the shared limits (the reason it exists), so a visitor spread over instances stays bounded", () => {
+  it("the per-sender limits are stricter than the shared ones; the global ones mirror the healthy rules", () => {
     expect(D.perIpPerHour).toBeLessThan(THROTTLE.perIpPerHour);
     expect(D.perEmailPerHour).toBeLessThan(THROTTLE.perEmailPerHour);
-    expect(D.globalPer10Min).toBeLessThan(THROTTLE.globalSoftPer10Min);
+    expect(D.globalSoftPer10Min).toBeLessThanOrEqual(THROTTLE.globalSoftPer10Min);
+    expect(D.globalHardPer10Min).toBeGreaterThan(D.globalSoftPer10Min);
   });
 });

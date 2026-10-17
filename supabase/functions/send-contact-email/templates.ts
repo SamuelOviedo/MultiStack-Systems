@@ -72,11 +72,11 @@ export function contactHtml(
     eyebrow: "Nueva solicitud",
     title: "Nuevo mensaje desde el sitio web",
     blocks: [
-      ...limitsUnchecked,
       {
         type: "paragraph",
         content: ["Has recibido una nueva consulta a través del formulario de contacto de ", { strong: BRAND.name }, "."],
       },
+      ...limitsUnchecked, // right under the intro, before the lead's details: it is the first thing to read, with room around it
       { type: "details", rows },
       { type: "message", caption: "Mensaje", text: lead.message },
       ...reply,
@@ -85,5 +85,42 @@ export function contactHtml(
     footerNote: stored
       ? `Notificación interna del formulario de contacto de ${BRAND.siteLabel}. La solicitud también se registró como ticket en el panel.`
       : `Notificación interna del formulario de contacto de ${BRAND.siteLabel}.`,
+  });
+}
+
+/** Subject of the outage alert (see alertHtml). */
+export function alertSubject(): string {
+  return `Formulario de contacto fuera de servicio — ${BRAND.name}`;
+}
+
+/**
+ * Internal alert: the contact form is refusing every message because its limit check is misconfigured (a failure that will
+ * not heal by itself). Sent by the function, once per instance every 30 minutes, and never contains anything a visitor sent;
+ * `detail` is the bounded technical reason (database code / status / message), shown escaped by the layout.
+ */
+export function alertHtml(detail: string): string {
+  return renderEmail({
+    preheader: "El formulario de contacto está rechazando todos los mensajes.",
+    eyebrow: "Alerta",
+    title: "El formulario de contacto está fuera de servicio",
+    blocks: [
+      {
+        type: "paragraph",
+        content: [
+          "La comprobación de límites del formulario falló por un problema de configuración y, por seguridad, el formulario responde ",
+          { strong: "«servicio no disponible»" },
+          " a todos los visitantes hasta que se corrija. Los mensajes que lleguen mientras tanto no se guardan ni se envían.",
+        ],
+      },
+      { type: "details", rows: [{ label: "Detalle técnico", value: detail }] },
+      {
+        type: "notice",
+        title: "Qué revisar",
+        content: "En Supabase: que exista la tabla public.contact_rate_events, que la clave edge_functions tenga permisos sobre ella y " +
+          "sobre tickets, y los registros de la función send-contact-email (busca «throttle misconfigured»). Si no puedes corregirlo " +
+          "enseguida, vuelve a desplegar la versión anterior con el procedimiento de reversión.",
+      },
+    ],
+    footerNote: `Notificación interna del formulario de contacto de ${BRAND.siteLabel}.`,
   });
 }

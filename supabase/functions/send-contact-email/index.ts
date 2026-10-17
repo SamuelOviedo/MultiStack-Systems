@@ -1,10 +1,12 @@
 // Pinned on purpose: an unpinned "@2" is resolved when the function is DEPLOYED, so production could run a different
 // supabase-js than the one the behaviour matrix was run against — and the limit check reads the shape of its errors
-// (code / status, see classifyStoreError). Move it deliberately, together with the matrix.
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
+// (code / status, see classifyStoreError). Same version as send-notification and the frontend. Move it deliberately,
+// together with the behaviour matrix.
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.110.5";
 import { sendEmail, FROM_DEV, FROM_VERIFIED } from "../_shared/resend.ts";
 import { edgeFunctionsKey } from "../_shared/keys.ts";
 import { createContactHandler, type ContactStore } from "./handler.ts";
+import { exactCount, STORE_TIMEOUT_MS, storeError } from "./limiter.ts";
 
 // Request handling and abuse rules: see handler.ts. This file only wires the
 // runtime (secrets, supabase-js, Resend) into it.
@@ -50,45 +52,36 @@ type Db = SupabaseClient<any>;
 const since = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 /**
- * PostgREST's error code and the HTTP status travel with the thrown error, so the handler can tell a broken configuration
- * (permission denied, missing table, rejected key) from a hiccup (see classifyStoreError in limiter.ts).
+ * Every operation is cancelled by its own deadline (the handler also stops WAITING at the same time). Without it a hung
+ * database leaves the requests running in the background, and supabase-js re-sends HEAD/GET up to three times with back-off
+ * on network errors and 503/520 — an outage would feed itself. `.retry(false)` + an abort signal make one attempt, bounded.
+ * One signal per operation: `recordAndCount` is a POST and a HEAD under the same deadline.
  */
-function storeError(error: { message: string; code?: string }, status?: number): Error {
-  return Object.assign(new Error(error.message), { code: error.code, status });
-}
-
-/**
- * The count of a HEAD request. PostgREST always answers one; a missing count (e.g. an empty 404 that supabase-js reports as
- * "no error") must be a FAILURE of the check — never a silent 0, which would read as "nobody has written yet".
- */
-function exactCount(r: { count: number | null; status: number }): number {
-  if (r.count === null) throw storeError({ message: "count unavailable" }, r.status);
-  return r.count;
-}
+const deadline = (ms = STORE_TIMEOUT_MS) => AbortSignal.timeout(ms);
 
 function supabaseStore(db: Db): ContactStore {
   return {
     async recordAndCount(bucket) {
-      const ins = await db.from("contact_rate_events").insert({ bucket });
+      const signal = deadline();
+      const ins = await db.from("contact_rate_events").insert({ bucket }).abortSignal(signal);
       if (ins.error) throw storeError(ins.error, ins.status);
       const r = await db.from("contact_rate_events").select("id", { count: "exact", head: true })
-        .eq("bucket", bucket).gte("created_at", since(60));
+        .eq("bucket", bucket).gte("created_at", since(60)).retry(false).abortSignal(signal);
       if (r.error) throw storeError(r.error, r.status);
       return exactCount(r);
     },
     async record(bucket) {
-      const ins = await db.from("contact_rate_events").insert({ bucket });
+      const ins = await db.from("contact_rate_events").insert({ bucket }).abortSignal(deadline());
       if (ins.error) throw storeError(ins.error, ins.status);
     },
     async purge() {
-      try {
-        await db.from("contact_rate_events").delete().lt("created_at", since(24 * 60));
-      } catch { /* best effort: purging is housekeeping, never a reason to fail a request */ }
+      const r = await db.from("contact_rate_events").delete().lt("created_at", since(24 * 60)).retry(false).abortSignal(deadline());
+      if (r.error) throw storeError(r.error, r.status);
     },
     async countLeads(minutes) {
       const r = await db.from("tickets").select("id", { count: "exact", head: true })
         .eq("type", "consulta").is("project_id", null).is("client_id", null)
-        .gte("created_at", since(minutes));
+        .gte("created_at", since(minutes)).retry(false).abortSignal(deadline());
       if (r.error) throw storeError(r.error, r.status);
       return exactCount(r);
     },
@@ -103,7 +96,7 @@ function supabaseStore(db: Db): ContactStore {
         status:       "abierto",
         title:        `Mensaje web de ${lead.name}`,
         description:  lead.phone ? `Teléfono: ${lead.phone}\n\n${lead.message}` : lead.message,
-      });
+      }).abortSignal(deadline(STORE_TIMEOUT_MS * 2));
       return error ? error.message : null;
     },
   };

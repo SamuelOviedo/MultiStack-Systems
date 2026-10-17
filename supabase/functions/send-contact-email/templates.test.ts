@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { BRAND, COLORS, renderEmail } from "../_shared/email/layout.ts";
-import { contactHtml, contactSubject } from "./templates.ts";
+import { alertHtml, alertSubject, contactHtml, contactSubject } from "./templates.ts";
 import { SUPPORT_REPLY_TO } from "./reply-to.ts";
 
 // Deterministic sample data (no real addresses).
@@ -19,6 +19,7 @@ const SAMPLES: Record<string, string> = {
   "contact-internal-phone-only": contactHtml(PHONE_ONLY, true, RECEIVED),
   "contact-internal-not-stored": contactHtml(FULL, false, RECEIVED),
   "contact-internal-limits-unchecked": contactHtml(FULL, true, RECEIVED, { limitsUnchecked: true }),
+  "contact-alert-unavailable": alertHtml("1/4 checks failed; configuration: code=42501 status=403 permission denied for table contact_rate_events"),
 };
 
 /** Header (logo + wordmark) and footer as rendered for any e-mail. */
@@ -97,6 +98,7 @@ describe("contact e-mail — corporate design", () => {
     const flagged = SAMPLES["contact-internal-limits-unchecked"];
     expect(flagged).toContain("Límites de seguridad no verificados");
     expect(flagged).toContain("send-contact-email");
+    expect(flagged.indexOf("Has recibido una nueva consulta")).toBeLessThan(flagged.indexOf("Límites de seguridad no verificados"));
     expect(flagged.indexOf("Límites de seguridad no verificados")).toBeLessThan(flagged.indexOf("Nombre completo"));
     // everything else of the e-mail is the normal one
     expect(flagged).toContain("La solicitud también se registró como ticket en el panel.");
@@ -105,6 +107,23 @@ describe("contact e-mail — corporate design", () => {
     }
     expect(contactHtml(FULL, true, RECEIVED, {})).toBe(SAMPLES["contact-internal"]);
     expect(contactHtml(FULL, true, RECEIVED, { limitsUnchecked: false })).toBe(SAMPLES["contact-internal"]);
+  });
+});
+
+describe("contact e-mail — the outage alert", () => {
+  const html = SAMPLES["contact-alert-unavailable"];
+
+  it("says the form is down, why, and what to check", () => {
+    expect(alertSubject()).toBe("Formulario de contacto fuera de servicio — MultiStack Systems");
+    for (const text of ["El formulario de contacto está fuera de servicio", "servicio no disponible", "Detalle técnico", "code=42501 status=403", "Qué revisar", "contact_rate_events", "throttle misconfigured"]) {
+      expect(html).toContain(text);
+    }
+  });
+
+  it("escapes the technical detail (it comes from a database error)", () => {
+    const evil = alertHtml("<script>alert(1)</script> & \"quoted\"");
+    expect(evil).not.toContain("<script>alert(1)</script>");
+    expect(evil).toContain("&lt;script&gt;");
   });
 });
 

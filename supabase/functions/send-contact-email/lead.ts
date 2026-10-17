@@ -36,18 +36,21 @@ export const THROTTLE = {
 } as const;
 
 /**
- * Limits each function instance applies ALONE, from its own memory, while the shared counters above cannot be read
- * (see limiter.ts). Instances do not share memory, so a visitor spread over several of them gets several times these
- * numbers: they are deliberately far below THROTTLE so that the total stays small, and they are generous enough for a
- * real visitor (a person rarely sends more than one or two messages).
+ * Limits each function instance applies ALONE, from its own memory, to the dimension whose shared counter could not be
+ * read (see limiter.ts). Instances do not share memory, so a visitor spread over several of them gets several times
+ * these numbers: the per-sender ones are stricter than THROTTLE so that the total stays small, and still generous for a
+ * real visitor (a person rarely sends more than one or two messages). The global ones mirror the healthy rules (store
+ * without the team e-mail above the soft limit, reject above the hard one) at a per-instance scale.
  */
 export const DEGRADED_THROTTLE = {
   /** same client IP, per rolling hour, per instance */
   perIpPerHour: 5,
   /** same e-mail address, per rolling hour, per instance */
   perEmailPerHour: 2,
-  /** all leads, per rolling 10 minutes, per instance */
-  globalPer10Min: 20,
+  /** all leads, per rolling 10 minutes, per instance: above this, store without the team e-mail */
+  globalSoftPer10Min: 30,
+  /** all leads, per rolling 10 minutes, per instance: above this, reject */
+  globalHardPer10Min: 100,
 } as const;
 
 /** Per-instance counts, INCLUDING the current attempt (null when the IP / e-mail is unknown). */
