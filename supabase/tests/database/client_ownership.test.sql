@@ -8,7 +8,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(25);
+SELECT plan(26);
 
 -- ── Fixtures (as postgres) ───────────────────────────────────────────────────
 INSERT INTO auth.users (instance_id, id, aud, role, email, raw_user_meta_data) VALUES
@@ -21,19 +21,29 @@ UPDATE public.profiles SET user_type = 1 WHERE id = '1b000000-0000-4000-8000-000
 SELECT has_column('public', 'tickets', 'client_id', 'tickets.client_id exists');
 SELECT has_index('public', 'tickets', 'idx_tickets_client_id', 'client_id is indexed');
 
--- ── 1. A prospect leaves a lead through the public contact form (anon) ──────
+-- ── 1. A prospect leaves a lead through the public contact form ─────────────
+-- Direct anonymous REST inserts are closed (S4); the lead arrives through
+-- send-contact-email, which stores it with the service-role client.
 SET LOCAL role anon;
 SELECT set_config('request.jwt.claims', '{"role":"anon"}', true);
+SELECT throws_ok(
+  $$ INSERT INTO public.tickets (type, title, client_email, client_name, client_id)
+     VALUES ('consulta', 'Lead directo', 'victim@test.local', 'Víctima',
+             '1c000000-0000-4000-8000-000000000000') $$,
+  '42501', NULL, 'S4: anonymous REST insert into tickets is rejected'
+);
+RESET role;
+SET LOCAL role service_role;
 SELECT lives_ok(
-  $$ INSERT INTO public.tickets (id, type, title, client_email, client_name, client_id)
+  $$ INSERT INTO public.tickets (id, type, title, client_email, client_name)
      VALUES ('2a000000-0000-4000-8000-000000000000', 'consulta', 'Lead del prospecto',
-             'victim@test.local', 'Víctima', '1c000000-0000-4000-8000-000000000000') $$,
-  'anonymous contact lead is accepted'
+             'victim@test.local', 'Víctima') $$,
+  'contact lead stored by send-contact-email (service role) is accepted'
 );
 RESET role;
 SELECT is(
   (SELECT client_id FROM public.tickets WHERE id = '2a000000-0000-4000-8000-000000000000'),
-  NULL, 'anonymous leads never get an owner, even if client_id is sent'
+  NULL, 'contact leads have no owner'
 );
 
 -- ── 2. Attacker registers with the prospect's e-mail (auto-confirmed) ───────
@@ -94,20 +104,16 @@ SELECT is(
     WHERE id IN ('2a000000-0000-4000-8000-000000000000','2b000000-0000-4000-8000-000000000000','2c000000-0000-4000-8000-000000000000')),
   0, 'a client never sees other clients'' requests or anonymous leads'
 );
--- A client can still type someone else's address as CONTACT e-mail (the
--- "public inserts contact lead" policy also covers authenticated users — S4,
--- next block), but ownership stays with the client and the address owner gains
--- nothing from it.
-SELECT lives_ok(
+-- A client cannot file a request under someone else's address (S4).
+SELECT throws_ok(
   $$ INSERT INTO public.tickets (id, type, title, client_email, client_name)
      VALUES ('2d000000-0000-4000-8000-000000000000', 'solicitud', 'Con email ajeno', 'victim@test.local', 'x') $$,
-  'client filing with a foreign contact e-mail is accepted (S4 residual)…'
+  '42501', NULL, 'S4: client filing with a foreign contact e-mail is rejected…'
 );
 RESET role;
 SELECT is(
-  (SELECT client_id FROM public.tickets WHERE id = '2d000000-0000-4000-8000-000000000000'),
-  '1c000000-0000-4000-8000-000000000000'::uuid,
-  '…but it is owned by the filing client, not by the e-mail''s owner'
+  (SELECT count(*)::int FROM public.tickets WHERE id = '2d000000-0000-4000-8000-000000000000'),
+  0, '…and nothing was stored'
 );
 SET LOCAL role authenticated;
 SELECT set_config('request.jwt.claims',
