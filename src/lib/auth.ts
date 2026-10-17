@@ -77,6 +77,16 @@ export function validateNewPassword(password: string, confirmation: string): str
   return null;
 }
 
+/** Re-sends the sign-up confirmation link (needed once "Confirm email" is on). */
+export async function resendSignupConfirmation(email: string): Promise<void> {
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email: email.trim(),
+    options: { emailRedirectTo: getAuthEmailRedirectUrl() },
+  });
+  if (error) throw error;
+}
+
 /** Supabase Auth error code (`AuthError.code`), when present. */
 export function authErrorCode(error: unknown): string | undefined {
   if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;

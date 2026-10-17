@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { describeAuthError, signInWithOAuth, signInWithPassword } from "@/lib/auth";
+import {
+  authErrorCode, describeAuthError, resendSignupConfirmation, signInWithOAuth, signInWithPassword,
+} from "@/lib/auth";
+import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -81,12 +84,29 @@ const Login = () => {
     try {
       await signInWithPassword(email, password);
     } catch (error) {
+      const unconfirmed = authErrorCode(error) === "email_not_confirmed";
       toast({
         title: "Error de autenticación",
         description: describeAuthError(error),
         variant: "destructive",
+        ...(unconfirmed && {
+          action: (
+            <ToastAction altText="Reenviar el enlace de confirmación" onClick={handleResendConfirmation}>
+              Reenviar enlace
+            </ToastAction>
+          ),
+        }),
       });
       setLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    try {
+      await resendSignupConfirmation(email);
+      toast({ title: "Enlace enviado", description: "Revisa tu bandeja de entrada (y la carpeta de spam)." });
+    } catch (error) {
+      toast({ title: "No se pudo reenviar", description: describeAuthError(error), variant: "destructive" });
     }
   };
 
