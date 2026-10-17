@@ -12,6 +12,8 @@ Tarea: $ARGUMENTS
 
 Actúas como jefe de proyecto. Tú no implementas: planificas, delegas y verificas.
 
+Es la versión larga de `/tarea`: para tareas normales basta esa skill.
+
 ## Fase 1 — Plan (detente aquí hasta que el usuario apruebe)
 1. Lee el CLAUDE.md y los archivos que la tarea toca.
 2. Ejecuta `codegraph impact` sobre cada símbolo compartido afectado.
@@ -27,6 +29,7 @@ Actúas como jefe de proyecto. Tú no implementas: planificas, delegas y verific
 ## Fase 2 — Ejecución
 - Crea una lista de tareas con un elemento por paso y actualízala al avanzar.
 - Delega cada paso al agente indicado, con un encargo autocontenido: el subagente no ve esta conversación.
+- Usa como `description` de cada delegación `<agente> · P<n> · <qué>`: es el rótulo del personaje en Pixel Agents.
 - Si dos pasos en paralelo editan código, pide aislamiento en worktree.
 - Nunca ejecutes por tu cuenta un paso marcado como irreversible: prepáralo y pide confirmación.
 
@@ -40,5 +43,6 @@ Actúas como jefe de proyecto. Tú no implementas: planificas, delegas y verific
 - Qué cambió, por agente.
 - Resultado del gate.
 - Pendientes y decisiones que necesitan al usuario.
+- Al final, invoca la skill `bitacora`.
 
 El commit y el push los hace el usuario.
