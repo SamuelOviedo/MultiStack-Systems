@@ -42,6 +42,7 @@ Inventario de las skills instaladas en `.claude/skills/`, revisadas el 2026-10-1
 | `skill-creator` | Tú / sesión principal | Bajo demanda | anthropics/skills (dbd4588) | Apache-2.0 |
 | `l99` | Tú / sesión principal | Solo manual | Propia de MultiStack | — |
 | `godmode` | Tú / sesión principal | Solo manual | Propia de MultiStack | — |
+| `tarea` | Sesión principal | Bajo demanda y manual; entrada de toda tarea de desarrollo | Propia de MultiStack | — |
 
 ## Qué hacen en tu máquina (revisado)
 

@@ -50,11 +50,20 @@ Detalle en `docs/context/PROJECT_CONTEXT.md` (sección Riesgos).
 - Dashboard, auth y portal de clientes: shadcn con tokens HSL.
 - Las reglas de cada zona están en `.claude/rules/` y se cargan solas al tocar sus archivos.
 
+## Flujo de trabajo: primero la sesión principal
+Toda tarea o plan de desarrollo entra por la sesión principal, nunca directo a un subagente.
+1. El usuario la asigna con `/tarea <tarea o T-xxx>`, o con `/godmode` si es larga y cruza frontend y Supabase. Si pide un cambio de código sin la skill, sigue el mismo flujo.
+2. La sesión principal lee el estado (bitácora y brief), escribe el plan (paso, agente, archivos, dependencia y verificación) y espera la aprobación.
+3. Delega cada paso a su subagente con un encargo autocontenido. En Pixel Agents cada subagente aparece como su propio personaje, rotulado `<agente> · P<n> · <qué>`.
+4. Verifican `qa`, `revisor` y, si el cambio toca auth o datos, `security`. Se cierra con `/bitacora`.
+
+La sesión principal planifica, delega e integra; no implementa código. La única excepción es un ajuste trivial (una línea de docs o de config) que el plan aprobado le asigne. Guía de la oficina visual: `.claude/PIXEL-AGENTS.md`.
+
 ## Delegación
 - UI y sistema de diseño → `ui-system` · textos, CRO y SEO → `marketing` · tests y accesibilidad → `qa`
 - Datos, auth y Edge Functions → `supabase` · auditoría de auth, RLS y datos → `security`
 - Después de cualquier cambio de código → `revisor`
-- Tareas largas → `/godmode` · decisiones de arquitectura → `/l99`
+- Decisiones de arquitectura → `/l99`
 - Inventario de skills por agente: `.claude/SKILLS.md`
 
 ## Definición de terminado
