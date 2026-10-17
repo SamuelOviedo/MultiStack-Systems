@@ -127,7 +127,7 @@ export function createContactHandler(deps: ContactDeps) {
    *   2. a failure that only a configuration change can cure refuses the form (the controls are broken, not busy);
    *   3. a transient failure lets the lead through under the stricter per-instance limits, and the team e-mail says the
    *      shared limits were not checked. A real lead is never lost to a database hiccup; the CHECK limits still apply.
-   * The four calls are independent (different buckets / tables), so they run together: one round trip, not three.
+   * The calls are independent (different buckets / tables), so they run together: one round trip, not three.
    */
   async function throttle(store: ContactStore, ipBucket: string | null, emailBucket: string | null): Promise<ThrottleOutcome> {
     const counts = local.observe(ipBucket, emailBucket);
@@ -136,8 +136,10 @@ export function createContactHandler(deps: ContactDeps) {
       measure(async () => (emailBucket ? await store.recordAndCount(emailBucket) : null)),
       measure(() => store.countLeads(10)),
       measure(() => store.countLeads(60)),
+      // housekeeping (events older than a day): best effort, never a failure, and in the same wave so that a slow or hung
+      // purge adds nothing to the visitor's wait
+      measure(() => store.purge()),
     ]);
-    await measure(() => store.purge()); // best effort: it never throws, and a slow purge must not hold the visitor
 
     const known = decideThrottle({
       perIp: ip.ok ? ip.value : null,

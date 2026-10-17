@@ -1,4 +1,7 @@
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Pinned on purpose: an unpinned "@2" is resolved when the function is DEPLOYED, so production could run a different
+// supabase-js than the one the behaviour matrix was run against — and the limit check reads the shape of its errors
+// (code / status, see classifyStoreError). Move it deliberately, together with the matrix.
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { sendEmail, FROM_DEV, FROM_VERIFIED } from "../_shared/resend.ts";
 import { edgeFunctionsKey } from "../_shared/keys.ts";
 import { createContactHandler, type ContactStore } from "./handler.ts";
@@ -54,6 +57,15 @@ function storeError(error: { message: string; code?: string }, status?: number):
   return Object.assign(new Error(error.message), { code: error.code, status });
 }
 
+/**
+ * The count of a HEAD request. PostgREST always answers one; a missing count (e.g. an empty 404 that supabase-js reports as
+ * "no error") must be a FAILURE of the check — never a silent 0, which would read as "nobody has written yet".
+ */
+function exactCount(r: { count: number | null; status: number }): number {
+  if (r.count === null) throw storeError({ message: "count unavailable" }, r.status);
+  return r.count;
+}
+
 function supabaseStore(db: Db): ContactStore {
   return {
     async recordAndCount(bucket) {
@@ -62,7 +74,7 @@ function supabaseStore(db: Db): ContactStore {
       const r = await db.from("contact_rate_events").select("id", { count: "exact", head: true })
         .eq("bucket", bucket).gte("created_at", since(60));
       if (r.error) throw storeError(r.error, r.status);
-      return r.count ?? 0;
+      return exactCount(r);
     },
     async record(bucket) {
       const ins = await db.from("contact_rate_events").insert({ bucket });
@@ -78,7 +90,7 @@ function supabaseStore(db: Db): ContactStore {
         .eq("type", "consulta").is("project_id", null).is("client_id", null)
         .gte("created_at", since(minutes));
       if (r.error) throw storeError(r.error, r.status);
-      return r.count ?? 0;
+      return exactCount(r);
     },
     async insertLead(lead) {
       // tickets has no phone column: it leads the description so the team sees it.
