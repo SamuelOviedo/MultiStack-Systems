@@ -68,8 +68,21 @@ type ThrottleOutcome =
   | { decision: "unavailable"; detail: string }
   | { decision: Exclude<ThrottleDecision, "reject">; limitsUnchecked: boolean };
 
-/** At most one "the form is refusing messages" alert per instance in this time. */
+/** At most one "the form is refusing messages" alert per instance in this time (a failed send is retried after ALERT_RETRY_MS). */
 const ALERT_COOLDOWN_MS = 30 * 60_000;
+const ALERT_RETRY_MS = 5 * 60_000;
+
+/**
+ * A configuration-class failure closes the form only once it has lasted this long WITHOUT a single healthy check in between
+ * (and each sighting is within CONFIG_STALE_MS of the previous one). A hiccup that looks like a configuration problem — a
+ * gateway answering 403/404 to a body-less HEAD during a restore, a WAF rule — heals before that and never closes anything;
+ * a real misconfiguration is still closed, and alerted, within the minute. Until then the request goes through as degraded.
+ */
+const CONFIG_PERSISTENCE_MS = 60_000;
+const CONFIG_STALE_MS = 5 * 60_000;
+
+/** Purge old attempts at most this often per instance: one DELETE per lead would pile up behind a flood. */
+const PURGE_EVERY_MS = 5 * 60_000;
 
 type Measure<T> = { ok: true; value: T } | { ok: false; error: unknown };
 
@@ -113,6 +126,10 @@ export function createContactHandler(deps: ContactDeps) {
   const saltOk = deps.rateSalt.length >= RATE_SALT_MIN_LENGTH;
   const local = deps.localLimiter ?? new LocalLimiter();
   const timeoutMs = deps.storeTimeoutMs ?? STORE_TIMEOUT_MS;
+  const clock = () => (deps.now ?? Date.now)();
+  let configSince: number | null = null; // start of the current run of configuration-class failures
+  let configLast = 0;
+  let lastPurgeAt = -Infinity;
 
   /** One database call of the limit check: never throws, never takes longer than the timeout. */
   async function measure<T>(call: () => Promise<T>): Promise<Measure<T>> {
@@ -127,7 +144,8 @@ export function createContactHandler(deps: ContactDeps) {
    * Records this attempt (per IP and per e-mail, kept 24 h) and counts recent activity, deciding with whatever could be
    * measured (see limiter.ts for the reasoning):
    *   1. a limit that was measured and exceeded rejects, even if another call failed;
-   *   2. a failure that only a configuration change can cure refuses the form (the controls are broken, not busy);
+   *   2. a failure that only a configuration change can cure refuses the form once it has lasted CONFIG_PERSISTENCE_MS (the
+   *      controls are broken, not busy) — until then it is handled like step 3;
    *   3. a transient failure lets the lead through, bounded by the per-instance limits of the dimension whose check
    *      failed, and the team e-mail says the shared limits were not checked. A real lead is never lost to a database
    *      hiccup; the CHECK limits still apply.
@@ -137,10 +155,15 @@ export function createContactHandler(deps: ContactDeps) {
    */
   async function throttle(store: ContactStore, ipBucket: string | null, emailBucket: string | null): Promise<ThrottleOutcome> {
     // Housekeeping (events older than a day): best effort and NOT awaited — a slow or hung purge must add nothing to the
-    // visitor's wait, and a failure only gets logged (it never counts as a failure of the check).
-    void measure(() => store.purge()).then((m) => {
-      if (!m.ok) log("warn", `[contact] ⚠ purge of old attempts failed: ${describeError(m.error)}`);
-    });
+    // visitor's wait, and a failure only gets logged (it never counts as a failure of the check). At most every
+    // PURGE_EVERY_MS per instance, so a flood does not queue one DELETE per request.
+    const t0 = clock();
+    if (t0 - lastPurgeAt >= PURGE_EVERY_MS) {
+      lastPurgeAt = t0;
+      void measure(() => store.purge()).then((m) => {
+        if (!m.ok) log("warn", `[contact] ⚠ purge of old attempts failed: ${describeError(m.error)}`);
+      });
+    }
 
     const [ip, em, g10, g60] = await Promise.all([
       measure(async () => (ipBucket ? await store.recordAndCount(ipBucket) : null)),
@@ -158,16 +181,23 @@ export function createContactHandler(deps: ContactDeps) {
     if (known === "reject") return { decision: "reject" };
 
     const failures = [ip, em, g10, g60].filter((m): m is { ok: false; error: unknown } => !m.ok);
+    const cause = failures.find((f) => classifyStoreError(f.error) === "config");
+    if (!cause) configSince = null; // no configuration-class failure this time: the run (if any) is over
     if (failures.length === 0) {
       local.observe(ipBucket, emailBucket); // keeps the per-instance window warm for the day the database misbehaves
       return { decision: known, limitsUnchecked: false };
     }
 
-    const cause = failures.find((f) => classifyStoreError(f.error) === "config");
     const detail = `${failures.length}/4 checks failed; ${cause ? "configuration" : "first"}: ${describeError((cause ?? failures[0]).error)}`;
     if (cause) {
-      log("error", `[contact] ❌ throttle misconfigured — refusing requests (fail closed): ${detail}`);
-      return { decision: "unavailable", detail };
+      const now = clock();
+      if (configSince === null || now - configLast > CONFIG_STALE_MS) configSince = now;
+      configLast = now;
+      if (now - configSince >= CONFIG_PERSISTENCE_MS) {
+        log("error", `[contact] ❌ throttle misconfigured for ${Math.round((now - configSince) / 1000)} s — refusing requests (fail closed): ${detail}`);
+        return { decision: "unavailable", detail };
+      }
+      log("error", `[contact] ❌ throttle misconfigured (seen for ${Math.round((now - configSince) / 1000)} s; the form closes at ${CONFIG_PERSISTENCE_MS / 1000} s) — this request goes through as degraded: ${detail}`);
     }
 
     const verdict = decideDegraded(local.observe(ipBucket, emailBucket), { ip: !ip.ok, email: !em.ok, global: !g10.ok || !g60.ok });
@@ -186,7 +216,7 @@ export function createContactHandler(deps: ContactDeps) {
    */
   let lastAlertAt = -Infinity;
   async function alertTeam(detail: string): Promise<void> {
-    const now = (deps.now ?? Date.now)();
+    const now = clock();
     if (now - lastAlertAt < ALERT_COOLDOWN_MS) return;
     lastAlertAt = now;
     try {
@@ -200,6 +230,7 @@ export function createContactHandler(deps: ContactDeps) {
         timeoutMs,
       );
     } catch (e) {
+      lastAlertAt = now - ALERT_COOLDOWN_MS + ALERT_RETRY_MS; // a failed send is not a delivered alert: try again soon
       log("error", `[contact] ⚠ the outage alert could not be sent: ${describeError(e)}`);
     }
   }
@@ -213,6 +244,8 @@ export function createContactHandler(deps: ContactDeps) {
     // or shortened. A transient database failure does NOT refuse the form (a real lead must not be lost): see throttle().
     if (!saltOk) {
       log("error", `[contact] ❌ CONTACT_RATE_SALT missing or shorter than ${RATE_SALT_MIN_LENGTH} characters — refusing requests (fail closed)`);
+      // The likeliest deploy mistake. The team hears of it by e-mail whenever the Resend key is there to send it.
+      if (deps.resendConfigured) await alertTeam(`CONTACT_RATE_SALT missing or shorter than ${RATE_SALT_MIN_LENGTH} characters`);
       return unavailable();
     }
 
@@ -235,6 +268,7 @@ export function createContactHandler(deps: ContactDeps) {
       const store = deps.openStore();
       if (!store) {
         log("error", `[contact] ❌ secret key missing: ${deps.secretSource} — refusing requests (fail closed)`);
+        await alertTeam(`secret key missing: ${deps.secretSource}`);
         return unavailable();
       }
       log("info", `[contact] secret key source: ${deps.secretSource}`);

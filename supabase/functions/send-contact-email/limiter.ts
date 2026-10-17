@@ -100,16 +100,18 @@ export function withTimeout<T>(p: Promise<T>, ms: number = STORE_TIMEOUT_MS): Pr
 
 const HOUR_MS = 3_600_000;
 const TEN_MIN_MS = 600_000;
+const SWEEP_EVERY_MS = 60_000;
 
 /**
  * Per-instance sliding-window counters, bounded in memory. It counts every lead the shared check ACCEPTED — never one it
  * rejected, so a flood that the shared limits already stop cannot fill it — which keeps the window warm when degradation
- * starts. When the table of buckets is full it forgets the oldest one: per-sender limits are best effort, the global
- * counter does not depend on the table at all.
+ * starts. When the table of buckets is full it forgets the least recently seen one: per-sender limits are best effort, the
+ * global counter does not depend on the table at all.
  */
 export class LocalLimiter {
   private readonly keys = new Map<string, number[]>();
   private recent: number[] = [];
+  private lastSweepAt = -Infinity;
 
   constructor(
     private readonly now: () => number = Date.now,
@@ -133,15 +135,21 @@ export class LocalLimiter {
     let stamps = this.keys.get(key);
     if (!stamps) {
       if (this.keys.size >= this.maxKeys) {
-        this.sweep(t);
+        // Expired buckets first, but scanning the whole table for every newcomer of a flood would be the cost: at most once a minute.
+        if (t - this.lastSweepAt >= SWEEP_EVERY_MS) {
+          this.lastSweepAt = t;
+          this.sweep(t);
+        }
         if (this.keys.size >= this.maxKeys) {
-          const oldest = this.keys.keys().next().value; // Map keeps insertion order: the first key is the oldest bucket
-          if (oldest !== undefined) this.keys.delete(oldest);
+          const idle = this.keys.keys().next().value; // Map keeps insertion order and a hit moves its bucket to the end: the first key is the least recently seen
+          if (idle !== undefined) this.keys.delete(idle);
         }
       }
       stamps = [];
-      this.keys.set(key, stamps);
+    } else {
+      this.keys.delete(key); // re-inserted below, at the end: an active bucket is never the one forgotten
     }
+    this.keys.set(key, stamps);
     const cutoff = t - HOUR_MS;
     let drop = 0;
     while (drop < stamps.length && stamps[drop] <= cutoff) drop++;

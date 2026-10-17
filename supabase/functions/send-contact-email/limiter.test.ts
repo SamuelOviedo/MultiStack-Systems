@@ -202,12 +202,21 @@ describe("LocalLimiter", () => {
     expect(l.observe("ip:d", null).global10Min).toBe(3);
   });
 
-  it("memory is bounded and a full table evicts the OLDEST bucket instead of refusing newcomers", () => {
+  it("memory is bounded and a full table forgets a bucket instead of refusing newcomers", () => {
     const c = clock(); const l = new LocalLimiter(c.now, 3);
     for (const k of ["ip:1", "ip:2", "ip:3"]) l.observe(k, null);
     expect(l.observe("ip:4", null).perIp).toBe(1);        // a newcomer is counted normally, never rejected for lack of room
     expect(l.observe("ip:1", null).perIp).toBe(1);        // ip:1 was the oldest: forgotten, so it starts again (and evicts ip:2)
     expect(l.observe("ip:3", null).perIp).toBe(2);        // ip:3 survived
+  });
+
+  it("an active bucket is not the one forgotten: a hit refreshes it (least recently SEEN goes first)", () => {
+    const c = clock(); const l = new LocalLimiter(c.now, 3);
+    for (const k of ["ip:1", "ip:2", "ip:3"]) l.observe(k, null);
+    l.observe("ip:1", null);                         // ip:1 is now the most recently seen
+    l.observe("ip:4", null);                         // table full: ip:2, the least recently seen, goes
+    expect(l.observe("ip:1", null).perIp).toBe(3);   // survived with its whole history
+    expect(l.observe("ip:2", null).perIp).toBe(1);   // forgotten: starts again
   });
 
   it("a full table frees itself first by dropping expired buckets, evicting nothing live", () => {

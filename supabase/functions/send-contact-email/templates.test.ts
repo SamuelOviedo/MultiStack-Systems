@@ -115,7 +115,7 @@ describe("contact e-mail — the outage alert", () => {
 
   it("says the form is down, why, and what to check", () => {
     expect(alertSubject()).toBe("Formulario de contacto fuera de servicio — MultiStack Systems");
-    for (const text of ["El formulario de contacto está fuera de servicio", "servicio no disponible", "Detalle técnico", "code=42501 status=403", "Qué revisar", "contact_rate_events", "throttle misconfigured"]) {
+    for (const text of ["El formulario de contacto está fuera de servicio", "servicio no disponible", "Detalle técnico", "code=42501 status=403", "Qué revisar", "contact_rate_events", "CONTACT_RATE_SALT", "fail closed"]) {
       expect(html).toContain(text);
     }
   });

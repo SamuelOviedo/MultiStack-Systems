@@ -94,9 +94,10 @@ export function alertSubject(): string {
 }
 
 /**
- * Internal alert: the contact form is refusing every message because its limit check is misconfigured (a failure that will
- * not heal by itself). Sent by the function, once per instance every 30 minutes, and never contains anything a visitor sent;
- * `detail` is the bounded technical reason (database code / status / message), shown escaped by the layout.
+ * Internal alert: the contact form is refusing every message because it is misconfigured (a missing secret, or a limit check
+ * that fails for a reason that will not heal by itself). Sent by the function, once per instance every 30 minutes, and never
+ * contains anything a visitor sent; `detail` is the bounded technical reason (database code / status / message, or the name of
+ * the missing secret), shown escaped by the layout.
  */
 export function alertHtml(detail: string): string {
   return renderEmail({
@@ -107,7 +108,7 @@ export function alertHtml(detail: string): string {
       {
         type: "paragraph",
         content: [
-          "La comprobación de límites del formulario falló por un problema de configuración y, por seguridad, el formulario responde ",
+          "El formulario detectó un problema de configuración que impide aplicar sus controles de seguridad y, por seguridad, responde ",
           { strong: "«servicio no disponible»" },
           " a todos los visitantes hasta que se corrija. Los mensajes que lleguen mientras tanto no se guardan ni se envían.",
         ],
@@ -116,9 +117,10 @@ export function alertHtml(detail: string): string {
       {
         type: "notice",
         title: "Qué revisar",
-        content: "En Supabase: que exista la tabla public.contact_rate_events, que la clave edge_functions tenga permisos sobre ella y " +
-          "sobre tickets, y los registros de la función send-contact-email (busca «throttle misconfigured»). Si no puedes corregirlo " +
-          "enseguida, vuelve a desplegar la versión anterior con el procedimiento de reversión.",
+        content: "En Supabase: que existan los secretos CONTACT_RATE_SALT (32 caracteres o más) y edge_functions, que exista la tabla " +
+          "public.contact_rate_events y que la clave edge_functions tenga permisos sobre ella y sobre tickets. Los registros de la " +
+          "función send-contact-email dicen la causa (busca «fail closed»). Si no puedes corregirlo enseguida, vuelve a desplegar la " +
+          "versión anterior con el procedimiento de reversión.",
       },
     ],
     footerNote: `Notificación interna del formulario de contacto de ${BRAND.siteLabel}.`,
