@@ -197,7 +197,7 @@ export function createContactHandler(deps: ContactDeps) {
           subject: alertSubject(),
           html: alertHtml(detail),
         })),
-        timeoutMs * 2,
+        timeoutMs,
       );
     } catch (e) {
       log("error", `[contact] ⚠ the outage alert could not be sent: ${describeError(e)}`);
