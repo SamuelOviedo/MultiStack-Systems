@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { resolveSupabaseEnv } from './env';
-import { captureAuthRedirect } from '@/lib/authRedirect';
+import { captureAuthRedirect, stripAuthRedirectFromUrl } from '@/lib/authRedirect';
 
 // Fail fast: an empty, undefined or placeholder URL/key throws a descriptive
 // SupabaseConfigError here instead of creating a client that sends auth
@@ -24,3 +24,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+// Must run right AFTER createClient(), never before: the GoTrueClient constructor
+// calls _initialize(), which reads window.location.href synchronously (before its
+// first await) when no custom `lock` is passed. Adding a `lock` option, or
+// skipAutoInitialize, would break that guarantee and strip the tokens too early.
+if (typeof window !== 'undefined') stripAuthRedirectFromUrl();

@@ -104,10 +104,12 @@ describe("password rules and auth errors", () => {
     expect(describeAuthError(new Error("otro"))).toBe("otro");
   });
 
-  it("updatePassword updates the user, then signs out the other sessions", async () => {
-    await updatePassword("Nueva12345");
+  it("updatePassword updates the user, then signs out the other sessions and reports it", async () => {
+    await expect(updatePassword("Nueva12345")).resolves.toEqual({ othersSignedOut: true });
     expect(updateUser).toHaveBeenCalledWith({ password: "Nueva12345" });
     expect(signOutOthers).toHaveBeenCalledWith({ scope: "others" });
+    // Revoking first would sign the other devices out even if the password never changed.
+    expect(updateUser.mock.invocationCallOrder[0]).toBeLessThan(signOutOthers.mock.invocationCallOrder[0]);
   });
 
   it("updatePassword surfaces Supabase errors and does not revoke sessions on failure", async () => {
@@ -116,9 +118,24 @@ describe("password rules and auth errors", () => {
     expect(signOutOthers).not.toHaveBeenCalled();
   });
 
-  it("a failing 'sign out others' does not undo a successful password change", async () => {
+  it("updatePassword also propagates an updateUser that throws (network) without revoking sessions", async () => {
+    updateUser.mockRejectedValueOnce(new Error("network"));
+    await expect(updatePassword("Nueva12345")).rejects.toThrow("network");
+    expect(signOutOthers).not.toHaveBeenCalled();
+  });
+
+  // supabase-js does NOT throw on auth failures: signOut resolves with { error }.
+  // This is the real-world failure (expired token, 5xx, rate limit); a mock that
+  // only rejects would never exercise it.
+  it("signOut resolving with { error } does not undo the password change, but is reported", async () => {
+    signOutOthers.mockResolvedValueOnce({ error: authError("session_not_found") });
+    await expect(updatePassword("Nueva12345")).resolves.toEqual({ othersSignedOut: false });
+    expect(updateUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("signOut throwing does not undo the password change, but is reported", async () => {
     signOutOthers.mockRejectedValueOnce(new Error("network"));
-    await expect(updatePassword("Nueva12345")).resolves.toBeUndefined();
+    await expect(updatePassword("Nueva12345")).resolves.toEqual({ othersSignedOut: false });
   });
 });
 
@@ -184,6 +201,49 @@ describe("UpdatePassword page", () => {
     expect(auth.state.finishRecovery).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(await screen.findByText("mis solicitudes")).toBeInTheDocument();
+  });
+
+  it("says the other sessions were closed when revoking them worked", async () => {
+    auth.state = { ...auth.state, session: recoverySession, recoveryPending: true, userType: 2 };
+    renderPage();
+    fill("NuevaClave2026");
+    await screen.findByRole("heading", { name: "Contraseña actualizada" });
+    expect(screen.getByText(/Ya puedes usar tu nueva contraseña\./)).toBeInTheDocument();
+    expect(screen.getByText(/Por seguridad, cerramos las demás sesiones abiertas de tu cuenta\./)).toBeInTheDocument();
+    expect(screen.queryByText(/No pudimos cerrar tus otras sesiones/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["signOut resolves with { error }", () => signOutOthers.mockResolvedValueOnce({ error: authError("session_not_found") })],
+    ["signOut throws", () => signOutOthers.mockRejectedValueOnce(new Error("network"))],
+  ])("does not claim the other sessions were closed when revoking them fails (%s)", async (_case, failRevocation) => {
+    failRevocation();
+    auth.state = { ...auth.state, session: recoverySession, recoveryPending: true, userType: 2 };
+    renderPage();
+    fill("NuevaClave2026");
+    await screen.findByRole("heading", { name: "Contraseña actualizada" });
+    // The password DID change, so the screen is still the success state...
+    expect(screen.getByText(/Ya puedes usar tu nueva contraseña\./)).toBeInTheDocument();
+    expect(auth.state.finishRecovery).toHaveBeenCalledTimes(1);
+    // ...but it must not promise something that did not happen, and must say what to do.
+    expect(screen.queryByText(/cerramos las demás sesiones/)).not.toBeInTheDocument();
+    expect(screen.getByText("No pudimos cerrar tus otras sesiones.")).toBeInTheDocument();
+    expect(screen.getByText(/Tu contraseña sí cambió/)).toBeInTheDocument();
+    expect(screen.getByText(/Para cerrarlas todas, cierra sesión aquí y vuelve a entrar/)).toBeInTheDocument();
+    // The user is not stuck: Continuar still works.
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(await screen.findByText("mis solicitudes")).toBeInTheDocument();
+  });
+
+  it("shows neither session notice when saving the password fails", async () => {
+    updateUser.mockResolvedValueOnce({ data: null, error: authError("same_password") });
+    auth.state = { ...auth.state, session: recoverySession, recoveryPending: true, userType: 2 };
+    renderPage();
+    fill("MismaClave123");
+    await screen.findByRole("alert");
+    expect(screen.queryByText(/cerramos las demás sesiones/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No pudimos cerrar tus otras sesiones/)).not.toBeInTheDocument();
+    expect(signOutOthers).not.toHaveBeenCalled();
   });
 
   it("staff continue to the dashboard", async () => {

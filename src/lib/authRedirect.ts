@@ -51,6 +51,29 @@ export function captureAuthRedirect(
   }
 }
 
+const AUTH_HASH_KEYS = ["access_token", "refresh_token", "error", "error_code", "error_description"];
+
+type UrlWindow = {
+  location: Pick<Location, "hash" | "pathname" | "search">;
+  history: Pick<History, "state" | "replaceState">;
+};
+
+/**
+ * Removes an auth redirect (tokens or error) from the CURRENT history entry.
+ * supabase-js clears the hash with `location.hash = ''`, which leaves the
+ * original `#access_token=…&refresh_token=…` entry behind (Back), and does not
+ * clear an `#error=…` hash at all. Only auth-looking hashes go: anchors such as
+ * `#contacto` and the query string are kept. Call it right AFTER createClient(),
+ * which has already parsed the URL.
+ */
+export function stripAuthRedirectFromUrl(win: UrlWindow = window): void {
+  safe(() => {
+    const params = new URLSearchParams(win.location.hash.replace(/^#/, ""));
+    if (!AUTH_HASH_KEYS.some((key) => params.has(key))) return;
+    win.history.replaceState(win.history.state, "", win.location.pathname + win.location.search);
+  }, undefined); // replaceState can throw (sandboxed iframe, privacy modes)
+}
+
 export function markRecoveryPending(storage: StorageLike | null = store()): void {
   if (storage) safe(() => storage.setItem(RECOVERY_KEY, "1"), undefined);
 }

@@ -48,18 +48,27 @@ export async function sendPasswordResetEmail(email: string): Promise<void> {
   if (error) throw error;
 }
 
+export type UpdatePasswordResult = {
+  /** false when revoking the user's other sessions failed: the password DID change. */
+  othersSignedOut: boolean;
+};
+
 /**
  * Sets a new password for the signed-in user (recovery session) and then
  * revokes the user's OTHER sessions — whoever else held the old password is
- * signed out. Revocation failures are ignored: the password already changed.
+ * signed out. A failing `updateUser` throws. A failing revocation (signOut
+ * returns `{ error }` — it does not throw on auth failures — or throws) does
+ * NOT throw, because the password already changed: it is reported through
+ * `othersSignedOut` so the caller can tell the user.
  */
-export async function updatePassword(password: string): Promise<void> {
+export async function updatePassword(password: string): Promise<UpdatePasswordResult> {
   const { error } = await supabase.auth.updateUser({ password });
   if (error) throw error;
   try {
-    await supabase.auth.signOut({ scope: 'others' });
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'others' });
+    return { othersSignedOut: !signOutError };
   } catch {
-    /* best effort */
+    return { othersSignedOut: false };
   }
 }
 

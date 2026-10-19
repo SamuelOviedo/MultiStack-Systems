@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, Link2Off, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, Link2Off, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AuthBrandPanel from "@/components/auth/AuthBrandPanel";
@@ -35,6 +35,9 @@ const UpdatePassword = () => {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  // false only when the password changed but revoking the other sessions failed.
+  // Defaults to true so the notice never shows before the result is known.
+  const [othersSignedOut, setOthersSignedOut] = useState(true);
   const [sessionRejected, setSessionRejected] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,7 +50,8 @@ const UpdatePassword = () => {
     setSaving(true);
     setError(null);
     try {
-      await updatePassword(password);
+      const result = await updatePassword(password);
+      setOthersSignedOut(result.othersSignedOut);
       finishRecovery();
       setDone(true);
     } catch (err) {
@@ -84,8 +88,22 @@ const UpdatePassword = () => {
         </div>
         <h2 className="font-display text-3xl font-semibold tracking-tight text-foreground">Contraseña actualizada</h2>
         <p className="text-sm text-[hsl(var(--body-foreground))] leading-relaxed">
-          Ya puedes usar tu nueva contraseña. Por seguridad, cerramos las demás sesiones abiertas de tu cuenta.
+          Ya puedes usar tu nueva contraseña.
+          {othersSignedOut && " Por seguridad, cerramos las demás sesiones abiertas de tu cuenta."}
         </p>
+        {!othersSignedOut && (
+          // The icon uses the warning token for the non-text 3:1 contrast; the text stays on
+          // foreground tokens because text-warning is below 4.5:1 on white. No fill: the tint
+          // would drop the icon under 3:1 in light mode.
+          <div className="flex items-start gap-3 rounded-lg border border-warning/40 p-3.5">
+            <TriangleAlert aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-warning" />
+            <p className="text-sm leading-relaxed text-[hsl(var(--body-foreground))]">
+              <span className="block font-medium text-foreground">No pudimos cerrar tus otras sesiones.</span>{" "}
+              Tu contraseña sí cambió, pero las sesiones abiertas en otros dispositivos podrían seguir activas.
+              Para cerrarlas todas, cierra sesión aquí y vuelve a entrar.
+            </p>
+          </div>
+        )}
         <Button onClick={goToApp} className="h-11 w-full bg-primary text-primary-foreground hover:bg-primary/90">
           Continuar
         </Button>
