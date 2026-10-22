@@ -71,3 +71,6 @@ credentials*.json
 # Claude Code: notas personales y memoria local de los agentes (nunca se versionan)
 CLAUDE.local.md
 .claude/agent-memory-local/
+
+# Herramientas locales del propietario (sprites de Pixel Agents): no van al repo
+/tools/
