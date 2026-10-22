@@ -43,10 +43,10 @@ describe("getSiteOrigin — without VITE_SITE_URL (fallback logic)", () => {
     vi.unstubAllEnvs();
   });
 
-  it("returns production URL when host is not localhost", () => {
-    vi.stubEnv("VITE_SITE_URL", "");
+  it.each(["", "   "])("returns the www production origin when host is not localhost (VITE_SITE_URL %j)", (value) => {
+    vi.stubEnv("VITE_SITE_URL", value);
     const result = withLocation({ hostname: "myapp.vercel.app", origin: "https://myapp.vercel.app" }, getSiteOrigin);
-    expect(result).toBe("https://multistacksystems.com");
+    expect(result).toBe("https://www.multistacksystems.com");
   });
 
   it("returns localhost origin when host is localhost", () => {
@@ -63,5 +63,12 @@ describe("getAuthEmailRedirectUrl", () => {
 
   it("is an absolute URL or valid path", () => {
     expect(getAuthEmailRedirectUrl()).toMatch(/\/solicitudes$/);
+  });
+
+  it("without VITE_SITE_URL, outside localhost, uses the www fallback with a single slash", () => {
+    vi.stubEnv("VITE_SITE_URL", "");
+    const result = withLocation({ hostname: "myapp.vercel.app", origin: "https://myapp.vercel.app" }, getAuthEmailRedirectUrl);
+    vi.unstubAllEnvs();
+    expect(result).toBe("https://www.multistacksystems.com/solicitudes");
   });
 });

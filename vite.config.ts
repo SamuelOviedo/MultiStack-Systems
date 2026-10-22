@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { routeHeadPlugin } from "./build/routeHeadPlugin";
 import { getSupabaseEnvProblems } from "./src/integrations/supabase/env";
 
 type ViteEnv = Record<string, string>;
@@ -53,7 +54,7 @@ export default defineConfig(({ command, mode }) => {
       port: 8080,
       hmr: { overlay: false },
     },
-    plugins: [react()],
+    plugins: [react(), routeHeadPlugin()],
     resolve: {
       alias: { "@": path.resolve(__dirname, "./src") },
     },

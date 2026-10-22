@@ -2,8 +2,10 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowUp } from "lucide-react";
 import Navbar from "@/components/common/Navbar";
+import { applyPageMeta } from "@/lib/pageMeta";
 
-const CANONICAL = "https://multistacksystems.com/politica-de-privacidad";
+const TITLE = "Política de Privacidad — MultiStack Systems";
+const CANONICAL = "https://www.multistacksystems.com/politica-de-privacidad";
 const META_DESC  =
   "Conoce cómo MultiStack Systems recopila, usa y protege tus datos personales. Plataforma digital de tecnología e ingeniería de software con sede en Honduras.";
 
@@ -11,36 +13,11 @@ const providers = [
   { name: "Vercel Inc.",   role: "Hosting y despliegue de la plataforma web",                  url: "vercel.com/legal/privacy-policy" },
   { name: "Render Inc.",   role: "Despliegue y hosting de servicios backend",                  url: "render.com/privacy" },
   { name: "Supabase Inc.", role: "Base de datos (PostgreSQL), autenticación y almacenamiento", url: "supabase.com/privacy" },
-  { name: "Google LLC",    role: "Autenticación OAuth 2.0",                                    url: "policies.google.com/privacy" },
+  { name: "Google LLC",    role: "Autenticación OAuth 2.0; tipografías (Google Fonts); y, solo en páginas públicas, medición de conversiones de Google Ads", url: "policies.google.com/privacy" },
 ];
 
 export default function PoliticaDePrivacidad() {
-  useEffect(() => {
-    const prevTitle = document.title;
-    document.title = "Política de Privacidad — MultiStack Systems";
-
-    const setMeta = (name: string, content: string) => {
-      let el = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
-      if (!el) { el = document.createElement("meta"); el.name = name; document.head.appendChild(el); }
-      el.content = content;
-      return el;
-    };
-    const setLink = (rel: string, href: string) => {
-      let el = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
-      if (!el) { el = document.createElement("link"); el.rel = rel; document.head.appendChild(el); }
-      el.href = href;
-      return el;
-    };
-
-    const desc      = setMeta("description", META_DESC);
-    const canonical = setLink("canonical", CANONICAL);
-
-    return () => {
-      document.title = prevTitle;
-      desc.remove();
-      canonical.remove();
-    };
-  }, []);
+  useEffect(() => applyPageMeta({ title: TITLE, description: META_DESC, canonical: CANONICAL }), []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,7 +43,7 @@ export default function PoliticaDePrivacidad() {
             Política de Privacidad
           </h1>
           <p className="font-mono text-xs text-muted-foreground">
-            Vigente desde: Junio 2026&nbsp;&nbsp;|&nbsp;&nbsp;Versión 1.0
+            Vigente desde: Octubre 2026&nbsp;&nbsp;|&nbsp;&nbsp;Versión 1.1
           </p>
         </header>
 
@@ -95,12 +72,12 @@ export default function PoliticaDePrivacidad() {
               </a>
               , o bien ingresando a nuestra plataforma en{" "}
               <a
-                href="https://multistacksystems.com"
+                href="https://www.multistacksystems.com"
                 className="text-primary hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                multistacksystems.com
+                www.multistacksystems.com
               </a>{" "}
               donde, una vez autenticado, podrá enviarnos una solicitud directamente desde su cuenta
               seleccionando el tipo de solicitud{" "}
@@ -137,6 +114,66 @@ export default function PoliticaDePrivacidad() {
               MultiStack Systems <strong className="text-foreground">NO</strong> almacena datos de
               tarjetas de crédito ni información bancaria directamente en su plataforma.
             </p>
+            <SubHeading>2.5 Medición de publicidad (Google Ads)</SubHeading>
+            <p>
+              Utilizamos la etiqueta de conversiones de Google Ads (Google LLC) para medir cuántas
+              solicitudes de contacto provienen de nuestros anuncios. La etiqueta se carga
+              únicamente en las páginas públicas: la página de inicio, /paginas-web, la Política de
+              Privacidad y los Términos del Servicio. No se carga cuando usted entra directamente
+              a las demás páginas del sitio, como el portal de clientes, el panel, «Mis
+              solicitudes», el inicio de sesión, el registro o las pantallas de recuperación de
+              contraseña. Si usted pasa a alguna de ellas navegando desde una página pública, no
+              enviamos a Google ningún evento ni la dirección de esa página. Si la etiqueta todavía
+              se estaba cargando en ese momento, queda desactivada hasta que usted vuelva a cargar
+              el sitio: no guarda cookies, aunque Google puede recibir un aviso técnico de que su
+              código terminó de cargarse, sin la dirección de la página. Tampoco se carga si usted
+              abre el sitio con una sesión iniciada en la plataforma o desde un enlace que le
+              enviamos por correo (confirmación de cuenta, invitación, acceso directo, cambio de
+              correo o recuperación de contraseña), ni siquiera en las páginas públicas. Si usted
+              inicia sesión después de que la etiqueta se cargó, dejamos de enviarle eventos a
+              Google mientras su sesión siga iniciada.
+            </p>
+            <p className="mt-4">
+              Enviamos a Google la dirección de la página visitada sin parámetros. Por separado,
+              enviamos los identificadores de clic y de origen del anuncio que Google Ads agrega a
+              esa dirección (como gclid, gbraid, wbraid y gad_source), para atribuir la conversión.
+              Google recibe también el título de la página y el sitio desde el que
+              usted llega (su dominio y, si ese sitio así lo decide, también su ruta). Cuando usted
+              envía con éxito el formulario de contacto y la etiqueta ya terminó de cargarse,
+              enviamos además un evento de «contacto enviado».{" "}
+              <strong className="text-foreground">NO</strong> enviamos su nombre, correo
+              electrónico, teléfono ni el contenido de su mensaje. No usamos conversiones mejoradas
+              ni empleamos la etiqueta para personalizar anuncios ni para remarketing.
+            </p>
+            {/* El inventario es una observación hecha en Chromium; revísalo cuando cambie la
+                etiqueta de Google. */}
+            <p className="mt-4 mb-4">
+              Al cargarse, Google recibe, como en cualquier visita a un sitio web, datos técnicos de
+              su navegador (como la dirección IP). Además, la etiqueta puede guardar en su
+              navegador los siguientes elementos de medición, todos de hasta 90 días de duración:
+            </p>
+            <BulletList items={[
+              "Cookies en nuestro dominio principal y sus subdominios. La cookie _gcl_au se guarda cuando la etiqueta termina de cargarse mientras usted sigue en una página pública; si para entonces usted ya pasó a una página que no es pública o inició sesión, no se guarda. Si usted llega desde un anuncio de Google Ads, cuya dirección incluye los identificadores de clic o de origen del anuncio, también pueden guardarse _gcl_aw, _gcl_ag, _gcl_gb y _gcl_gs.",
+              "Almacenamiento local de su navegador, un espacio parecido al de las cookies: el elemento _gcl_ls, en las mismas condiciones que _gcl_au.",
+              "Cookie en los dominios de Google (google.com, doubleclick.net y googleadservices.com): GCL_AW_P, solo si usted llega con un identificador de clic.",
+            ]} />
+            <p className="mt-4">
+              La conversión se informa a través de dominios de Google (googleadservices.com,
+              doubleclick.net y google.com) y también de dominios de país de Google, como google.hn.
+              La etiqueta se descarga desde googletagmanager.com, que también puede recibir avisos
+              técnicos sobre su funcionamiento. Puede bloquear o borrar estas cookies y el
+              almacenamiento local desde la configuración de su navegador. Para más información,
+              consulte la{" "}
+              <a
+                href="https://policies.google.com/technologies/ads"
+                className="text-primary hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                explicación de Google sobre el uso de cookies en publicidad
+              </a>
+              .
+            </p>
           </section>
 
           {/* 3 */}
@@ -150,10 +187,12 @@ export default function PoliticaDePrivacidad() {
               "Enviar comunicaciones relacionadas con el estado de sus proyectos activos.",
               "Garantizar la seguridad e integridad de la plataforma y sus usuarios.",
               "Cumplir con obligaciones legales aplicables bajo la legislación hondureña.",
+              "Medir cuántas solicitudes de contacto provienen de nuestros anuncios, mediante la etiqueta de conversiones de Google Ads (apartado 2.5).",
             ]} />
             <p className="mt-4">
               MultiStack Systems <strong className="text-foreground">NO</strong> vende, arrienda ni
-              cede sus datos personales a terceros con fines comerciales o publicitarios.
+              cede sus datos personales a terceros con fines comerciales o publicitarios, salvo la
+              medición de conversiones de Google Ads descrita en el apartado 2.5.
             </p>
           </section>
 

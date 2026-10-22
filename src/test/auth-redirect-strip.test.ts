@@ -108,3 +108,105 @@ describe("stripAuthRedirectFromUrl — against the real jsdom window", () => {
     expect(window.location.search).toBe("?x=1");
   });
 });
+
+// La marca vive en el módulo y dura toda la carga de página: cada test pide un módulo nuevo (como una recarga) para
+// empezar en false, porque los tests de arriba ya llamaron a stripAuthRedirectFromUrl() con hashes de auth.
+describe("hadAuthRedirectAtStartup — la página llegó con un enlace de auth", () => {
+  type AuthRedirect = typeof import("@/lib/authRedirect");
+
+  const freshModule = async (): Promise<AuthRedirect> => {
+    vi.resetModules();
+    return import("@/lib/authRedirect");
+  };
+
+  afterEach(() => window.history.replaceState(null, "", "/"));
+
+  it("es false al inicio, antes de que nadie llame a stripAuthRedirectFromUrl", async () => {
+    const { hadAuthRedirectAtStartup } = await freshModule();
+    expect(hadAuthRedirectAtStartup()).toBe(false);
+  });
+
+  it.each([
+    ["sin hash", ""],
+    ["solo '#'", "#"],
+    ["un ancla (#contacto)", "#contacto"],
+    ["claves parecidas pero no de auth", "#errores"],
+    ["type=recovery sin ninguna clave de auth", "#type=recovery"],
+  ])("sigue en false tras stripAuthRedirectFromUrl con %s", async (_case, hash) => {
+    const { hadAuthRedirectAtStartup, stripAuthRedirectFromUrl } = await freshModule();
+    stripAuthRedirectFromUrl(fakeWindow({ hash, pathname: "/" }).win);
+    expect(hadAuthRedirectAtStartup()).toBe(false);
+  });
+
+  it("es true con un hash de access_token (enlace de recuperación)", async () => {
+    const { hadAuthRedirectAtStartup, stripAuthRedirectFromUrl } = await freshModule();
+    stripAuthRedirectFromUrl(
+      fakeWindow({ hash: `#access_token=${fakeToken}&refresh_token=r&expires_in=3600&token_type=bearer&type=recovery`, pathname: "/" }).win,
+    );
+    expect(hadAuthRedirectAtStartup()).toBe(true);
+  });
+
+  it("es true con un hash de error / error_code (enlace caducado)", async () => {
+    const { hadAuthRedirectAtStartup, stripAuthRedirectFromUrl } = await freshModule();
+    stripAuthRedirectFromUrl(
+      fakeWindow({
+        hash: "#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired",
+        pathname: "/",
+      }).win,
+    );
+    expect(hadAuthRedirectAtStartup()).toBe(true);
+  });
+
+  it.each(["access_token", "refresh_token", "error", "error_code", "error_description"])(
+    "es true con un hash cuya única clave de auth es %s",
+    async (key) => {
+      const { hadAuthRedirectAtStartup, stripAuthRedirectFromUrl } = await freshModule();
+      stripAuthRedirectFromUrl(fakeWindow({ hash: `#${key}=x`, pathname: "/" }).win);
+      expect(hadAuthRedirectAtStartup()).toBe(true);
+    },
+  );
+
+  it("es true aunque history.replaceState lance (la marca se pone antes de reescribir la URL)", async () => {
+    const { hadAuthRedirectAtStartup, stripAuthRedirectFromUrl } = await freshModule();
+    const { win, replaceState } = fakeWindow({ hash: "#access_token=a&refresh_token=r", pathname: "/" });
+    replaceState.mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+    expect(() => stripAuthRedirectFromUrl(win)).not.toThrow();
+    expect(replaceState).toHaveBeenCalledTimes(1);
+    expect(hadAuthRedirectAtStartup()).toBe(true);
+  });
+
+  it("dura toda la carga: una llamada posterior con la URL ya limpia no la apaga", async () => {
+    const { hadAuthRedirectAtStartup, stripAuthRedirectFromUrl } = await freshModule();
+    stripAuthRedirectFromUrl(fakeWindow({ hash: "#access_token=a", pathname: "/" }).win);
+    stripAuthRedirectFromUrl(fakeWindow({ hash: "", pathname: "/" }).win);
+    stripAuthRedirectFromUrl(fakeWindow({ hash: "#contacto", pathname: "/" }).win);
+    expect(hadAuthRedirectAtStartup()).toBe(true);
+  });
+
+  it("una recarga (módulo nuevo) vuelve a false", async () => {
+    const first = await freshModule();
+    first.stripAuthRedirectFromUrl(fakeWindow({ hash: "#access_token=a", pathname: "/" }).win);
+    expect(first.hadAuthRedirectAtStartup()).toBe(true);
+    const second = await freshModule();
+    expect(second.hadAuthRedirectAtStartup()).toBe(false);
+  });
+
+  it("con la ventana real de jsdom: la URL queda limpia y la marca queda puesta", async () => {
+    const { hadAuthRedirectAtStartup, stripAuthRedirectFromUrl } = await freshModule();
+    window.history.replaceState(null, "", `/paginas-web#access_token=${fakeToken}&refresh_token=r`);
+    stripAuthRedirectFromUrl();
+    expect(window.location.pathname).toBe("/paginas-web");
+    expect(window.location.hash).toBe("");
+    expect(hadAuthRedirectAtStartup()).toBe(true);
+  });
+
+  it("con la ventana real y un ancla (#contacto): la URL no se toca y la marca sigue en false", async () => {
+    const { hadAuthRedirectAtStartup, stripAuthRedirectFromUrl } = await freshModule();
+    window.history.replaceState(null, "", "/#contacto");
+    stripAuthRedirectFromUrl();
+    expect(window.location.hash).toBe("#contacto");
+    expect(hadAuthRedirectAtStartup()).toBe(false);
+  });
+});

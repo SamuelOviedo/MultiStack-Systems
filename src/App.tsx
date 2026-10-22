@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import AdsTagRouteSync from "@/components/common/AdsTagRouteSync";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
 import BrandLoader from "@/components/common/BrandLoader";
@@ -27,6 +28,7 @@ const UpdatePassword        = lazy(() => import("./pages/auth/UpdatePassword.tsx
 const PoliticaDePrivacidad  = lazy(() => import("./pages/legal/PoliticaDePrivacidad.tsx"));
 const TerminosDelServicio   = lazy(() => import("./pages/legal/TerminosDelServicio.tsx"));
 const NotFound              = lazy(() => import("./pages/marketing/NotFound.tsx"));
+const PaginasWeb = lazy(() => import("./pages/marketing/PaginasWeb.tsx"));
 
 const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
@@ -48,6 +50,7 @@ const App = () => (
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/paginas-web" element={<PaginasWeb />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route
@@ -92,6 +95,7 @@ const App = () => (
             </Routes>
           </Suspense>
         </AuthProvider>
+        <AdsTagRouteSync />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
