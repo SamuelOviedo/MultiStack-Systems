@@ -13,10 +13,21 @@ type Analytics = typeof import("@/lib/analytics");
 // Identificadores de PRUEBA: nunca los reales de la cuenta de Google Ads.
 const TAG_ID = "AW-1000000000";
 const SEND_TO = "AW-1000000000/PRUEBA";
+const GTAG_SRC = `https://www.googletagmanager.com/gtag/js?id=${TAG_ID}`;
 const ORIGIN = window.location.origin;
 const GOOGLE_REFERRER = "https://www.google.com/search?q=x";
 
 const setUrl = (url: string): void => window.history.pushState({}, "", url);
+
+/**
+ * jsdom no descarga <script src>: el load de gtag.js se simula sobre NUESTRO script. Hasta ese evento no existen
+ * window.gtag ni window.dataLayer. Falla si el script no está, para no disparar un evento que nadie escucha.
+ */
+function fireTagLoad(): void {
+  const script = document.querySelector<HTMLScriptElement>(`script[src="${GTAG_SRC}"]`);
+  expect(script, "debe haber un script de gtag.js al que dispararle el load").not.toBeNull();
+  script?.dispatchEvent(new Event("load"));
+}
 
 function setReferrer(value: string): void {
   Object.defineProperty(document, "referrer", { configurable: true, get: () => value });
@@ -158,8 +169,10 @@ describe("AdsTagRouteSync", () => {
 describe("navegación SPA", () => {
   it("/ → /client/SECRET → /dashboard → /paginas-web con enlaces reales: nada sale desde las rutas privadas", async () => {
     await boot({ url: "/", referrer: GOOGLE_REFERRER });
+    fireTagLoad();
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "https://www.google.com/" }]);
     const before = layerEntries().length;
+    expect(before).toBe(3); // js, config y el page_view de «/»
 
     click("portal del cliente");
     expect(window.location.pathname).toBe("/client/SECRET");
@@ -185,6 +198,7 @@ describe("navegación SPA", () => {
 
   it("cambiar solo la query o el ancla de una ruta permitida no cuenta como otra visita", async () => {
     await boot({ url: "/paginas-web?gclid=PRUEBA" });
+    fireTagLoad();
     visit("/paginas-web?gclid=PRUEBA#contacto");
     visit("/paginas-web?gclid=OTRO");
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/paginas-web?gclid=PRUEBA`, page_referrer: "" }]);
@@ -194,7 +208,9 @@ describe("navegación SPA", () => {
 describe("historial y pushState de otro código", () => {
   it("al revés: el router dice ruta privada pero el navegador está en una permitida, sin eventos", async () => {
     const analytics = await boot({ url: "/" });
+    fireTagLoad();
     const before = layerEntries().length;
+    expect(before).toBe(3); // js, config y el page_view de «/»
     analytics.syncAdsTag("/client/SECRET");
     expect(layerEntries()).toHaveLength(before);
   });
@@ -209,21 +225,27 @@ describe("redirecciones dentro de efectos hijos", () => {
     expectNothingLoaded();
   });
 
-  it("«/» → «/dashboard» en un hijo posterior: la persona sí estuvo en «/», así que hay una visita y nada más", async () => {
+  // Con la cola hasta el load, la persona sí estuvo en «/» (el script se inyecta y la visita espera), pero el load
+  // llega con el navegador ya en /dashboard: la etiqueta lo descarta todo. Antes de la cola, el page_view de «/»
+  // salía al instante con la URL de ese momento; ahora nada sale, y gtag.js nunca ve una URL privada.
+  it("«/» → «/dashboard» en un hijo posterior: la visita a «/» queda en cola y el load, ya en /dashboard, la descarta: no sale nada", async () => {
     const analytics = await boot({ url: "/", referrer: GOOGLE_REFERRER, after: <RedirectInEffect to="/dashboard" /> });
     expect(window.location.pathname).toBe("/dashboard");
     expect(scriptTags()).toHaveLength(1);
-    expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "https://www.google.com/" }]);
-    const before = layerEntries().length;
+    expect(window.gtag).toBeUndefined();
+    expect(window.dataLayer).toBeUndefined();
+    fireTagLoad();
     analytics.trackContactConversion();
-    expect(layerEntries()).toHaveLength(before);
-    expect(JSON.stringify(layerEntries())).not.toContain("dashboard");
+    expect(window.gtag).toBeUndefined();
+    expect(window.dataLayer).toBeUndefined();
+    expect(scriptTags()).toHaveLength(1);
   });
 
   it("«/dashboard» → «/» en el primer efecto de un hijo anterior: un solo page_view, el de «/»", async () => {
     await boot({ url: "/dashboard", referrer: GOOGLE_REFERRER, before: <RedirectInEffect to="/" /> });
     expect(window.location.pathname).toBe("/");
     expect(scriptTags()).toHaveLength(1);
+    fireTagLoad();
     expect(layerEntries().filter((entry) => entry[0] === "config")).toHaveLength(1);
     // La primera visita de la carga fue a una ruta no permitida: no se reutiliza el referrer de entrada.
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
@@ -233,6 +255,7 @@ describe("redirecciones dentro de efectos hijos", () => {
     await boot({ url: "/dashboard", referrer: GOOGLE_REFERRER, after: <RedirectInEffect to="/" /> });
     expect(window.location.pathname).toBe("/");
     expect(scriptTags()).toHaveLength(1);
+    fireTagLoad();
     expect(layerEntries().filter((entry) => entry[0] === "config")).toHaveLength(1);
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
   });
@@ -246,6 +269,7 @@ describe("click-ids con forma no válida en la URL", () => {
   // conversión lee la URL del momento: bloqueada con el click-id dudoso, permitida con uno válido.
   it("si solo cambia la query de la misma ruta, la conversión sigue la URL actual", async () => {
     const analytics = await boot({ url: "/" });
+    fireTagLoad();
     visit("/paginas-web?gclid=OK_1");
     expect(pageViews()).toHaveLength(2);
 
@@ -266,12 +290,14 @@ describe("React.StrictMode (efectos dobles)", () => {
   it("un solo script, un config y un page_view", async () => {
     await boot({ url: "/paginas-web?gclid=PRUEBA", strict: true });
     expect(scriptTags()).toHaveLength(1);
+    fireTagLoad();
     expect(layerEntries().filter((entry) => entry[0] === "config")).toHaveLength(1);
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/paginas-web?gclid=PRUEBA`, page_referrer: "" }]);
   });
 
   it("al navegar fuera y de vuelta sigue sin duplicar nada", async () => {
     await boot({ url: "/", strict: true });
+    fireTagLoad();
     click("entrar");
     click("inicio");
     expect(pageViews()).toHaveLength(2);

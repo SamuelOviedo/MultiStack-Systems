@@ -63,6 +63,27 @@ const eventsOf = (name: string): unknown[][] => layerEntries().filter((entry) =>
 const pageViews = (): Array<{ page_location: string; page_referrer: string }> =>
   eventsOf("page_view").map((entry) => entry[2] as { page_location: string; page_referrer: string });
 
+/**
+ * jsdom no descarga <script src>: el load de gtag.js se simula sobre NUESTRO script. Hasta ese evento no existen
+ * window.gtag ni window.dataLayer; el load los define y reproduce la cola (js, config y los page_view). Falla si el
+ * script no está, para que ningún test dispare un evento que nadie escucha y pase en vacío.
+ */
+function fireTagEvent(type: "load" | "error"): void {
+  const script = document.querySelector<HTMLScriptElement>(`script[src="${GTAG_SRC}"]`);
+  expect(script, "debe haber un script de gtag.js al que dispararle el evento").not.toBeNull();
+  script?.dispatchEvent(new Event(type));
+}
+
+const fireTagLoad = (): void => fireTagEvent("load");
+const fireTagError = (): void => fireTagEvent("error");
+
+/** Nada de la etiqueta existe: ni gtag ni dataLayer (y, con `scripts`, tampoco el script). */
+function expectInert(scripts?: number): void {
+  expect(window.gtag).toBeUndefined();
+  expect(window.dataLayer).toBeUndefined();
+  if (scripts !== undefined) expect(scriptTags()).toHaveLength(scripts);
+}
+
 function watchConsole(): () => number {
   const spies: MockInstance[] = [
     vi.spyOn(console, "log"),
@@ -761,12 +782,14 @@ describe("syncAdsTag · carga en rutas permitidas", () => {
     expect(scripts[0].src).toBe(GTAG_SRC);
     expect(scripts[0].async).toBe(true);
     expect(scripts[0].parentElement).toBe(document.head);
+    fireTagLoad();
     expect(typeof window.gtag).toBe("function");
   });
 
   it("el dataLayer lleva, en orden, js, config y event page_view, todos como objetos Arguments", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     expect(window.dataLayer).toHaveLength(3);
     for (const entry of window.dataLayer ?? []) {
       expect(Object.prototype.toString.call(entry)).toBe("[object Arguments]");
@@ -782,6 +805,7 @@ describe("syncAdsTag · carga en rutas permitidas", () => {
   it("el config apaga el page_view automático y la personalización, y lleva page_location y page_referrer saneados", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     expect(layerEntries()[1]).toEqual([
       "config",
       TAG_ID,
@@ -799,6 +823,7 @@ describe("syncAdsTag · carga en rutas permitidas", () => {
   it("un ID con espacios alrededor se recorta: el script, el config y la conversión usan los valores limpios", async () => {
     const analytics = await loadConfigured({ id: `  ${TAG_ID}  `, label: `  ${SEND_TO}  ` });
     analytics.syncAdsTag("/");
+    fireTagLoad();
     analytics.trackContactConversion();
     expect(scriptTags()).toHaveLength(1);
     expect(scriptTags()[0].src).toBe(GTAG_SRC);
@@ -810,6 +835,7 @@ describe("syncAdsTag · carga en rutas permitidas", () => {
     setUrl("/paginas-web?gclid=PRUEBA&utm_source=x&token=X#contacto");
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/paginas-web");
+    fireTagLoad();
     const expected = `${ORIGIN}/paginas-web?gclid=PRUEBA`;
     expect((layerEntries()[1][2] as { page_location: string }).page_location).toBe(expected);
     expect(pageViews()).toEqual([{ page_location: expected, page_referrer: "" }]);
@@ -823,6 +849,7 @@ describe("syncAdsTag · carga en rutas permitidas", () => {
       setUrl(path);
       const analytics = await loadConfigured();
       analytics.syncAdsTag(path);
+      fireTagLoad();
       expect(scriptTags()).toHaveLength(1);
       expect(eventsOf("page_view")).toHaveLength(1);
       expect(layerEntries().filter((entry) => entry[0] === "config")).toHaveLength(1);
@@ -835,6 +862,9 @@ describe("syncAdsTag · carga en rutas permitidas", () => {
     window.dataLayer = [previous];
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    // Hasta el load el dataLayer ajeno queda tal cual: nuestras entradas esperan en una cola privada.
+    expect(window.dataLayer).toEqual([previous]);
+    fireTagLoad();
     expect(window.dataLayer?.[0]).toBe(previous);
     expect(window.dataLayer).toHaveLength(4);
     expect(layerEntries().slice(1).map((entry) => entry[0])).toEqual(["js", "config", "event"]);
@@ -843,7 +873,9 @@ describe("syncAdsTag · carga en rutas permitidas", () => {
   it("dos llamadas seguidas con la misma ruta producen un solo page_view, un solo config y un solo script", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
-    analytics.syncAdsTag("/");
+    analytics.syncAdsTag("/"); // con el script aún cargando
+    fireTagLoad();
+    analytics.syncAdsTag("/"); // y con la etiqueta ya lista
     expect(eventsOf("page_view")).toHaveLength(1);
     expect(layerEntries().filter((entry) => entry[0] === "config")).toHaveLength(1);
     expect(scriptTags()).toHaveLength(1);
@@ -852,6 +884,7 @@ describe("syncAdsTag · carga en rutas permitidas", () => {
   it("cada cambio de ruta permitida añade su page_view sin repetir config ni script", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     setUrl("/paginas-web");
     analytics.syncAdsTag("/paginas-web");
     setUrl("/");
@@ -876,11 +909,14 @@ describe("syncAdsTag · carga en rutas permitidas", () => {
     expect(() => analytics.syncAdsTag(null as unknown as string)).not.toThrow();
     expect(scriptTags()).toHaveLength(0);
     analytics.syncAdsTag("/");
-    window.gtag = () => {
+    fireTagLoad();
+    const broken = vi.fn(() => {
       throw new Error("gtag roto");
-    };
+    });
+    window.gtag = broken;
     setUrl("/paginas-web");
     expect(() => analytics.syncAdsTag("/paginas-web")).not.toThrow();
+    expect(broken).toHaveBeenCalledTimes(1); // se llamó de verdad: el test no pasa en vacío
   });
 });
 
@@ -910,7 +946,9 @@ describe("syncAdsTag · rutas no permitidas", () => {
   it("después de cargar en «/», cualquier ruta no permitida deja el dataLayer y el DOM como estaban", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     const before = layerEntries().length;
+    expect(before).toBe(3); // js, config y el page_view de «/»
     for (const path of ["/client/SECRET", "/dashboard", "/solicitudes", "/login", "/signup", "/auth/callback", "/ruta-inexistente"]) {
       setUrl(`${path}?gclid=ZZZ#access_token=SECRET`);
       analytics.syncAdsTag(path);
@@ -926,6 +964,7 @@ describe("syncAdsTag · page_referrer", () => {
     setReferrer(GOOGLE_REFERRER);
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     expect((layerEntries()[1][2] as { page_referrer: string }).page_referrer).toBe("https://www.google.com/");
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "https://www.google.com/" }]);
   });
@@ -934,6 +973,7 @@ describe("syncAdsTag · page_referrer", () => {
     setReferrer(`${ORIGIN}/client/TOKEN`);
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
     expect(JSON.stringify(layerEntries())).not.toContain("TOKEN");
   });
@@ -943,6 +983,7 @@ describe("syncAdsTag · page_referrer", () => {
     setUrl("/?gclid=PRUEBA&token=X#h");
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     setUrl("/paginas-web");
     analytics.syncAdsTag("/paginas-web");
     expect(pageViews()).toEqual([
@@ -955,6 +996,7 @@ describe("syncAdsTag · page_referrer", () => {
     setReferrer(GOOGLE_REFERRER);
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     setUrl("/login");
     analytics.syncAdsTag("/login");
     setUrl("/paginas-web");
@@ -970,6 +1012,7 @@ describe("syncAdsTag · page_referrer", () => {
     expect(scriptTags()).toHaveLength(0);
     setUrl("/");
     analytics.syncAdsTag("/");
+    fireTagLoad();
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
     expect((layerEntries()[1][2] as { page_referrer: string }).page_referrer).toBe("");
   });
@@ -977,6 +1020,7 @@ describe("syncAdsTag · page_referrer", () => {
   it("volver a la misma ruta tras salir de las permitidas cuenta como una visita nueva", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     setUrl("/dashboard");
     analytics.syncAdsTag("/dashboard");
     setUrl("/");
@@ -1006,7 +1050,9 @@ describe("syncAdsTag · guardas (credenciales de auth, sesión guardada, navegad
     async (suffix) => {
       const analytics = await loadConfigured();
       analytics.syncAdsTag("/");
+      fireTagLoad();
       const before = layerEntries().length;
+      expect(before).toBe(3); // js, config y el page_view de «/»
       setUrl(`/paginas-web${suffix}`);
       analytics.syncAdsTag("/paginas-web");
       analytics.trackContactConversion();
@@ -1018,6 +1064,7 @@ describe("syncAdsTag · guardas (credenciales de auth, sesión guardada, navegad
   it("al quedar sin credenciales la medición se reanuda, con page_referrer vacío", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     setUrl("/paginas-web?code=x");
     analytics.syncAdsTag("/paginas-web");
     setUrl("/paginas-web");
@@ -1040,7 +1087,9 @@ describe("syncAdsTag · guardas (credenciales de auth, sesión guardada, navegad
   it("si la sesión aparece con la etiqueta ya cargada, no se envían más eventos", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     const before = layerEntries().length;
+    expect(before).toBe(3); // js, config y el page_view de «/»
     localStorage.setItem("sb-abc-auth-token", "PRUEBA");
     setUrl("/paginas-web");
     analytics.syncAdsTag("/paginas-web");
@@ -1053,6 +1102,7 @@ describe("syncAdsTag · guardas (credenciales de auth, sesión guardada, navegad
     setUrl("/paginas-web");
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/paginas-web");
+    fireTagLoad();
     localStorage.setItem("sb-abc-auth-token", "PRUEBA");
     analytics.syncAdsTag("/paginas-web");
     localStorage.clear();
@@ -1077,6 +1127,7 @@ describe("syncAdsTag · guardas (credenciales de auth, sesión guardada, navegad
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
     expect(scriptTags()).toHaveLength(1);
+    fireTagLoad();
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
   });
 
@@ -1116,7 +1167,9 @@ describe("syncAdsTag · guardas (credenciales de auth, sesión guardada, navegad
   it("lo mismo con la etiqueta ya cargada: un cierre viejo del router no genera eventos", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     const before = layerEntries().length;
+    expect(before).toBe(3); // js, config y el page_view de «/»
     setUrl("/client/SECRET");
     analytics.syncAdsTag("/");
     analytics.syncAdsTag("/paginas-web");
@@ -1128,6 +1181,7 @@ describe("syncAdsTag · guardas (credenciales de auth, sesión guardada, navegad
     setReferrer(GOOGLE_REFERRER);
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     setUrl("/client/SECRET");
     analytics.syncAdsTag("/");
     setUrl("/");
@@ -1145,6 +1199,7 @@ describe("syncAdsTag · guardas (credenciales de auth, sesión guardada, navegad
     analytics.syncAdsTag("/");
     setUrl("/paginas-web");
     analytics.syncAdsTag("/paginas-web");
+    fireTagLoad();
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/paginas-web`, page_referrer: "" }]);
   });
 });
@@ -1184,7 +1239,9 @@ describe("syncAdsTag y trackContactConversion · click-ids con forma no válida 
     async (_case, route, url) => {
       const analytics = await loadConfigured();
       analytics.syncAdsTag("/");
+      fireTagLoad();
       const before = layerEntries().length;
+      expect(before).toBe(3); // js, config y el page_view de «/»
       const consoleCalls = watchConsole();
       setUrl(url);
       analytics.syncAdsTag(route);
@@ -1200,6 +1257,8 @@ describe("syncAdsTag y trackContactConversion · click-ids con forma no válida 
     setReferrer(GOOGLE_REFERRER);
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
+    expect(layerEntries()).toHaveLength(3); // el dataLayer existe y tiene contenido: la ausencia que sigue no es vacía
     setUrl(`/paginas-web?gclid=${DIRTY_CLICK_ID}`);
     analytics.syncAdsTag("/paginas-web");
     analytics.trackContactConversion();
@@ -1211,6 +1270,7 @@ describe("syncAdsTag y trackContactConversion · click-ids con forma no válida 
     setUrl("/paginas-web?gclid=OK_1");
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/paginas-web");
+    fireTagLoad();
     setUrl(`/paginas-web?gclid=${DIRTY_CLICK_ID}`);
     analytics.syncAdsTag("/paginas-web");
     analytics.trackContactConversion();
@@ -1238,6 +1298,7 @@ describe("syncAdsTag y trackContactConversion · click-ids con forma no válida 
     expect(scriptTags()).toHaveLength(0);
     setUrl("/");
     analytics.syncAdsTag("/");
+    fireTagLoad();
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
     expect((layerEntries()[1][2] as { page_referrer: string }).page_referrer).toBe("");
   });
@@ -1248,6 +1309,7 @@ describe("syncAdsTag y trackContactConversion · click-ids con forma no válida 
     const consoleCalls = watchConsole();
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/paginas-web/");
+    fireTagLoad();
     analytics.trackContactConversion();
     const location = `${ORIGIN}/paginas-web/?gclid=${TYPICAL_CLICK_ID}`;
     expect(scriptTags()).toHaveLength(1);
@@ -1265,6 +1327,7 @@ describe("syncAdsTag y trackContactConversion · click-ids con forma no válida 
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
     expect(scriptTags()).toHaveLength(1);
+    fireTagLoad();
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/?gclid=${gclid}`, page_referrer: "" }]);
   });
 
@@ -1273,6 +1336,7 @@ describe("syncAdsTag y trackContactConversion · click-ids con forma no válida 
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/paginas-web/");
     expect(scriptTags()).toHaveLength(1);
+    fireTagLoad();
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/paginas-web/`, page_referrer: "" }]);
   });
 
@@ -1281,6 +1345,7 @@ describe("syncAdsTag y trackContactConversion · click-ids con forma no válida 
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/paginas-web");
     expect(scriptTags()).toHaveLength(1);
+    fireTagLoad();
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/paginas-web`, page_referrer: "" }]);
     expect(JSON.stringify(layerEntries())).not.toMatch(/example\.com|SUCIO/);
   });
@@ -1290,6 +1355,7 @@ describe("syncAdsTag y trackContactConversion · click-ids con forma no válida 
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
     expect(scriptTags()).toHaveLength(1);
+    fireTagLoad();
     expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
   });
 
@@ -1312,7 +1378,9 @@ describe("trackContactConversion", () => {
   it("tras syncAdsTag('/') envía un evento conversion con exactamente send_to, page_location y page_referrer", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     const before = layerEntries().length;
+    expect(before).toBe(3); // js, config y el page_view de «/»
     analytics.trackContactConversion();
     expect(layerEntries()).toHaveLength(before + 1);
     expect(Object.prototype.toString.call(window.dataLayer?.[before])).toBe("[object Arguments]");
@@ -1327,6 +1395,7 @@ describe("trackContactConversion", () => {
     setReferrer(GOOGLE_REFERRER);
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     setUrl("/paginas-web?gclid=PRUEBA&token=X#contacto");
     analytics.syncAdsTag("/paginas-web");
     analytics.trackContactConversion();
@@ -1341,6 +1410,7 @@ describe("trackContactConversion", () => {
     setReferrer(GOOGLE_REFERRER);
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     setReferrer("https://otro.example.test/ruta?q=1");
     analytics.trackContactConversion();
     const params = eventsOf("conversion")[0][2] as { page_referrer: string };
@@ -1352,6 +1422,7 @@ describe("trackContactConversion", () => {
     setReferrer(`${ORIGIN}/client/TOKEN`);
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     setReferrer("https://www.google.com/");
     analytics.trackContactConversion();
     const params = eventsOf("conversion")[0][2] as Record<string, unknown>;
@@ -1371,7 +1442,9 @@ describe("trackContactConversion", () => {
     async (path) => {
       const analytics = await loadConfigured();
       analytics.syncAdsTag("/");
+      fireTagLoad();
       const before = layerEntries().length;
+      expect(before).toBe(3); // js, config y el page_view de «/»
       setUrl(path);
       analytics.trackContactConversion();
       expect(layerEntries()).toHaveLength(before);
@@ -1386,6 +1459,7 @@ describe("trackContactConversion", () => {
   ])("con una etiqueta de conversión %s la etiqueta carga pero la conversión no se envía", async (_case, label) => {
     const analytics = await loadConfigured({ id: TAG_ID, label });
     analytics.syncAdsTag("/");
+    fireTagLoad();
     analytics.trackContactConversion();
     expect(eventsOf("page_view")).toHaveLength(1);
     expect(eventsOf("conversion")).toHaveLength(0);
@@ -1394,6 +1468,8 @@ describe("trackContactConversion", () => {
   it("si la etiqueta de conversión cambia a otra cuenta después de cargar, tampoco se envía", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
+    expect(eventsOf("page_view")).toHaveLength(1); // la etiqueta sí está lista: la ausencia que sigue no es vacía
     vi.stubEnv("VITE_GADS_CONTACT_LABEL", "AW-2000000000/PRUEBA");
     analytics.trackContactConversion();
     expect(eventsOf("conversion")).toHaveLength(0);
@@ -1402,15 +1478,19 @@ describe("trackContactConversion", () => {
   it("si gtag lanza, trackContactConversion no lanza", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
-    window.gtag = () => {
+    fireTagLoad();
+    const broken = vi.fn(() => {
       throw new Error("gtag roto");
-    };
+    });
+    window.gtag = broken;
     expect(() => analytics.trackContactConversion()).not.toThrow();
+    expect(broken).toHaveBeenCalledTimes(1); // se llamó de verdad: el test no pasa en vacío
   });
 
   it("si el dataLayer no tiene push, trackContactConversion no lanza", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     window.dataLayer = {} as unknown as unknown[];
     expect(() => analytics.trackContactConversion()).not.toThrow();
   });
@@ -1418,11 +1498,298 @@ describe("trackContactConversion", () => {
   it("si gtag desaparece o deja de ser una función, no envía ni lanza", async () => {
     const analytics = await loadConfigured();
     analytics.syncAdsTag("/");
+    fireTagLoad();
     const before = layerEntries().length;
+    expect(before).toBe(3); // js, config y el page_view de «/»
     window.gtag = {} as unknown as typeof window.gtag;
     expect(() => analytics.trackContactConversion()).not.toThrow();
     Reflect.deleteProperty(window, "gtag");
     expect(() => analytics.trackContactConversion()).not.toThrow();
     expect(layerEntries()).toHaveLength(before);
+  });
+});
+
+describe("syncAdsTag y trackContactConversion · la página llegó con un enlace de auth (hadAuthRedirectAtStartup)", () => {
+  /** Hashes que client.ts quita antes del primer render. Todos con valores de PRUEBA. */
+  const AUTH_LINK_HASHES: Array<[string, string]> = [
+    ["recuperación (access_token + type=recovery)", "#access_token=PRUEBA&refresh_token=PRUEBA&expires_in=3600&token_type=bearer&type=recovery"],
+    ["registro (access_token + type=signup)", "#access_token=PRUEBA&refresh_token=PRUEBA&expires_in=3600&token_type=bearer&type=signup"],
+    ["enlace caducado (error + error_code=otp_expired)", "#error=access_denied&error_code=otp_expired&error_description=PRUEBA"],
+    ["solo error_description", "#error_description=PRUEBA"],
+  ];
+
+  /**
+   * Lo que hace client.ts al arrancar: el hash llega con la página y stripAuthRedirectFromUrl() lo quita con replaceState.
+   * Sobre el módulo recién importado de analytics (misma instancia de authRedirect), con la URL real de jsdom.
+   * La precondición del fallo se comprueba aquí: la URL ya está limpia y todavía no hay sesión guardada, así que
+   * las otras tres guardas dejarían medir.
+   */
+  async function loadAfterAuthLink(hash: string): Promise<Analytics> {
+    const analytics = await loadConfigured();
+    const { hadAuthRedirectAtStartup, stripAuthRedirectFromUrl } = await import("@/lib/authRedirect");
+    expect(hadAuthRedirectAtStartup()).toBe(false);
+    setUrl(`/${hash}`);
+    stripAuthRedirectFromUrl();
+    expect(window.location.hash).toBe("");
+    expect(analytics.hasAuthCredentialsInUrl()).toBe(false);
+    expect(analytics.hasUnsafeClickIdsInUrl()).toBe(false);
+    expect(analytics.hasStoredSession()).toBe(false);
+    expect(hadAuthRedirectAtStartup()).toBe(true);
+    return analytics;
+  }
+
+  it.each(AUTH_LINK_HASHES)("%s: syncAdsTag no inyecta nada en ninguna de las cuatro rutas permitidas", async (_case, hash) => {
+    const analytics = await loadAfterAuthLink(hash);
+    for (const path of ADS_ROUTES) {
+      setUrl(path);
+      analytics.syncAdsTag(path);
+    }
+    expectInert(0);
+  });
+
+  it.each(AUTH_LINK_HASHES)("%s: trackContactConversion no envía nada aunque gtag ya existiera", async (_case, hash) => {
+    const analytics = await loadAfterAuthLink(hash);
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    analytics.trackContactConversion();
+    setUrl("/paginas-web");
+    analytics.trackContactConversion();
+    expect(gtag).not.toHaveBeenCalled();
+  });
+
+  it("control: sin enlace de auth, la misma secuencia sí inyecta el script y sí envía la conversión", async () => {
+    const analytics = await loadConfigured();
+    setUrl("/");
+    analytics.syncAdsTag("/");
+    expectInert(1);
+    fireTagLoad();
+    analytics.trackContactConversion();
+    expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
+    expect(eventsOf("conversion")).toHaveLength(1);
+  });
+
+  it("un hash que no es de auth (#contacto) no lo activa: la medición sigue", async () => {
+    const analytics = await loadConfigured();
+    const { hadAuthRedirectAtStartup, stripAuthRedirectFromUrl } = await import("@/lib/authRedirect");
+    setUrl("/#contacto");
+    stripAuthRedirectFromUrl();
+    expect(hadAuthRedirectAtStartup()).toBe(false);
+    analytics.syncAdsTag("/");
+    expectInert(1);
+  });
+
+  it("si el enlace se detecta con la etiqueta ya lista, deja de enviar: ni page_view ni conversión", async () => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    fireTagLoad();
+    const before = layerEntries().length;
+    expect(before).toBe(3); // js, config y el page_view de «/»
+    const { stripAuthRedirectFromUrl } = await import("@/lib/authRedirect");
+    setUrl("/paginas-web#access_token=PRUEBA&type=recovery");
+    stripAuthRedirectFromUrl();
+    analytics.syncAdsTag("/paginas-web");
+    analytics.trackContactConversion();
+    expect(layerEntries()).toHaveLength(before);
+  });
+});
+
+describe("syncAdsTag · el script carga antes de que exista gtag (cola hasta el load)", () => {
+  it("antes del load hay un script async pero ni window.gtag ni window.dataLayer", async () => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    expect(scriptTags()).toHaveLength(1);
+    expect(scriptTags()[0].src).toBe(GTAG_SRC);
+    expect(scriptTags()[0].async).toBe(true);
+    expectInert();
+    setUrl("/paginas-web");
+    analytics.syncAdsTag("/paginas-web"); // otra visita permitida mientras carga: se encola, tampoco toca nada
+    expectInert(1);
+  });
+
+  it("load en una ruta permitida define gtag y reproduce js, config y page_view en ese orden, como objetos Arguments", async () => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    expectInert();
+    fireTagLoad();
+    expect(typeof window.gtag).toBe("function");
+    expect(window.dataLayer).toHaveLength(3);
+    for (const entry of window.dataLayer ?? []) expect(Object.prototype.toString.call(entry)).toBe("[object Arguments]");
+    const [js, config, view] = layerEntries();
+    expect(js[0]).toBe("js");
+    expect(js[1]).toBeInstanceOf(Date);
+    expect(config).toEqual([
+      "config",
+      TAG_ID,
+      {
+        send_page_view: false,
+        allow_enhanced_conversions: false,
+        allow_ad_personalization_signals: false,
+        page_location: `${ORIGIN}/`,
+        page_referrer: "",
+      },
+    ]);
+    expect(view).toEqual(["event", "page_view", { page_location: `${ORIGIN}/`, page_referrer: "" }]);
+  });
+
+  it("dos visitas permitidas antes del load dan dos page_view encolados, en orden y con la cadena de referrers", async () => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    setUrl("/paginas-web");
+    analytics.syncAdsTag("/paginas-web");
+    expectInert(1);
+    fireTagLoad();
+    expect(layerEntries().map((entry) => entry[0])).toEqual(["js", "config", "event", "event"]);
+    expect(pageViews()).toEqual([
+      { page_location: `${ORIGIN}/`, page_referrer: "" },
+      { page_location: `${ORIGIN}/paginas-web`, page_referrer: `${ORIGIN}/` },
+    ]);
+    expect(scriptTags()).toHaveLength(1);
+  });
+
+  it("load después de pasar a /login lo descarta todo; las visitas permitidas que siguen tampoco envían nada (dead)", async () => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    setUrl("/login");
+    analytics.syncAdsTag("/login");
+    fireTagLoad();
+    expectInert(1);
+
+    setUrl("/paginas-web");
+    analytics.syncAdsTag("/paginas-web");
+    analytics.trackContactConversion();
+    setUrl("/");
+    analytics.syncAdsTag("/");
+    expectInert(1); // dead: no se reintenta ni se reinyecta, aunque la URL vuelva a ser válida
+    fireTagLoad(); // y un load tardío no resucita nada
+    expectInert(1);
+  });
+
+  it.each([
+    ["una sesión guardada (sb-abc-auth-token)", async () => localStorage.setItem("sb-abc-auth-token", "PRUEBA")],
+    ["credenciales de auth en el hash de la URL", async () => setUrl("/#access_token=PRUEBA&type=recovery")],
+    ["un código de auth en la query de la URL", async () => setUrl("/?code=PRUEBA")],
+    ["un click-id inválido en la query de la URL", async () => setUrl(`/?gclid=${DIRTY_CLICK_ID}`)],
+    [
+      "un enlace de auth ya consumido al arrancar (hadAuthRedirectAtStartup)",
+      async () => {
+        const { stripAuthRedirectFromUrl } = await import("@/lib/authRedirect");
+        setUrl("/#access_token=PRUEBA&type=recovery");
+        stripAuthRedirectFromUrl();
+      },
+    ],
+  ])("load con %s activado mientras cargaba: descarta la cola y la etiqueta queda inerte", async (_case, arrange) => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    expectInert(1);
+    await arrange();
+    fireTagLoad();
+    expectInert(1);
+    // Aunque la guarda desaparezca, la etiqueta no se reanuda en esta carga de página.
+    localStorage.clear();
+    setUrl("/paginas-web");
+    analytics.syncAdsTag("/paginas-web");
+    analytics.trackContactConversion();
+    expectInert(1);
+  });
+
+  it("la comprobación de sesión del load solo mira nombres de clave, nunca valores", async () => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    localStorage.setItem("sb-abc-auth-token", "PRUEBA");
+    const getItem = vi.spyOn(Storage.prototype, "getItem");
+    fireTagLoad();
+    expectInert(1);
+    expect(getItem).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["otro ID válido", "AW-2000000000"],
+    ["ID borrado", ""],
+    ["ID mal formado", "G-123456"],
+  ])("load con un ID distinto del que inyectó el script (%s): descarta", async (_case, otherId) => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    vi.stubEnv("VITE_GADS_ID", otherId);
+    fireTagLoad();
+    expectInert(1);
+  });
+
+  it("error del script: todo en dead, un load tardío no resucita nada y no se reinyecta", async () => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    fireTagError();
+    expectInert(1);
+
+    setUrl("/paginas-web");
+    analytics.syncAdsTag("/paginas-web");
+    analytics.trackContactConversion();
+    expectInert(1);
+    fireTagLoad();
+    expectInert(1);
+  });
+
+  it("dead no se reintenta ni se reinyecta, ni siquiera si el script desaparece del DOM", async () => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    setUrl("/login");
+    fireTagLoad(); // el load llega en una ruta no permitida: la etiqueta queda inerte
+    expectInert(1);
+
+    scriptTags().forEach((script) => script.remove());
+    setUrl("/paginas-web");
+    analytics.syncAdsTag("/paginas-web");
+    analytics.trackContactConversion();
+    expectInert(0);
+  });
+
+  it("un segundo load no duplica nada: ni entradas, ni gtag nuevo, ni page_view", async () => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    fireTagLoad();
+    const gtag = window.gtag;
+    const entries = layerEntries();
+    expect(entries).toHaveLength(3);
+
+    fireTagLoad();
+    expect(window.gtag).toBe(gtag);
+    expect(layerEntries()).toEqual(entries);
+    expect(pageViews()).toHaveLength(1);
+
+    setUrl("/paginas-web");
+    analytics.syncAdsTag("/paginas-web");
+    fireTagLoad();
+    expect(pageViews().map((view) => view.page_location)).toEqual([`${ORIGIN}/`, `${ORIGIN}/paginas-web`]);
+    expect(layerEntries().filter((entry) => entry[0] === "config")).toHaveLength(1);
+  });
+
+  it("una conversión mientras carga no se envía, ni se guarda para después: tras el load solo cuentan las nuevas", async () => {
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    analytics.trackContactConversion();
+    expectInert(1);
+    fireTagLoad();
+    expect(eventsOf("conversion")).toHaveLength(0);
+    analytics.trackContactConversion();
+    expect(eventsOf("conversion")).toEqual([
+      ["event", "conversion", { send_to: SEND_TO, page_location: `${ORIGIN}/`, page_referrer: "" }],
+    ]);
+  });
+
+  it("un script ajeno con el mismo src ya en el DOM: no se inyecta otro y todo queda en dead, también si ese script dispara load", async () => {
+    const foreign = document.createElement("script");
+    foreign.src = GTAG_SRC;
+    document.head.appendChild(foreign);
+    const analytics = await loadConfigured();
+    analytics.syncAdsTag("/");
+    expect(scriptTags()).toEqual([foreign]);
+    expectInert();
+
+    foreign.dispatchEvent(new Event("load"));
+    setUrl("/paginas-web");
+    analytics.syncAdsTag("/paginas-web");
+    analytics.trackContactConversion();
+    foreign.dispatchEvent(new Event("error"));
+    expectInert();
+    expect(scriptTags()).toEqual([foreign]);
   });
 });

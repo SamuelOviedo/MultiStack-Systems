@@ -58,6 +58,13 @@ type UrlWindow = {
   history: Pick<History, "state" | "replaceState">;
 };
 
+let authRedirectAtStartup = false;
+/**
+ * True when this page load arrived with a Supabase Auth hash (tokens or error).
+ * Set even if replaceState throws; lasts until the page is reloaded.
+ */
+export const hadAuthRedirectAtStartup = (): boolean => authRedirectAtStartup;
+
 /**
  * Removes an auth redirect (tokens or error) from the CURRENT history entry.
  * supabase-js clears the hash with `location.hash = ''`, which leaves the
@@ -65,11 +72,13 @@ type UrlWindow = {
  * clear an `#error=…` hash at all. Only auth-looking hashes go: anchors such as
  * `#contacto` and the query string are kept. Call it right AFTER createClient(),
  * which has already parsed the URL.
+ * Also sets the hadAuthRedirectAtStartup() flag.
  */
 export function stripAuthRedirectFromUrl(win: UrlWindow = window): void {
   safe(() => {
     const params = new URLSearchParams(win.location.hash.replace(/^#/, ""));
     if (!AUTH_HASH_KEYS.some((key) => params.has(key))) return;
+    authRedirectAtStartup = true;
     win.history.replaceState(win.history.state, "", win.location.pathname + win.location.search);
   }, undefined); // replaceState can throw (sandboxed iframe, privacy modes)
 }

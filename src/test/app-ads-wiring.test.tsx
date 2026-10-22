@@ -5,12 +5,27 @@ import appSource from "@/App.tsx?raw";
 
 // El App real (export por defecto de src/App.tsx: BrowserRouter, AuthProvider, Suspense, rutas lazy y
 // AdsTagRouteSync) con lib/analytics real. Solo se sustituye el cliente de Supabase (como useAuth.test.tsx): sin
-// sesión, sin tablas y sin red; cada test comprueba además que no hubo fetch ni XMLHttpRequest.
+// sesión, sin tablas y sin red; cada test comprueba además que no hubo fetch ni XMLHttpRequest. El cliente real
+// (con supabase-js) se recorre en app-ads-auth-links.test.tsx.
+//
+// jsdom no descarga <script src>: el load de gtag.js se simula con fireTagLoad(). Hasta ese evento no existen
+// window.gtag ni window.dataLayer (la etiqueta guarda sus comandos en una cola privada).
+
+// Sesión que devuelve getSession(). Por defecto null (nadie ha entrado): solo los tests de la recuperación de
+// contraseña la fijan, y resetPage() la devuelve a null. Con `hold`, getSession() espera a esa promesa (como la
+// respuesta lenta de /auth/v1/user): el test observa el primer commit y la suelta cuando quiere; resetPage() la quita.
+const authSwitch = vi.hoisted(() => ({
+  session: null as { user: { id: string } } | null,
+  hold: null as Promise<void> | null,
+}));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     auth: {
-      getSession: () => Promise.resolve({ data: { session: null } }),
+      getSession: () =>
+        authSwitch.hold
+          ? authSwitch.hold.then(() => ({ data: { session: authSwitch.session } }))
+          : Promise.resolve({ data: { session: authSwitch.session } }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       signOut: () => Promise.resolve({ error: null }),
       exchangeCodeForSession: () => Promise.resolve({ data: null, error: new Error("intercambio simulado") }),
@@ -43,6 +58,12 @@ const setReferrer = (value: string): void => {
 const externalScripts = (): HTMLScriptElement[] => Array.from(document.querySelectorAll<HTMLScriptElement>("script[src]"));
 const gtagScripts = (): HTMLScriptElement[] => externalScripts().filter((script) => script.src.includes("googletagmanager.com"));
 
+/** Simula el load de gtag.js sobre NUESTRO script; falla si no hay exactamente uno, para no disparar un evento que nadie escucha. */
+function fireTagLoad(): void {
+  expect(gtagScripts(), "debe haber un único script de gtag.js").toHaveLength(1);
+  gtagScripts()[0].dispatchEvent(new Event("load"));
+}
+
 /** Entradas del dataLayer como arreglos: gtag las empuja como objetos Arguments. */
 const layerEntries = (): unknown[][] => (window.dataLayer ?? []).map((entry) => Array.from(entry as ArrayLike<unknown>));
 
@@ -63,6 +84,9 @@ function resetPage(): void {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   localStorage.clear();
+  sessionStorage.clear();
+  authSwitch.session = null;
+  authSwitch.hold = null;
   document.querySelectorAll("script").forEach((script) => script.remove());
   Reflect.deleteProperty(window, "gtag");
   Reflect.deleteProperty(window, "dataLayer");
@@ -105,12 +129,26 @@ afterEach(() => {
   expect(attempts, "ningún test del App debe tocar la red").toEqual([]);
 });
 
+interface MountOptions {
+  /**
+   * Aplica lo que src/integrations/supabase/client.ts hace al arrancar y aquí está simulado (captureAuthRedirect y,
+   * tras crear el cliente, stripAuthRedirectFromUrl), sobre la MISMA instancia de authRedirect que usará el App:
+   * al primer render el hash del enlace de correo ya no está en la URL y hadAuthRedirectAtStartup() queda puesto.
+   */
+  clientStartup?: boolean;
+}
+
 /** Monta el App con módulos nuevos (estado de analytics en cero) y las variables de prueba fijadas. */
-async function mountApp(url: string): Promise<void> {
+async function mountApp(url: string, { clientStartup = false }: MountOptions = {}): Promise<void> {
   vi.stubEnv("VITE_GADS_ID", TAG_ID);
   vi.stubEnv("VITE_GADS_CONTACT_LABEL", SEND_TO);
   vi.resetModules();
   window.history.pushState({}, "", url);
+  if (clientStartup) {
+    const authRedirect = await import("@/lib/authRedirect"); // mismo registro de módulos que el App de abajo
+    authRedirect.captureAuthRedirect();
+    authRedirect.stripAuthRedirectFromUrl();
+  }
   const { default: App } = await import("@/App");
   await act(async () => {
     render(<App />);
@@ -122,6 +160,11 @@ const findLanding = () => screen.findByRole("heading", { level: 1, name: "Págin
 const findPrivacy = () => screen.findByRole("heading", { level: 1, name: "Política de Privacidad" }, WAIT);
 const findTerms = () => screen.findByRole("heading", { level: 1, name: "Términos del Servicio" }, WAIT);
 const findLogin = () => screen.findByRole("heading", { level: 2, name: "Iniciar sesión" }, WAIT);
+/** /auth/update-password sin sesión de recuperación: la pantalla solo ofrece pedir un enlace nuevo. */
+const findNoRecoverySession = () =>
+  screen.findByRole("heading", { level: 2, name: "Necesitas un enlace de recuperación" }, WAIT);
+/** /auth/update-password con una recuperación pendiente: el formulario para elegir la contraseña nueva. */
+const findNewPasswordForm = () => screen.findByRole("heading", { level: 2, name: "Crea una nueva contraseña" }, WAIT);
 
 /** Clic en el primer elemento con ese rol y nombre (la página legal repite «Volver al inicio» arriba y abajo). */
 const click = (role: "link" | "button", name: string): void => {
@@ -149,6 +192,9 @@ describe("App · /paginas-web (ruta lazy registrada)", () => {
       expect(scripts[0].getAttribute("src")).toBe(GTAG_SRC);
       expect(scripts[0].async).toBe(true);
       expect(externalScripts()).toHaveLength(1);
+      expect(window.gtag).toBeUndefined(); // hasta el load, ni gtag ni dataLayer
+      expect(window.dataLayer).toBeUndefined();
+      fireTagLoad();
 
       const location = `${ORIGIN}/paginas-web`;
       expect(layerEntries().map((entry) => entry[0])).toEqual(["js", "config", "event"]);
@@ -177,6 +223,7 @@ describe("App · /paginas-web (ruta lazy registrada)", () => {
 
       const location = `${ORIGIN}/paginas-web?gclid=PRUEBA`;
       expect(gtagScripts()).toHaveLength(1);
+      fireTagLoad();
       expect(pageViews()).toEqual([{ page_location: location, page_referrer: "https://www.google.com/" }]);
       expect((layerEntries()[1][2] as { page_location: string }).page_location).toBe(location);
       expect(JSON.stringify(layerEntries())).not.toMatch(/SECRET|utm_source|search\?q/);
@@ -195,6 +242,7 @@ describe("App · las otras rutas públicas lazy (legales)", () => {
       await mountApp(path);
       expect(await findPage()).toBeInTheDocument();
       expect(gtagScripts()).toHaveLength(1);
+      fireTagLoad();
       expect(pageViews()).toEqual([{ page_location: `${ORIGIN}${path}`, page_referrer: "" }]);
     },
     TEST_TIMEOUT,
@@ -209,6 +257,7 @@ describe("App · «/» y navegación dentro del SPA", () => {
       expect(await findHome()).toBeInTheDocument();
       expect(gtagScripts()).toHaveLength(1);
       expect(gtagScripts()[0].getAttribute("src")).toBe(GTAG_SRC);
+      fireTagLoad();
       expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
     },
     TEST_TIMEOUT,
@@ -219,6 +268,7 @@ describe("App · «/» y navegación dentro del SPA", () => {
     async () => {
       await mountApp("/");
       await findHome();
+      fireTagLoad();
       expect(pageViews()).toHaveLength(1);
 
       click("button", "Política de Privacidad");
@@ -247,6 +297,7 @@ describe("App · «/» y navegación dentro del SPA", () => {
     async () => {
       await mountApp("/paginas-web");
       await findLanding();
+      fireTagLoad();
 
       clickNavbarLogo();
       expect(await findHome()).toBeInTheDocument();
@@ -323,7 +374,9 @@ describe("App · rutas privadas y redirecciones: nada se carga", () => {
     async () => {
       await mountApp("/");
       await findHome();
+      fireTagLoad();
       const before = layerEntries().length;
+      expect(before).toBe(3); // js, config y el page_view de «/»
       expect(gtagScripts()).toHaveLength(1);
 
       click("link", "[ ACCEDER ]");
@@ -339,6 +392,132 @@ describe("App · rutas privadas y redirecciones: nada se carga", () => {
         { page_location: `${ORIGIN}/`, page_referrer: "" },
         { page_location: `${ORIGIN}/`, page_referrer: "" },
       ]);
+    },
+    TEST_TIMEOUT,
+  );
+
+  // El script de Google carga en segundo plano: si la persona ya salió a /login cuando llega el load, gtag.js no debe
+  // ver esa URL ni procesar nada. El load descarta la cola y la etiqueta queda inerte el resto de la carga de página.
+  it(
+    "anónimo en «/», va a /login por un enlace y solo después llega el load del script: no hay gtag ni page_view, tampoco al volver a «/»",
+    async () => {
+      await mountApp("/");
+      await findHome();
+      expect(gtagScripts()).toHaveLength(1); // inyectado: la etiqueta está pendiente de su load
+      expect(window.gtag).toBeUndefined();
+      expect(window.dataLayer).toBeUndefined();
+
+      click("link", "[ ACCEDER ]");
+      expect(await findLogin()).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/login");
+
+      fireTagLoad();
+      expect(window.gtag).toBeUndefined();
+      expect(window.dataLayer).toBeUndefined();
+      expect(pageViews()).toEqual([]);
+
+      click("link", "Volver al inicio");
+      expect(await findHome()).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/");
+      fireTagLoad(); // un load tardío o repetido tampoco la resucita
+      expect(window.gtag).toBeUndefined();
+      expect(window.dataLayer).toBeUndefined();
+      expect(gtagScripts()).toHaveLength(1);
+    },
+    TEST_TIMEOUT,
+  );
+});
+
+// La pantalla de la contraseña nueva es una ruta real del App (se llega por el enlace del correo) y no está en la
+// lista blanca: ni carga la etiqueta ni suma page_views, entrando directo o viniendo de una ruta permitida.
+describe("App · /auth/update-password (recuperación de contraseña): fuera de la lista blanca", () => {
+  it.each(["/auth/update-password", "/auth/update-password?gclid=PRUEBA"])(
+    "%s directo: la pantalla se ve pero no hay script ni dataLayer",
+    async (url) => {
+      await mountApp(url);
+      expect(await findNoRecoverySession()).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/auth/update-password");
+      expectNothingLoaded();
+    },
+    TEST_TIMEOUT,
+  );
+
+  // Desde la home no hay enlace a esta ruta: se deja la entrada en el historial y se vuelve a ella con Atrás, el
+  // mismo mecanismo que usa el test de /paginas-web.
+  it(
+    "«/» → /auth/update-password (Atrás): el page_view de «/» queda como único evento y la pantalla nueva no suma ninguno",
+    async () => {
+      window.history.pushState({}, "", "/auth/update-password");
+      await mountApp("/");
+      await findHome();
+      fireTagLoad(); // la etiqueta termina de cargar mientras la persona sigue en «/»
+      const before = layerEntries();
+      expect(before).toHaveLength(3); // js, config y el page_view de «/»
+      expect(gtagScripts()).toHaveLength(1);
+      expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
+
+      window.history.back();
+      expect(await findNoRecoverySession()).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/auth/update-password");
+
+      expect(gtagScripts()).toHaveLength(1);
+      expect(layerEntries()).toEqual(before);
+      expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
+    },
+    TEST_TIMEOUT,
+  );
+
+  // Lo mismo, pero el load del script llega cuando la persona ya está en la pantalla de la contraseña nueva: gtag.js no
+  // debe procesar nada con esa URL, así que el load lo descarta todo (antes se habría enviado el page_view de «/»).
+  it(
+    "«/» → /auth/update-password (Atrás) y solo después el load del script: no hay gtag ni dataLayer",
+    async () => {
+      window.history.pushState({}, "", "/auth/update-password");
+      await mountApp("/");
+      await findHome();
+      expect(gtagScripts()).toHaveLength(1);
+      expect(window.dataLayer).toBeUndefined();
+
+      window.history.back();
+      expect(await findNoRecoverySession()).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/auth/update-password");
+
+      fireTagLoad();
+      expect(window.gtag).toBeUndefined();
+      expect(window.dataLayer).toBeUndefined();
+      expect(gtagScripts()).toHaveLength(1);
+    },
+    TEST_TIMEOUT,
+  );
+
+  // El flujo real de un enlace de recuperación: aterriza en «/#access_token=…&type=recovery». client.ts (simulado aquí
+  // con clientStartup) captura la recuperación y quita el hash ANTES del primer render; supabase-js guarda la sesión
+  // en localStorage más tarde, cuando responde /auth/v1/user (el cliente simulado ni siquiera la guarda). En ese hueco
+  // ni la URL ni localStorage delatan el enlace: solo hadAuthRedirectAtStartup() lo hace. Después getSession() resuelve
+  // y RecoveryRedirect mueve la app a la pantalla de la contraseña nueva. En ningún momento se carga la etiqueta.
+  it(
+    "llegar a «/» con un enlace de recuperación: no hay script, gtag ni dataLayer, ni en «/» ni tras el salto a /auth/update-password",
+    async () => {
+      let release!: () => void;
+      authSwitch.hold = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      authSwitch.session = { user: { id: "usuario-prueba" } };
+      await mountApp("/#access_token=PRUEBA&refresh_token=PRUEBA&type=recovery", { clientStartup: true });
+
+      // En «/», con getSession() retenido: la URL ya está limpia y no hay sesión guardada, así que las otras tres
+      // guardas no frenarían nada (el fallo que esta prueba fija).
+      expect(await findHome()).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/");
+      expect(window.location.hash).toBe("");
+      expect(window.location.href).not.toMatch(/access_token|refresh_token/);
+      expect(Object.keys(localStorage).filter((key) => key.startsWith("sb-"))).toEqual([]);
+      expectNothingLoaded();
+
+      release();
+      expect(await findNewPasswordForm()).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/auth/update-password");
+      expectNothingLoaded();
     },
     TEST_TIMEOUT,
   );
@@ -387,6 +566,7 @@ describe("App · click-ids con forma no válida en la URL: gtag.js los leería p
       expect(await findHome()).toBeInTheDocument();
       expect(window.location.pathname).toBe("/");
       expect(gtagScripts()).toHaveLength(1);
+      fireTagLoad();
       expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/`, page_referrer: "" }]);
       expect(JSON.stringify(layerEntries())).not.toMatch(/example\.com|SUCIO/);
     },
@@ -399,6 +579,7 @@ describe("App · click-ids con forma no válida en la URL: gtag.js los leería p
       await mountApp(`/paginas-web?gclid=${TYPICAL_CLICK_ID}`);
       expect(await findLanding()).toBeInTheDocument();
       expect(gtagScripts()).toHaveLength(1);
+      fireTagLoad();
       expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/paginas-web?gclid=${TYPICAL_CLICK_ID}`, page_referrer: "" }]);
     },
     TEST_TIMEOUT,

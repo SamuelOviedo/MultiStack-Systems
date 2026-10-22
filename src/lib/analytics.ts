@@ -8,8 +8,10 @@
  * click-ids que gtag lee de la URL y el referrer de los page_view). Ante la duda se falla cerrado: no se
  * carga y no se envía.
  *
- * Además de la ruta, tres guardas (hasAuthCredentialsInUrl, hasUnsafeClickIdsInUrl y hasStoredSession)
- * cuentan como «ruta no permitida»; cada una explica su motivo en su doc.
+ * Además de la ruta, cuatro guardas (hasAuthCredentialsInUrl, hasUnsafeClickIdsInUrl, hasStoredSession y
+ * hadAuthRedirectAtStartup) cuentan como «ruta no permitida»; cada una explica su motivo en su doc. La cuarta
+ * existe porque client.ts quita el hash de auth antes del primer render y supabase-js guarda la sesión después:
+ * un enlace de correo (recovery, signup, otp_expired…) que aterriza en «/» pasaría las otras tres.
  *
  * Referrer: la conversión respeta page_referrer (con "" el `ref` sale vacío), pero el `dr` de los
  * page_view y del config sale SIEMPRE de document.referrer y page_referrer no lo sobrescribe. Se controla
@@ -20,6 +22,8 @@
  *   VITE_GADS_ID             AW-<dígitos>              p. ej. AW-1000000000
  *   VITE_GADS_CONTACT_LABEL  AW-<dígitos>/<etiqueta>   p. ej. AW-1000000000/PRUEBA
  */
+
+import { hadAuthRedirectAtStartup } from "@/lib/authRedirect";
 
 declare global {
   interface Window {
@@ -62,9 +66,14 @@ const SESSION_KEY_RE = /^sb-.+-auth-token$/;
 //  - lastLocation: page_location de la visita anterior. null = aún no hubo ninguna; "" = la anterior no
 //    fue permitida (ruta no permitida o guarda activa), incluso si fue la primera.
 //  - lastReferrer: page_referrer del page_view de la visita actual, ya saneado; la conversión lo reutiliza.
+//  - tagState: idle (sin script), pending (script inyectado, esperando su load), ready (gtag definido en el
+//    load) o dead (inerte hasta recargar la página).
+//  - adsQueue: comandos de gtag, como arreglos de argumentos, a la espera del load del script.
 let lastPath: string | null = null;
 let lastLocation: string | null = null;
 let lastReferrer = "";
+let tagState: "idle" | "pending" | "ready" | "dead" = "idle";
+let adsQueue: unknown[][] = [];
 
 /**
  * Coincidencia exacta con la lista blanca (nunca prefijos ni lista negra). Acepta
@@ -196,53 +205,96 @@ export function hasStoredSession(): boolean {
 }
 
 /**
- * Define gtag como el snippet oficial, lo configura sin page_view automático e inyecta el script. El
- * config lleva page_location y page_referrer saneados: sin ellos gtag emite igualmente un hit
- * (en=page_view) con la query completa de la URL, aunque send_page_view sea false.
+ * true si no se puede medir en la URL actual: sin window, navegador fuera de la lista blanca o alguna guarda
+ * activa. La usan syncAdsTag (que además mira la ruta del router), trackContactConversion y el load del script.
+ */
+function isMeasurementBlocked(): boolean {
+  return (
+    typeof window === "undefined" ||
+    !isAdsRoute(window.location.pathname) ||
+    hasAuthCredentialsInUrl() ||
+    hasUnsafeClickIdsInUrl() ||
+    hasStoredSession() ||
+    hadAuthRedirectAtStartup()
+  );
+}
+
+/**
+ * Inyecta el script (una vez por carga de página) y deja js y config en adsQueue, sin page_view automático.
+ * Hasta el load no se define window.gtag ni se toca window.dataLayer: gtag.js procesaría esa cola con la URL
+ * de ese momento, que tras una navegación puede ser /login o /auth/update-password. El config lleva
+ * page_location y page_referrer saneados: sin ellos gtag emite igualmente un hit (en=page_view) con la query
+ * completa de la URL, aunque send_page_view sea false. Si ya hay un script con ese src que no es nuestro, no
+ * se inyecta otro y el estado queda en dead: no se encola ni se envía ningún page_view (trackContactConversion
+ * solo mira que exista window.gtag).
  */
 function loadAdsTag(id: string, pageLocation: string, pageReferrer: string): void {
-  window.dataLayer = window.dataLayer || [];
-  window.gtag = function gtag() {
-    // gtag.js solo interpreta el objeto `arguments` (igual que el snippet oficial de
-    // Google); un arreglo creado con parámetros rest no lo reconoce.
-    // eslint-disable-next-line prefer-rest-params
-    window.dataLayer?.push(arguments);
-  };
-  window.gtag("js", new Date());
-  window.gtag("config", id, {
-    send_page_view: false,
-    allow_enhanced_conversions: false,
-    allow_ad_personalization_signals: false,
-    page_location: pageLocation,
-    page_referrer: pageReferrer,
-  });
+  tagState = "dead"; // hasta quedar pendiente: un fallo a medias no reintenta
   const src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
   if (document.querySelector(`script[src="${src}"]`)) return;
   const script = document.createElement("script");
   script.async = true;
   script.src = src;
+  script.addEventListener("load", () => settleAdsTag(id, true), { once: true });
+  script.addEventListener("error", () => settleAdsTag(id, false), { once: true });
   document.head.appendChild(script);
+  adsQueue = [
+    ["js", new Date()],
+    [
+      "config",
+      id,
+      {
+        send_page_view: false,
+        allow_enhanced_conversions: false,
+        allow_ad_personalization_signals: false,
+        page_location: pageLocation,
+        page_referrer: pageReferrer,
+      },
+    ],
+  ];
+  tagState = "pending";
+}
+
+/**
+ * load (loaded = true) o error del script. Solo con load, el navegador en una ruta permitida, ninguna guarda
+ * activa y el mismo ID, define gtag como el snippet oficial y reproduce adsQueue en orden. En cualquier otro
+ * caso descarta la cola sin definir gtag y la etiqueta queda inerte: no se reintenta ni se reinyecta.
+ */
+function settleAdsTag(id: string, loaded: boolean): void {
+  if (tagState !== "pending") return;
+  const queued = adsQueue;
+  adsQueue = [];
+  tagState = "dead";
+  try {
+    if (!loaded || isMeasurementBlocked() || getAdsTagId() !== id) return;
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function gtag() {
+      // gtag.js solo interpreta el objeto `arguments` (igual que el snippet oficial de
+      // Google); un arreglo creado con parámetros rest no lo reconoce.
+      // eslint-disable-next-line prefer-rest-params
+      window.dataLayer?.push(arguments);
+    };
+    tagState = "ready";
+    for (const args of queued) window.gtag(...args);
+  } catch {
+    // La medición nunca debe romper la página.
+  }
 }
 
 /**
  * Se llama al montar y en cada cambio de ruta. Nunca lanza. Con una ruta o una guarda que no permite la
- * medición, olvida la última página (lastLocation = "") y vuelve sin llamar a gtag ni tocar el DOM, aunque
- * la etiqueta ya esté cargada (queda inerte). En la primera ruta permitida carga la etiqueta; después,
- * un page_view por visita. page_referrer es el page_location de la visita permitida anterior (en la
- * primera, el document.referrer saneado; tras una visita no permitida, ""); gtag lo ignora en page_view y config.
+ * medición, olvida la última página (lastLocation = "") y vuelve sin encolar, sin llamar a gtag y sin tocar
+ * el DOM, aunque la etiqueta ya esté cargada (no envía nada en esa visita). En la primera ruta permitida
+ * inyecta el script; después, un page_view por visita: se encola mientras el script carga, va directo a gtag
+ * tras el load y se descarta si la etiqueta quedó inerte. page_referrer es el page_location de la visita
+ * permitida anterior (en la primera, el document.referrer saneado; tras una visita no permitida, ""); gtag lo
+ * ignora en page_view y config.
  */
 export function syncAdsTag(pathname: string): void {
   try {
     // Ruta del router y del navegador permitidas y ninguna guarda activa: cualquier duda (p. ej. una
     // redirección en un efecto hijo) cuenta como ruta no permitida.
-    if (
-      typeof window === "undefined" ||
-      !isAdsRoute(pathname) ||
-      !isAdsRoute(window.location.pathname) ||
-      hasAuthCredentialsInUrl() ||
-      hasUnsafeClickIdsInUrl() ||
-      hasStoredSession()
-    ) {
+    if (!isAdsRoute(pathname) || isMeasurementBlocked()) {
       lastPath = null;
       lastLocation = "";
       return;
@@ -252,11 +304,13 @@ export function syncAdsTag(pathname: string): void {
     const pageLocation = sanitizePageLocation(window.location.href);
     if (!pageLocation) return; // con page_location vacío gtag enviaría la URL completa
     const pageReferrer = lastLocation ?? sanitizeReferrer(document.referrer, window.location.origin);
-    if (!window.gtag) loadAdsTag(id, pageLocation, pageReferrer);
+    if (tagState === "idle") loadAdsTag(id, pageLocation, pageReferrer);
     lastPath = pathname;
     lastLocation = pageLocation;
     lastReferrer = pageReferrer;
-    window.gtag("event", "page_view", { page_location: pageLocation, page_referrer: pageReferrer });
+    const pageView = ["event", "page_view", { page_location: pageLocation, page_referrer: pageReferrer }];
+    if (tagState === "pending") adsQueue.push(pageView);
+    else if (tagState === "ready") window.gtag?.(...pageView);
   } catch {
     // La medición nunca debe romper la página.
   }
@@ -265,20 +319,13 @@ export function syncAdsTag(pathname: string): void {
 /**
  * Conversión «Contacto enviado». Nunca lanza: un fallo aquí no puede hacer que el formulario muestre
  * error cuando el mensaje sí se envió. Mismas guardas que syncAdsTag, más ID y destino válidos y gtag ya
- * inicializado. El evento lleva solo send_to, page_location y el page_referrer del page_view de la visita
- * actual (puede ser ""); sin datos del visitante ni value/currency, que están en la cuenta.
+ * inicializado (solo ocurre en el load del script: mientras carga, no se envía). El evento lleva solo send_to,
+ * page_location y el page_referrer del page_view de la visita actual (puede ser ""); sin datos del visitante ni
+ * value/currency, que están en la cuenta.
  */
 export function trackContactConversion(): void {
   try {
-    if (
-      typeof window === "undefined" ||
-      !isAdsRoute(window.location.pathname) ||
-      hasAuthCredentialsInUrl() ||
-      hasUnsafeClickIdsInUrl() ||
-      hasStoredSession()
-    ) {
-      return;
-    }
+    if (isMeasurementBlocked()) return;
     const sendTo = getContactSendTo();
     const pageLocation = sanitizePageLocation(window.location.href);
     if (!sendTo || !pageLocation || typeof window.gtag !== "function") return;

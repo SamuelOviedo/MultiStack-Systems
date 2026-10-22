@@ -16,6 +16,7 @@ type Analytics = typeof import("@/lib/analytics");
 // Identificadores de PRUEBA: nunca los reales de la cuenta de Google Ads.
 const TAG_ID = "AW-1000000000";
 const SEND_TO = "AW-1000000000/PRUEBA";
+const GTAG_SRC = `https://www.googletagmanager.com/gtag/js?id=${TAG_ID}`;
 const ORIGIN = window.location.origin;
 const GOOGLE_REFERRER = "https://www.google.com/search?q=x";
 /** Forma típica de un gclid real, con valor de PRUEBA: 90 caracteres con letras, dígitos, guion y guion bajo. */
@@ -96,16 +97,34 @@ interface AdsEnv {
 const TEST_ENV: AdsEnv = { id: TAG_ID, label: SEND_TO };
 
 /**
- * Módulo nuevo (estado en cero), variables de prueba fijadas (Vitest carga el .env del desarrollador) y la
- * etiqueta inicializada con syncAdsTag, como haría AdsTagRouteSync al montar la ruta.
+ * jsdom no descarga <script src>: el load de gtag.js se simula sobre NUESTRO script. Hasta ese evento no existen
+ * window.gtag ni window.dataLayer, y trackContactConversion no envía nada. Falla si el script no está.
  */
-async function mount(container: Container, env: AdsEnv = TEST_ENV, url: string = container.path): Promise<Analytics> {
+function fireTagLoad(): void {
+  const script = document.querySelector<HTMLScriptElement>(`script[src="${GTAG_SRC}"]`);
+  expect(script, "debe haber un script de gtag.js al que dispararle el load").not.toBeNull();
+  script?.dispatchEvent(new Event("load"));
+}
+
+/**
+ * Módulo nuevo (estado en cero), variables de prueba fijadas (Vitest carga el .env del desarrollador), la etiqueta
+ * inicializada con syncAdsTag, como haría AdsTagRouteSync al montar la ruta, y su script ya cargado (load simulado)
+ * siempre que el ID sea válido: el formulario se envía con la etiqueta lista. Con `scriptLoaded = false` el script
+ * queda cargando, como en los primeros instantes de la página.
+ */
+async function mount(
+  container: Container,
+  env: AdsEnv = TEST_ENV,
+  url: string = container.path,
+  scriptLoaded = true,
+): Promise<Analytics> {
   vi.stubEnv("VITE_GADS_ID", env.id);
   vi.stubEnv("VITE_GADS_CONTACT_LABEL", env.label);
   vi.resetModules();
   setUrl(url);
   const analytics = await import("@/lib/analytics");
   analytics.syncAdsTag(container.path);
+  if (scriptLoaded && analytics.getAdsTagId()) fireTagLoad();
   render(await container.element());
   return analytics;
 }
@@ -297,30 +316,37 @@ describe.each(CONTAINERS)("conversión «Contacto enviado» en $label", (contain
 
   it("si gtag lanza al medir, el formulario sigue mostrando éxito y no el error", async () => {
     await mount(container);
-    window.gtag = () => {
+    const broken = vi.fn(() => {
       throw new Error("gtag roto");
-    };
+    });
+    window.gtag = broken;
     send.mockResolvedValue(undefined);
     fillForm();
     fireEvent.click(submitButton());
     expect(await findSuccess()).toBeInTheDocument();
     expect(screen.queryByText(SEND_ERROR)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
+    expect(broken).toHaveBeenCalledTimes(1); // se intentó medir de verdad: el test no pasa en vacío
   });
 
   it("si el dataLayer fue reemplazado por un objeto sin push, el envío igual se muestra como exitoso", async () => {
     await mount(container);
+    const realGtag = window.gtag as (...args: unknown[]) => void;
+    const spy = vi.fn(realGtag);
+    window.gtag = spy;
     window.dataLayer = {} as unknown as unknown[];
     send.mockResolvedValue(undefined);
     fillForm();
     fireEvent.click(submitButton());
     expect(await findSuccess()).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
+    expect(spy).toHaveBeenCalledTimes(1); // gtag falló al empujar al dataLayer roto, y el formulario no se enteró
   });
 
   it("en una ruta no permitida (pushState a /login) el envío funciona y no hay conversión", async () => {
     await mount(container);
     const entriesBefore = layerEntries().length;
+    expect(entriesBefore).toBe(3); // js, config y el page_view de la ruta: la ausencia que sigue no es vacía
     setUrl("/login");
     send.mockResolvedValue(undefined);
     fillForm();
@@ -341,6 +367,7 @@ describe.each(CONTAINERS)("conversión «Contacto enviado» en $label", (contain
   ])("con %s el envío funciona y no hay conversión", async (_case, arrange) => {
     await mount(container);
     const entriesBefore = layerEntries().length;
+    expect(entriesBefore).toBe(3); // js, config y el page_view de la ruta: la ausencia que sigue no es vacía
     arrange();
     send.mockResolvedValue(undefined);
     fillForm();
@@ -376,6 +403,20 @@ describe.each(CONTAINERS)("conversión «Contacto enviado» en $label", (contain
     expect(await findSuccess()).toBeInTheDocument();
     expect(conversions()).toHaveLength(0);
     expect(eventsOf("page_view")).toHaveLength(1);
+  });
+
+  it("con el script de gtag.js aún cargando (sin load) el envío funciona, sin conversión y sin crear gtag ni dataLayer", async () => {
+    await mount(container, TEST_ENV, container.path, false);
+    expect(scriptTags()).toHaveLength(1);
+    expect(window.gtag).toBeUndefined();
+    send.mockResolvedValue(undefined);
+    fillForm();
+    fireEvent.click(submitButton());
+    expect(await findSuccess()).toBeInTheDocument();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(window.gtag).toBeUndefined();
+    expect(window.dataLayer).toBeUndefined();
+    expect(scriptTags()).toHaveLength(1);
   });
 
   it("sin ID de etiqueta no existe gtag ni dataLayer y el envío funciona", async () => {
