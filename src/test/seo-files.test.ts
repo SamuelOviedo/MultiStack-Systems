@@ -27,6 +27,15 @@ const read = (rel: string): string => readFileSync(path.join(ROOT, rel), "utf8")
 const parseHtml = (html: string): Document => new DOMParser().parseFromString(html, "text/html");
 const WWW = "https://www.multistacksystems.com";
 
+/** ¿El valor es una URL absoluta de nuestro origen con www? Compara el origen, no el texto; un valor relativo o inválido da false. */
+function isWwwUrl(value: string | null | undefined): boolean {
+  try {
+    return new URL(value ?? "").origin === WWW;
+  } catch {
+    return false;
+  }
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -71,7 +80,6 @@ describe("index.html", () => {
     };
     for (const [name, value] of Object.entries(urls)) {
       expect(value, name).toBeTruthy();
-      expect(value!.startsWith(WWW), `${name}: ${value}`).toBe(true);
       expect(new URL(value!).origin, name).toBe(WWW);
     }
   });
@@ -125,7 +133,7 @@ describe("index.html · archivos locales que enlaza", () => {
       if (href.startsWith("/") && !href.startsWith("//")) found.add(href);
     }
     for (const absolute of [indexMeta("property", "og:image"), indexMeta("name", "twitter:image"), indexJsonLd().logo]) {
-      if (absolute?.startsWith(WWW)) found.add(new URL(absolute).pathname);
+      if (isWwwUrl(absolute)) found.add(new URL(absolute!).pathname);
     }
     return [...found];
   };

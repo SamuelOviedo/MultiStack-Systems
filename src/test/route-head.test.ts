@@ -312,7 +312,8 @@ describe("withRouteHead · con el index.html real del repositorio", () => {
   it("conserva scripts, links, JSON-LD y el resto de metas (og:type, site_name, locale, image:type/width/height, twitter:card)", () => {
     const out = withRouteHead(INDEX_LF, META);
 
-    const scripts = (h: string) => h.match(/<script[\s\S]*?<\/script>/g) ?? [];
+    // Los <script> se leen con el parser del navegador; outerHTML conserva atributos y contenido, así que un script alterado no pasa.
+    const scripts = (h: string) => Array.from(parse(h).querySelectorAll("script")).map((s) => s.outerHTML);
     expect(scripts(INDEX_LF).length).toBeGreaterThanOrEqual(3);
     expect(scripts(out)).toEqual(scripts(INDEX_LF));
 

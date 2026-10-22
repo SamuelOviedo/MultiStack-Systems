@@ -1035,8 +1035,11 @@ const valuesOf = (m: RouteMeta): Values => ({
 });
 
 /** El <head> sin scripts (en el navegador no corren al insertarlos así, pero aquí ni se intenta). */
-const headOf = (html: string): string =>
-  new DOMParser().parseFromString(html, "text/html").head.innerHTML.replace(/<script[\s\S]*?<\/script>/g, "");
+const headOf = (html: string): string => {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.head.querySelectorAll("script").forEach((s) => s.remove());
+  return doc.head.innerHTML;
+};
 
 /**
  * Lo que sirve Vercel al entrar a «/» y lo que sirve al entrar directo a «/paginas-web». Se calculan al usarlos,

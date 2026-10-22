@@ -56,7 +56,15 @@ const setReferrer = (value: string): void => {
 
 /** next-themes inyecta un <script> en línea; los de Google siempre llevan src. */
 const externalScripts = (): HTMLScriptElement[] => Array.from(document.querySelectorAll<HTMLScriptElement>("script[src]"));
-const gtagScripts = (): HTMLScriptElement[] => externalScripts().filter((script) => script.src.includes("googletagmanager.com"));
+/** Compara el host de la URL, no el texto: «https://otro.test/www.googletagmanager.com/…» no es el script de Google. */
+const isGoogleTagHost = (src: string): boolean => {
+  try {
+    return new URL(src).hostname === "www.googletagmanager.com";
+  } catch {
+    return false;
+  }
+};
+const gtagScripts = (): HTMLScriptElement[] => externalScripts().filter((script) => isGoogleTagHost(script.src));
 
 /** Simula el load de gtag.js sobre NUESTRO script; falla si no hay exactamente uno, para no disparar un evento que nadie escucha. */
 function fireTagLoad(): void {
