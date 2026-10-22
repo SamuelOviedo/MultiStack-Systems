@@ -122,10 +122,16 @@ export default function PoliticaDePrivacidad() {
               Privacidad y los Términos del Servicio. No se carga cuando usted entra directamente
               a las demás páginas del sitio, como el portal de clientes, el panel, «Mis
               solicitudes», el inicio de sesión, el registro o las pantallas de recuperación de
-              contraseña. Si usted llega a alguna de ellas navegando desde una de las páginas
-              públicas, la etiqueta no envía ningún dato desde esa página. Tampoco se carga cuando
-              usted tiene una sesión iniciada en la plataforma, ni siquiera en las páginas
-              públicas.
+              contraseña. Si usted pasa a alguna de ellas navegando desde una página pública, no
+              enviamos a Google ningún evento ni la dirección de esa página. Si la etiqueta todavía
+              se estaba cargando en ese momento, queda desactivada hasta que usted vuelva a cargar
+              el sitio: no guarda cookies, aunque Google puede recibir un aviso técnico de que su
+              código terminó de cargarse, sin la dirección de la página. Tampoco se carga si usted
+              abre el sitio con una sesión iniciada en la plataforma o desde un enlace que le
+              enviamos por correo (confirmación de cuenta, invitación, acceso directo, cambio de
+              correo o recuperación de contraseña), ni siquiera en las páginas públicas. Si usted
+              inicia sesión después de que la etiqueta se cargó, dejamos de enviarle eventos a
+              Google mientras su sesión siga iniciada.
             </p>
             <p className="mt-4">
               Enviamos a Google la dirección de la página visitada sin parámetros. Por separado,
@@ -133,8 +139,8 @@ export default function PoliticaDePrivacidad() {
               esa dirección (como gclid, gbraid, wbraid y gad_source), para atribuir la conversión.
               Google recibe también el título de la página y el sitio desde el que
               usted llega (su dominio y, si ese sitio así lo decide, también su ruta). Cuando usted
-              envía con éxito el formulario de contacto, enviamos además un evento de «contacto
-              enviado».{" "}
+              envía con éxito el formulario de contacto y la etiqueta ya terminó de cargarse,
+              enviamos además un evento de «contacto enviado».{" "}
               <strong className="text-foreground">NO</strong> enviamos su nombre, correo
               electrónico, teléfono ni el contenido de su mensaje. No usamos conversiones mejoradas
               ni empleamos la etiqueta para personalizar anuncios ni para remarketing.
@@ -147,15 +153,17 @@ export default function PoliticaDePrivacidad() {
               navegador los siguientes elementos de medición, todos de hasta 90 días de duración:
             </p>
             <BulletList items={[
-              "Cookies en nuestro dominio principal y sus subdominios. La cookie _gcl_au se guarda al cargar cualquier página pública con la etiqueta. Si usted llega desde un anuncio de Google Ads, cuya dirección incluye los identificadores de clic o de origen del anuncio, también pueden guardarse _gcl_aw, _gcl_ag, _gcl_gb y _gcl_gs.",
-              "Almacenamiento local de su navegador, un espacio parecido al de las cookies: el elemento _gcl_ls.",
+              "Cookies en nuestro dominio principal y sus subdominios. La cookie _gcl_au se guarda cuando la etiqueta termina de cargarse mientras usted sigue en una página pública; si para entonces usted ya pasó a una página que no es pública o inició sesión, no se guarda. Si usted llega desde un anuncio de Google Ads, cuya dirección incluye los identificadores de clic o de origen del anuncio, también pueden guardarse _gcl_aw, _gcl_ag, _gcl_gb y _gcl_gs.",
+              "Almacenamiento local de su navegador, un espacio parecido al de las cookies: el elemento _gcl_ls, en las mismas condiciones que _gcl_au.",
               "Cookie en los dominios de Google (google.com, doubleclick.net y googleadservices.com): GCL_AW_P, solo si usted llega con un identificador de clic.",
             ]} />
             <p className="mt-4">
               La conversión se informa a través de dominios de Google (googleadservices.com,
               doubleclick.net y google.com) y también de dominios de país de Google, como google.hn.
-              Puede bloquear o borrar estas cookies y el almacenamiento local desde la
-              configuración de su navegador. Para más información, consulte la{" "}
+              La etiqueta se descarga desde googletagmanager.com, que también puede recibir avisos
+              técnicos sobre su funcionamiento. Puede bloquear o borrar estas cookies y el
+              almacenamiento local desde la configuración de su navegador. Para más información,
+              consulte la{" "}
               <a
                 href="https://policies.google.com/technologies/ads"
                 className="text-primary hover:underline"
