@@ -24,6 +24,17 @@ describe("validateContact — message length", () => {
     expect(validateContact({ ...valid, phone: "+504 9999-0000" }).phone).toBeUndefined();
   });
 
+  it("accepts the exact server limits (name 120, e-mail 254, phone 40) and rejects one more", () => {
+    expect(validateContact({ ...valid, name: "a".repeat(120) }).name).toBeUndefined();
+    expect(validateContact({ ...valid, name: "a".repeat(121) }).name).toBe("El nombre es demasiado largo.");
+    expect(validateContact({ ...valid, email: `${"a".repeat(248)}@x.com` }).email).toBeUndefined(); // 254
+    expect(validateContact({ ...valid, email: `${"a".repeat(249)}@x.com` }).email).toBe("Revisa el correo electrónico."); // 255
+    const phone40 = `1234567${" ".repeat(32)}8`;
+    expect(phone40).toHaveLength(40);
+    expect(validateContact({ ...valid, phone: phone40 }).phone).toBeUndefined();
+    expect(validateContact({ ...valid, phone: `1234567${" ".repeat(33)}8` }).phone).toBe("Revisa el número de teléfono.");
+  });
+
   it("still asks for more text below the minimum", () => {
     expect(validateContact({ ...valid, message: "hey" }).message).toBe("Cuéntanos un poco más.");
   });
@@ -47,8 +58,14 @@ describe("sendContactMessage — server answers", () => {
     await expect(sendContactMessage(valid)).rejects.toBeInstanceOf(ContactUnavailableError);
   });
 
-  it("rethrows any other error unchanged", async () => {
-    const err = Object.assign(new Error("boom"), { context: { status: 500 } });
+  it.each([[500], [400], [401], [405], [502]])("rethrows HTTP %i unchanged", async (status) => {
+    const err = Object.assign(new Error("boom"), { context: { status } });
+    invoke.mockResolvedValue({ data: null, error: err });
+    await expect(sendContactMessage(valid)).rejects.toBe(err);
+  });
+
+  it("rethrows a network failure (no HTTP status) unchanged", async () => {
+    const err = Object.assign(new Error("Failed to send a request to the Edge Function"), { context: new TypeError("Failed to fetch") });
     invoke.mockResolvedValue({ data: null, error: err });
     await expect(sendContactMessage(valid)).rejects.toBe(err);
   });
