@@ -67,6 +67,15 @@ function Count({ children, label }: { children: number; label: string }) {
 /** Cuándo vence un servicio: insignia con texto (Vencida / Urgente / Próxima) y la fecha; lejos, solo la fecha. */
 function Renewal({ date }: { date: string }) {
   const days = daysUntil(date);
+  // Fecha que no se puede leer (`daysUntil` da NaN): sin insignia de plazo ni texto relativo; se enseña el valor tal
+  // cual llegó, sin reinterpretarlo.
+  if (!Number.isFinite(days)) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        Fecha no válida: <span className="tabular break-all">{date}</span>
+      </span>
+    );
+  }
   const overdue = days < 0;
   const urgent = isUrgentRenewal(days);
   const near = days <= RENEWAL_WINDOW_DAYS;
