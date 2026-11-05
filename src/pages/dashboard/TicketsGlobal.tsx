@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { FolderKanban, Search, TicketCheck } from "lucide-react";
 
 import { EmptyState } from "@/components/admin/EmptyState";
@@ -34,6 +34,23 @@ export default function TicketsGlobal() {
   const { user, userType } = useAuth();
   const isCollaborator = userType === 1;
   const narrow = useNarrowViewport();
+  // /dashboard/tickets?ticket=<id> abre el cajón de ese ticket (enlace directo y recarga). Solo se abre si el id está
+  // entre los tickets que esta sesión ya pudo cargar; si no, se ignora y se quita de la dirección.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const ticketParam = searchParams.get("ticket");
+  const setTicketParam = useCallback(
+    (id: string | null) =>
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (id) next.set("ticket", id);
+          else next.delete("ticket");
+          return next;
+        },
+        { replace: true },
+      ),
+    [setSearchParams],
+  );
 
   const [tickets, setTickets] = useState<ListTicket[]>([]);
   const [state, setState] = useState<LoadState>("loading");
@@ -114,7 +131,23 @@ export default function TicketsGlobal() {
   const open = (t: ListTicket) => {
     setSelected(t);
     setDrawerOpen(true);
+    setTicketParam(t.id);
   };
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setTicketParam(null);
+  };
+
+  useEffect(() => {
+    if (state !== "ready" || !ticketParam) return;
+    const found = tickets.find((t) => t.id === ticketParam);
+    if (!found) {
+      setTicketParam(null);
+      return;
+    }
+    setSelected((s) => (s?.id === found.id ? s : found));
+    setDrawerOpen(true);
+  }, [state, ticketParam, tickets, setTicketParam]);
 
   let body;
   if (loading) {
@@ -253,7 +286,7 @@ export default function TicketsGlobal() {
       <TicketDrawer
         ticket={selected}
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={closeDrawer}
         onUpdated={(u?: Ticket) => {
           // Optimista: se inserta el ticket modificado en la lista y en la selección para que la tabla refleje el
           // cambio al instante, sin volver a pedir datos. Sin parche (p. ej. tras convertir en proyecto) se
