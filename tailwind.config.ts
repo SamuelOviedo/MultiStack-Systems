@@ -52,6 +52,9 @@ export default {
           DEFAULT:    "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        // Panel de administración (valores inertes fuera del ámbito `.erp`)
+        info:        "hsl(var(--info))",
+        subtle:      "hsl(var(--subtle))",
         popover: {
           DEFAULT:    "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",

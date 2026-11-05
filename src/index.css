@@ -1622,3 +1622,222 @@
     transform: none;
   }
 }
+
+/* ==========================================================================
+   Panel de administración · tokens con ámbito `.erp`
+   --------------------------------------------------------------------------
+   Bloque AÑADIDO al final: no edita `:root`, `.dark`, las reglas de elementos
+   ni los radios de Tailwind (los usan la landing, el login y el portal).
+   - Todo cambio de valor vive bajo `.erp` (claro) y `.dark .erp` (oscuro).
+     Cada token declarado en `.erp` se repite en `.dark .erp`; si no, el valor
+     claro se filtraría al tema oscuro.
+   - `--info` y `--subtle` también se declaran en `:root`/`.dark` con valores
+     inertes (los actuales de `primary` y `card-muted`) para que
+     `bg-info`/`bg-subtle` no resuelvan a vacío fuera del ámbito.
+   - Identidad corporativa oficial (aprobada por el propietario): azul medianoche #080D13, teal #137590,
+     teal luminoso #068DB3 y blanco. Acento por defecto = teal de marca; opción jade:
+     `<div class="erp" data-accent="jade">`.
+   - Tipografía: Poppins en títulos y navegación, Inter en el resto y en las cifras (tabulares). Las
+     @font-face viven en src/assets/fonts/erp-fonts.css, que importa el chunk del administrador.
+   - Los contrastes de estos pares los verifica src/test/erp-tokens.test.ts y erp-brand-tokens.test.ts.
+   - Los menús de Radix se renderizan en un portal fuera de `.erp`; el shell
+     debe pasar su contenedor con <PortalContainerProvider> (ver ui/).
+   ========================================================================== */
+@layer base {
+  :root {
+    --info: 200 98% 39%;
+    --subtle: 40 11% 96%;
+  }
+
+  .dark {
+    --info: 199 89% 48%;
+    --subtle: 218 56% 14%;
+  }
+
+  .erp {
+    /* Superficies. Fondo #F9FAFB y tarjeta #FFFFFF aprobados; el resto, del matiz 213 en los mismos escalones de
+       luminosidad de antes (96 %). */
+    --background: 210 20% 98%;
+    --card: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --card-muted: 213 20% 96%;
+    --subtle: 213 20% 96%;
+    --secondary: 213 20% 96%;
+    --muted: 213 20% 96%;
+
+    /* Texto: principal = azul medianoche #080D13; atenuado #4E5A6A (6,4:1 sobre la superficie más gris). El texto de
+       párrafo (--body-foreground) pasa a la tinta principal: antes era un gris cálido del matiz 35. */
+    --foreground: 212.7 40.7% 5.3%;
+    --card-foreground: 212.7 40.7% 5.3%;
+    --popover-foreground: 212.7 40.7% 5.3%;
+    --secondary-foreground: 212.7 40.7% 5.3%;
+    --body-foreground: 212.7 40.7% 5.3%;
+    --muted-foreground: 214 15% 36%;
+
+    /* Divisores y tarjetas: #DAE0E7 (decorativo). Bordes de CONTROL (inputs, selects, textarea, botón outline):
+       #7F8D9F, matiz 213, >= 3:1 (WCAG 1.4.11) sobre fondo, tarjeta, popover, subtle y muted. */
+    --border: 212 21% 88%;
+    --input: 213 14% 56%;
+
+    /* Superficie sutil de hover (botones outline/ghost): matiz 213, un escalón bajo `--muted`; la tinta principal
+       encima da 17:1. Antes caía al cian de :root (blanco sobre cian 3,8:1). */
+    --accent: 213 20% 94%;
+    --accent-foreground: 212.7 40.7% 5.3%;
+
+    /* Fila seleccionada de la tabla de tickets: sólida (la columna fija no puede ser translúcida). Mismo valor que
+       `--muted`: todas las insignias de estado dan >= 4,5:1 encima. */
+    --row-selected: 213 20% 96%;
+
+    /* Acento de marca: teal #137590 con texto blanco (5,3:1); hover #10677E (texto blanco 6,5:1; lo aplica la regla
+       `[class~="hover:bg-primary/90"]` de abajo). Anillo de foco = el mismo teal (>= 4,8:1 sobre todas las
+       superficies; con #068DB3 quedaba en 3,5:1). `--link` (texto `text-primary`) = el teal: >= 4,8:1 sobre todas
+       las superficies. Antes: azul cielo 200 98% 33%, que solo alcanzaba AA. Solo dentro del ámbito: landing, login y portal
+       siguen con :root. */
+    --primary: 193 77% 32%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 193 77% 28%;
+    --link: 193 77% 32%;
+    --ring: 193 77% 32%;
+
+    /* Degradado de marca (teal -> teal luminoso). Solo definido: ningún componente lo usa todavía. */
+    --brand-gradient: linear-gradient(135deg, hsl(193 77% 32%), hsl(193.2 93.5% 36.3%));
+
+    /* Estado: oscurecidos en claro para que la píldora (texto sobre su tinte al 10 %) pase AA a 12 px.
+       `--info` se deriva del teal de marca, un escalón más oscuro (30 %) para que la píldora pase AA sobre `--subtle`. */
+    --success: 160 84% 24%;
+    --warning: 32 95% 31%;
+    --destructive: 0 72% 44%;
+    --info: 193 77% 30%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Sombra de tarjeta: dos capas casi invisibles, sin degradado (tinte azul medianoche) */
+    --shadow-card: 0 1px 2px 0 hsl(213 41% 6% / 0.04), 0 1px 1px 0 hsl(213 41% 6% / 0.03);
+
+    font-size: 14px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+    /* Inter para la interfaz y las cifras. Los encabezados y la navegación pasan a Poppins más abajo. */
+    font-family: "Inter", system-ui, sans-serif;
+  }
+
+  /* La regla global de `p` fija 15 px; dentro del panel la base es 14 px.
+     `:where()` deja la regla con la especificidad de `p` (0,0,1): Tailwind v3 no usa capas CSS nativas, y con
+     `.erp p` (0,1,1) ganaba a `text-2xl`, `text-xs`… en cada <p> del panel (la cifra de un KpiTile salía a 14 px). */
+  :where(.erp) p {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  /* Títulos y navegación en Poppins. `.erp :is(h1…h6)` (0,1,1) gana por especificidad a la regla global de
+     `h1…h6` (0,0,1, Sora) sin tocarla. La navegación lateral es `nav[aria-label="Principal"]`; las migas y el resto
+     de los `nav` quedan en Inter. */
+  .erp :is(h1, h2, h3, h4, h5, h6),
+  .erp nav[aria-label="Principal"] {
+    font-family: "Poppins", system-ui, sans-serif;
+  }
+
+  /* Poppins no tiene cifras tabulares: todo lo marcado `.tabular` (contadores de la navegación, columnas,
+     KPI dentro de un encabezado) se queda en Inter aunque su contenedor sea Poppins. */
+  .erp .tabular {
+    font-family: "Inter", system-ui, sans-serif;
+  }
+
+  /* Hover del botón primario. button.tsx (compartido con login, portal y landing) usa `hover:bg-primary/90`, que
+     con el teal oficial mezcla con el fondo y da 4,38:1 (claro) y 4,30:1 (oscuro). Dentro del ámbito, el atributo
+     `class` con esa utilidad pasa a `--primary-hover` (6,5:1 claro, 6,6:1 oscuro). Especificidad (0,5,0) contra
+     (0,2,0) de la utilidad; un botón deshabilitado conserva su relleno. */
+  .erp [class~="hover:bg-primary/90"]:hover:not(:disabled):not([aria-disabled="true"]) {
+    background-color: hsl(var(--primary-hover));
+  }
+
+  .dark .erp {
+    --background: 212.7 40.7% 5.3%;
+    --card: 212 37% 8%;
+    --popover: 212 37% 8%;
+    --card-muted: 212 37% 8%;
+    --subtle: 213 38% 7%;
+    --secondary: 213 30% 14%;
+    --muted: 213 30% 14%;
+
+    /* Texto principal #EFF2F5; atenuado #96A2B0 */
+    --foreground: 210 23% 95%;
+    --card-foreground: 210 23% 95%;
+    --popover-foreground: 210 23% 95%;
+    --secondary-foreground: 210 23% 95%;
+    --body-foreground: 210 23% 95%;
+    --muted-foreground: 212 14% 64%;
+
+    /* Teal luminoso #068DB3 con texto medianoche; hover #1FA3C8. El mismo teal como TEXTO sobre `--muted` sólido
+       daba 4,15:1: `--link` (#079BC5, mismo matiz y saturación, +3,7 de luminosidad) llega a >= 4,67:1 sobre fondo,
+       tarjeta, subtle, muted, filas con hover y la superficie de hover. Solo se aplica a texto (`.text-primary`). */
+    --primary: 193.2 93.5% 36.3%;
+    --primary-foreground: 212.7 40.7% 5.3%;
+    --primary-hover: 193.1 73.2% 45.3%;
+    --link: 193.2 93.5% 40%;
+    --ring: 193.2 93.5% 36.3%;
+    --brand-gradient: linear-gradient(135deg, hsl(193 77% 32%), hsl(193.2 93.5% 36.3%));
+
+    /* Divisores y tarjetas #1F2A37 (opaco). Bordes de control #586779, matiz 213, >= 3:1 sobre fondo, tarjeta,
+       popover y subtle (sobre `--muted` sólido queda en 2,75:1: ningún control se apoya en esa superficie). */
+    --border: 213 28% 17%;
+    --input: 213 16% 41%;
+
+    /* Hover de outline/ghost: un escalón sobre `--muted`, tinta principal encima (13:1) */
+    --accent: 213 30% 16%;
+    --accent-foreground: 210 23% 95%;
+
+    /* Fila seleccionada de tickets (sólida): `--muted` (L 14 %) dejaba la insignia roja en 4,22:1; con L 10,5 % da 4,64:1 */
+    --row-selected: 213 30% 10.5%;
+
+    --success: 158 84% 39%;
+    --warning: 38 92% 50%;
+    --destructive: 0 84% 63%;
+    /* Teal aclarado #1DC0ED: el luminoso no alcanza AA como texto sobre su tinte */
+    --info: 193 85% 52%;
+    /* Rojo aclarado para AA como texto sobre su tinte; el texto de un relleno rojo pasa a tinta oscura */
+    --destructive-foreground: 217 14% 6%;
+
+    --shadow-card: 0 1px 2px 0 hsl(0 0% 0% / 0.4), inset 0 1px 0 0 hsl(0 0% 100% / 0.03);
+  }
+
+  /* Enlaces y texto de acento en oscuro: `--link` en lugar de `--primary`. Solo color de texto (los rellenos
+     `bg-primary` y los bordes no cambian). En claro `--link` = `--primary`, así que no hace falta regla. */
+  .dark .erp .text-primary {
+    color: hsl(var(--link));
+  }
+
+  /* Acento opcional: jade de Lovable (ya convertido a HSL) */
+  .erp[data-accent="jade"] {
+    --primary: 166 100% 24%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 166 100% 21%;
+    --link: 166 100% 24%;
+    --ring: 166 100% 24%;
+    --sidebar-primary: 166 100% 24%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 166 100% 24%;
+  }
+
+  .dark .erp[data-accent="jade"] {
+    --primary: 162 53% 56%;
+    --primary-foreground: 217 14% 6%;
+    --primary-hover: 162 53% 62%;
+    --link: 162 53% 56%;
+    --ring: 162 53% 56%;
+    --sidebar-primary: 162 53% 56%;
+    --sidebar-primary-foreground: 217 14% 6%;
+    --sidebar-ring: 162 53% 56%;
+  }
+}
+
+@layer utilities {
+  /* Tarjeta en reposo: sombra del ámbito (sin valor fuera de `.erp`) */
+  .shadow-card {
+    box-shadow: var(--shadow-card, none);
+  }
+
+  /* Cifras de ancho fijo para columnas y KPI */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
