@@ -3,8 +3,8 @@ import { Plus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Button } from "@/components/ui/button";
-import NewProjectModal from "@/components/dashboard/dashboard-home/NewProjectModal";
-import ProjectScopingModal from "@/components/dashboard/requests/ProjectScopingModal";
+import { LazyNewProjectModal, LazyProjectScopingModal } from "@/components/dashboard/dashboard-home/LazyModals";
+import { preloadNewProjectModal, useLazyModal } from "@/components/dashboard/dashboard-home/modalLoaders";
 import DashboardStats from "@/components/dashboard/dashboard-home/DashboardStats";
 import AlertsPanel from "@/components/dashboard/dashboard-home/AlertsPanel";
 import RecentProjects from "@/components/dashboard/dashboard-home/RecentProjects";
@@ -25,8 +25,9 @@ import { type Ticket } from "@/types/tickets";
 export default function Dashboard() {
   const { userType } = useAuth();
   const isAdmin = userType === 0;
-  const [showModal, setShowModal] = useState(false);
+  const newProject = useLazyModal();
   const [scopingTicket, setScopingTicket] = useState<Ticket | null>(null);
+  const [scopingArmed, setScopingArmed] = useState(false);
 
   const overview = useProjectsOverview();
   const renewals = useUpcomingRenewals();
@@ -50,7 +51,13 @@ export default function Dashboard() {
         title="Resumen"
         description="El estado de tus proyectos y lo que necesita atención hoy."
         actions={
-          <Button type="button" size="sm" onClick={() => setShowModal(true)}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={newProject.show}
+            onPointerEnter={preloadNewProjectModal}
+            onFocus={preloadNewProjectModal}
+          >
             <Plus aria-hidden="true" />
             Nuevo proyecto
           </Button>
@@ -76,7 +83,10 @@ export default function Dashboard() {
               void renewals.refetch();
               if (isAdmin) void requests.refetch();
             }}
-            onSelectRequest={setScopingTicket}
+            onSelectRequest={(ticket) => {
+              setScopingArmed(true);
+              setScopingTicket(ticket);
+            }}
           />
           <RecentProjects
             projects={overview.data?.projects}
@@ -84,7 +94,7 @@ export default function Dashboard() {
             loading={overview.isPending}
             error={overview.isError ? loadErrorMessage(overview.error, "los proyectos") : undefined}
             onRetry={() => void overview.refetch()}
-            onNewProject={() => setShowModal(true)}
+            onNewProject={newProject.show}
           />
         </div>
         <div className="min-w-0 space-y-6">
@@ -104,11 +114,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <NewProjectModal open={showModal} onClose={() => setShowModal(false)} onCreated={refresh} />
+      <LazyNewProjectModal armed={newProject.armed} open={newProject.open} onClose={newProject.hide} onCreated={refresh} />
 
       {/* Confirmar, completar y guardar un proyecto a partir de una solicitud.
           Si sale bien, el propio modal navega al detalle del proyecto nuevo. */}
-      <ProjectScopingModal
+      <LazyProjectScopingModal
+        armed={scopingArmed}
         ticket={scopingTicket}
         open={!!scopingTicket}
         onClose={() => setScopingTicket(null)}

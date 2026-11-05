@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import NewProjectModal from "@/components/dashboard/dashboard-home/NewProjectModal";
+import { LazyNewProjectModal } from "@/components/dashboard/dashboard-home/LazyModals";
+import { preloadNewProjectModal, useLazyModal } from "@/components/dashboard/dashboard-home/modalLoaders";
 import ProjectCard from "@/components/dashboard/dashboard-home/ProjectCard";
 import { loadErrorMessage } from "@/components/dashboard/dashboard-home/loadErrors";
 import {
@@ -33,7 +34,7 @@ const countLabel = (n: number): string => (n === 1 ? "1 proyecto" : `${n} proyec
  */
 export default function ProjectsList() {
   const overview = useProjectsOverview();
-  const [showModal, setShowModal] = useState(false);
+  const newProject = useLazyModal();
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<StatusGroup>("todos");
 
@@ -77,7 +78,7 @@ export default function ProjectsList() {
         title="Aún no hay proyectos"
         description="Crea el primero para empezar a seguir su avance."
         action={
-          <Button type="button" size="sm" onClick={() => setShowModal(true)}>
+          <Button type="button" size="sm" onClick={newProject.show} onPointerEnter={preloadNewProjectModal} onFocus={preloadNewProjectModal}>
             <Plus aria-hidden="true" />
             Nuevo proyecto
           </Button>
@@ -118,7 +119,7 @@ export default function ProjectsList() {
         title="Proyectos"
         description="Todos los proyectos, con su estado y su avance por etapas."
         actions={
-          <Button type="button" size="sm" onClick={() => setShowModal(true)}>
+          <Button type="button" size="sm" onClick={newProject.show} onPointerEnter={preloadNewProjectModal} onFocus={preloadNewProjectModal}>
             <Plus aria-hidden="true" />
             Nuevo proyecto
           </Button>
@@ -173,7 +174,12 @@ export default function ProjectsList() {
 
       {body}
 
-      <NewProjectModal open={showModal} onClose={() => setShowModal(false)} onCreated={() => void overview.refetch()} />
+      <LazyNewProjectModal
+        armed={newProject.armed}
+        open={newProject.open}
+        onClose={newProject.hide}
+        onCreated={() => void overview.refetch()}
+      />
     </div>
   );
 }

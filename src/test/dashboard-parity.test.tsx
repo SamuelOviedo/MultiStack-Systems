@@ -6,6 +6,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import appSource from "@/App.tsx?raw";
 import protectedRouteSource from "@/components/common/ProtectedRoute.tsx?raw";
+import dashboardSource from "@/pages/dashboard/Dashboard.tsx?raw";
+import projectsListSource from "@/pages/dashboard/ProjectsList.tsx?raw";
 
 const WAIT = { timeout: 15000 };
 vi.setConfig({ testTimeout: 30000 });
@@ -434,5 +436,27 @@ describe("enlaces y destinos antiguos siguen llevando a páginas válidas", () =
   it("el acceso de siempre (login, callback, recuperación) sigue enviando a /dashboard, que existe y es el Resumen", () => {
     // No se renderizan: se comprueba el destino en el código y que la ruta existe.
     expect(routeBlocks()["/dashboard"]).toContain("<Dashboard />");
+  });
+});
+
+describe("los modales viajan aparte: no pesan en la primera carga de la pantalla", () => {
+  it("el Resumen y la lista no importan los modales de forma estática (se piden al abrirlos o al apuntar al botón)", () => {
+    for (const [name, src] of Object.entries({ dashboardSource, projectsListSource })) {
+      expect(src, name).not.toContain('dashboard-home/NewProjectModal"');
+      expect(src, name).not.toContain('requests/ProjectScopingModal"');
+      expect(src, name).toContain("LazyNewProjectModal");
+    }
+    expect(dashboardSource).toContain("LazyProjectScopingModal");
+  });
+
+  it("hasta que alguien lo abre no hay ningún diálogo ni se pide el equipo; al abrirlo aparece el de siempre", async () => {
+    signIn(0);
+    goTo("/dashboard");
+    const main = await screen.findByRole("main", {}, WAIT);
+    await within(main).findAllByText("Tienda Demo", {}, WAIT);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(libs.getTeamMembers).not.toHaveBeenCalled();
+    fireEvent.click(within(main).getByRole("button", { name: "Nuevo proyecto" }));
+    expect(await screen.findByRole("dialog", { name: "Nuevo proyecto" }, WAIT)).toBeInTheDocument();
   });
 });
