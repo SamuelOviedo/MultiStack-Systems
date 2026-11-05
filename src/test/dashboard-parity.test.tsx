@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import appSource from "@/App.tsx?raw";
 import protectedRouteSource from "@/components/common/ProtectedRoute.tsx?raw";
+import preloadSource from "@/components/admin/preloadPanel.ts?raw";
 import dashboardSource from "@/pages/dashboard/Dashboard.tsx?raw";
 import projectsListSource from "@/pages/dashboard/ProjectsList.tsx?raw";
 
@@ -458,5 +459,19 @@ describe("los modales viajan aparte: no pesan en la primera carga de la pantalla
     expect(libs.getTeamMembers).not.toHaveBeenCalled();
     fireEvent.click(within(main).getByRole("button", { name: "Nuevo proyecto" }));
     expect(await screen.findByRole("dialog", { name: "Nuevo proyecto" }, WAIT)).toBeInTheDocument();
+  });
+});
+
+describe("visita directa al panel: el armazón y su primera página se piden a la vez", () => {
+  it("App lo dispara con la ruta actual y solo conoce las dos pantallas que usan el armazón desde la primera carga", async () => {
+    expect(appSource).toContain("preloadPanelForPath(window.location.pathname)");
+    expect(preloadSource).toContain('"/dashboard": () =>');
+    expect(preloadSource).toContain('"/dashboard/proyectos": () =>');
+    expect(preloadSource).not.toContain("/dashboard/tickets");
+    expect(preloadSource).not.toContain("/dashboard/project/");
+    const { preloadPanelForPath } = await import("@/components/admin/preloadPanel");
+    for (const path of ["/", "/login", "/dashboard/tickets", "/client/abc", "/dashboard/", "/dashboard/proyectos"]) {
+      expect(() => preloadPanelForPath(path), path).not.toThrow();
+    }
   });
 });

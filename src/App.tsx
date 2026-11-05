@@ -13,6 +13,7 @@ import RecoveryRedirect from "@/components/auth/RecoveryRedirect";
 
 // Pages cargadas al inicio (rutas públicas críticas — no se lazy-load)
 import Index from "./pages/marketing/Index.tsx";
+import { preloadPanelForPath } from "./components/admin/preloadPanel.ts";
 
 // Lazy-load: cada página genera su propio chunk
 // Armazón del panel del administrador: chunk propio, fuera de la entrada.
@@ -32,6 +33,9 @@ const PoliticaDePrivacidad  = lazy(() => import("./pages/legal/PoliticaDePrivaci
 const TerminosDelServicio   = lazy(() => import("./pages/legal/TerminosDelServicio.tsx"));
 const NotFound              = lazy(() => import("./pages/marketing/NotFound.tsx"));
 const PaginasWeb = lazy(() => import("./pages/marketing/PaginasWeb.tsx"));
+
+// Visita directa a /dashboard o /dashboard/proyectos: pide el armazón y la página a la vez (ver preloadPanel.ts).
+preloadPanelForPath(window.location.pathname);
 
 const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
