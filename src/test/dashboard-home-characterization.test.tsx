@@ -85,6 +85,7 @@ const ADAPTADOR = {
 };
 
 const dia = (iso: string) => new Date(iso).toLocaleDateString("es-HN");
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 const project = (id: string, nombre: string, estado: string, creado = "2026-10-15T15:00:00.000Z") => ({
   id,
   user_id: "u-admin",
@@ -314,7 +315,7 @@ describe("Inicio · solicitudes de proyecto pendientes (solo administrador)", ()
     expect(screen.getByText(ADAPTADOR.encabezadoSolicitudes).closest("div")).toHaveTextContent("2");
     expect(screen.getAllByText(/Cliente Demo/)).toHaveLength(2);
     expect(screen.getAllByText(/cliente@example\.test/)).toHaveLength(2);
-    expect(screen.getByText(new RegExp(dia("2026-10-30T15:00:00.000Z").replace(/\//g, "\\/")))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(escapeRegExp(dia("2026-10-30T15:00:00.000Z"))))).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: ADAPTADOR.botonConfirmar })).toHaveLength(2);
   });
 
