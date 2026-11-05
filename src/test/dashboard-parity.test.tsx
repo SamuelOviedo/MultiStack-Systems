@@ -468,11 +468,11 @@ describe("los modales viajan aparte: no pesan en la primera carga de la pantalla
 });
 
 describe("visita directa al panel: el armazón y su primera página se piden a la vez", () => {
-  it("App lo dispara con la ruta actual y solo conoce las dos pantallas que usan el armazón desde la primera carga", async () => {
+  it("App lo dispara con la ruta actual y solo conoce las pantallas que usan el armazón desde la primera carga", async () => {
     expect(appSource).toContain("preloadPanelForPath(window.location.pathname)");
     expect(preloadSource).toContain('"/dashboard": () =>');
     expect(preloadSource).toContain('"/dashboard/proyectos": () =>');
-    expect(preloadSource).not.toContain("/dashboard/tickets");
+    expect(preloadSource).toContain('"/dashboard/tickets": () =>');
     expect(preloadSource).not.toContain("/dashboard/project/");
     const { preloadPanelForPath } = await import("@/components/admin/preloadPanel");
     for (const path of ["/", "/login", "/dashboard/tickets", "/client/abc", "/dashboard/", "/dashboard/proyectos"]) {
@@ -482,8 +482,8 @@ describe("visita directa al panel: el armazón y su primera página se piden a l
 });
 
 describe("indicador de carga ligero del Resumen y la lista", () => {
-  it("App usa el indicador de solo texto únicamente en /dashboard y /dashboard/proyectos; las demás rutas conservan el de siempre", () => {
-    expect(appSource).toContain('new Set(["/dashboard", "/dashboard/proyectos"])');
+  it("App usa el indicador de solo texto únicamente en las pantallas con armazón; las demás rutas conservan el de siempre", () => {
+    expect(appSource).toContain('new Set(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"])');
     expect(appSource).toContain("<Suspense fallback={<RouteFallback />}>");
     expect(appSource).toContain("<PageLoader />");
   });
