@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useId, useState } from "react";
+import { Plus } from "lucide-react";
+
+import { actionErrorMessage } from "@/components/dashboard/dashboard-home/loadErrors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { createProjectTicket } from "@/lib/tickets";
@@ -14,17 +19,20 @@ export interface SubTicketFormProps {
   onCreated: () => void;
 }
 
+/** Límites de la base de datos: título ≤ 200 y descripción ≤ 10 000 caracteres. */
+const TITLE_MAX = 200;
+const DESCRIPTION_MAX = 10_000;
+
 /** Inline form to create a micro-ticket (task) scoped to the project. */
 export default function SubTicketForm({ projectId, onCreated }: SubTicketFormProps) {
   const { toast } = useToast();
+  const ids = { title: useId(), type: useId(), priority: useId(), detail: useId() };
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<TicketType>("modificacion");
   const [priority, setPriority] = useState<TicketPriority>("media");
   const [description, setDescription] = useState("");
-
-  const selectCls = "bg-background border border-border rounded px-2 py-1.5 font-mono text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary";
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +49,7 @@ export default function SubTicketForm({ projectId, onCreated }: SubTicketFormPro
       setOpen(false);
       onCreated();
     } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      toast({ title: "Error", description: actionErrorMessage(err, "crear el ticket del proyecto"), variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -49,43 +57,77 @@ export default function SubTicketForm({ projectId, onCreated }: SubTicketFormPro
 
   if (!open) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full mb-3 rounded-lg border border-dashed border-primary/30 px-4 py-2.5 font-mono text-[11px] text-primary hover:bg-primary/5 hover:border-primary/50 transition-colors text-left"
-      >
-        + nuevo ticket del proyecto
-      </button>
+      <Button type="button" variant="outline" onClick={() => setOpen(true)} className="mb-3 w-full justify-start border-dashed text-muted-foreground">
+        <Plus aria-hidden="true" />
+        Nuevo ticket
+      </Button>
     );
   }
 
   return (
-    <form onSubmit={handleCreate} className="mb-4 rounded-lg border border-primary/20 bg-background/40 p-4 space-y-3">
-      <Input value={title} onChange={e => setTitle(e.target.value)}
-        placeholder="Título del ticket (ej: diseño del módulo de pagos)"
-        className="bg-background border-border font-mono text-sm" autoFocus />
-      <div className="flex flex-wrap gap-2">
-        <select value={type} onChange={e => setType(e.target.value as TicketType)} className={selectCls}>
-          {Object.entries(TICKET_TYPE_LABELS).filter(([v]) => v !== "solicitud").map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
-        </select>
-        <select value={priority} onChange={e => setPriority(e.target.value as TicketPriority)} className={selectCls}>
-          {Object.entries(TICKET_PRIORITY_CONFIG).map(([v, c]) => (
-            <option key={v} value={v}>{c.label}</option>
-          ))}
-        </select>
+    <form
+      onSubmit={handleCreate}
+      aria-label="Nuevo ticket del proyecto"
+      className="mb-4 space-y-4 rounded-lg border bg-subtle p-4"
+    >
+      <div className="space-y-1.5">
+        <Label htmlFor={ids.title}>Título</Label>
+        <Input
+          id={ids.title}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={TITLE_MAX}
+          placeholder="Por ejemplo: diseño del módulo de pagos"
+          autoFocus
+        />
       </div>
-      <Textarea value={description} onChange={e => setDescription(e.target.value)}
-        rows={2} placeholder="Detalle opcional..." className="bg-background border-border font-mono text-xs resize-none" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor={ids.type}>Tipo</Label>
+          <Select value={type} onValueChange={(v) => setType(v as TicketType)}>
+            <SelectTrigger id={ids.type}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(TICKET_TYPE_LABELS).filter(([v]) => v !== "solicitud").map(([v, l]) => (
+                <SelectItem key={v} value={v}>{l}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={ids.priority}>Prioridad</Label>
+          <Select value={priority} onValueChange={(v) => setPriority(v as TicketPriority)}>
+            <SelectTrigger id={ids.priority}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(TICKET_PRIORITY_CONFIG).map(([v, c]) => (
+                <SelectItem key={v} value={v}>{c.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={ids.detail}>
+          Detalle <span className="font-normal text-muted-foreground">(opcional)</span>
+        </Label>
+        <Textarea
+          id={ids.detail}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          maxLength={DESCRIPTION_MAX}
+          rows={3}
+          className="resize-none"
+        />
+      </div>
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)} disabled={saving}
-          className="font-mono text-[10px] border-border">
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)} disabled={saving}>
           Cancelar
         </Button>
-        <Button type="submit" size="sm" disabled={saving || title.trim().length < 3}
-          className="font-display text-[10px] bg-primary text-primary-foreground hover:bg-primary/90">
-          {saving ? "Creando..." : "[ CREAR ]"}
+        <Button type="submit" size="sm" disabled={saving || title.trim().length < 3}>
+          {saving ? "Creando…" : "Crear ticket"}
         </Button>
       </div>
     </form>

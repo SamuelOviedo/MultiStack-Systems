@@ -1,11 +1,16 @@
 import { useState } from "react";
-import { createService } from "@/lib/projects";
-import { useToast } from "@/hooks/use-toast";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+
+import { actionErrorMessage } from "@/components/dashboard/dashboard-home/loadErrors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { createService } from "@/lib/projects";
 import type { ServiceType } from "@/types/projects";
+import Field from "./Field";
+import { FORM_SHEET_CLASS, OVERLAY_MOTION, useReturnFocus } from "./panelBehavior";
 
 interface Props {
   projectId: string;
@@ -24,32 +29,32 @@ const SERVICE_TYPES: { value: ServiceType; label: string }[] = [
 
 const PROVIDERS = ["Cloudflare", "Namecheap", "GoDaddy", "Vercel", "Render", "Railway", "Supabase", "DigitalOcean", "Otro"];
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="font-display text-xs text-muted-foreground mb-1.5 block">{label}:</label>
-      {children}
-    </div>
-  );
-}
+const EMPTY_FORM = {
+  service_type: "domain" as ServiceType,
+  provider: "",
+  name: "",
+  url: "",
+  cost_monthly: "",
+  cost_yearly: "",
+  currency: "USD",
+  renewal_date: "",
+  notes: "",
+};
+
+const Required = () => <span className="font-normal text-muted-foreground"> (obligatorio)</span>;
 
 export default function ServiceForm({ projectId, open, onClose, onSaved }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    service_type: "domain" as ServiceType,
-    provider: "",
-    name: "",
-    url: "",
-    cost_monthly: "",
-    cost_yearly: "",
-    currency: "USD",
-    renewal_date: "",
-    notes: "",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const focus = useReturnFocus();
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+  const set = <K extends keyof typeof EMPTY_FORM>(k: K) => (v: (typeof EMPTY_FORM)[K]) =>
+    setForm(f => ({ ...f, [k]: v }));
+  const onText = (k: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const canSave = !loading && !!form.provider && !!form.name;
 
   const handleSave = async () => {
     if (!form.provider || !form.name) return;
@@ -67,10 +72,12 @@ export default function ServiceForm({ projectId, open, onClose, onSaved }: Props
         notes: form.notes || null,
       });
       toast({ title: "Servicio agregado" });
+      // El formulario no se vuelve a abrir con los datos del servicio anterior.
+      setForm(EMPTY_FORM);
       onSaved();
       onClose();
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } catch (e) {
+      toast({ title: "No se pudo agregar el servicio", description: actionErrorMessage(e, "agregar servicio"), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -78,77 +85,107 @@ export default function ServiceForm({ projectId, open, onClose, onSaved }: Props
 
   return (
     <Sheet open={open} onOpenChange={v => !v && onClose()}>
-      <SheetContent className="bg-card border-border w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader className="mb-6">
-          <SheetTitle className="font-display text-sm text-foreground">
-            <span className="text-primary">+ </span>Agregar Servicio Externo
-          </SheetTitle>
+      <SheetContent
+        closeLabel="Cerrar"
+        overlayClassName={OVERLAY_MOTION}
+        className={FORM_SHEET_CLASS}
+        onOpenAutoFocus={focus.onOpenAutoFocus}
+        onCloseAutoFocus={focus.onCloseAutoFocus}
+      >
+        <SheetHeader className="shrink-0 space-y-1 border-b px-6 pb-4 pt-6 pr-12 text-left">
+          <SheetTitle>Agregar servicio externo</SheetTitle>
+          <SheetDescription>Dominio, hosting, base de datos u otro servicio contratado para este proyecto.</SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-3">
-          <FieldRow label="tipo">
-            <select value={form.service_type} onChange={set("service_type")}
-              className="w-full rounded-md border border-border bg-background font-mono text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
-              {SERVICE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </FieldRow>
+        <form
+          noValidate
+          className="flex min-h-0 flex-1 flex-col"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (canSave) void handleSave();
+          }}
+        >
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+            <Field label="Tipo">
+              {(c) => (
+                <Select value={form.service_type} onValueChange={(v) => set("service_type")(v as ServiceType)}>
+                  <SelectTrigger id={c.id}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SERVICE_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            </Field>
 
-          <FieldRow label="proveedor *">
-            <select value={form.provider} onChange={set("provider")}
-              className="w-full rounded-md border border-border bg-background font-mono text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
-              <option value="">Seleccionar...</option>
-              {PROVIDERS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </FieldRow>
+            <Field label={<>Proveedor<Required /></>}>
+              {(c) => (
+                <Select value={form.provider} onValueChange={set("provider")}>
+                  <SelectTrigger id={c.id} aria-required="true">
+                    <SelectValue placeholder="Elige un proveedor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROVIDERS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            </Field>
 
-          <FieldRow label="nombre *">
-            <Input value={form.name} onChange={set("name")} placeholder="confeccionesmatys.com"
-              className="bg-background border-border font-mono text-sm" />
-          </FieldRow>
+            <Field label={<>Nombre<Required /></>} hint="Por ejemplo, el dominio o el nombre del plan.">
+              {(c) => <Input {...c} aria-required="true" value={form.name} onChange={onText("name")} />}
+            </Field>
 
-          <FieldRow label="url">
-            <Input value={form.url} onChange={set("url")} placeholder="https://..."
-              className="bg-background border-border font-mono text-sm" />
-          </FieldRow>
+            <Field label="URL">
+              {(c) => <Input {...c} type="url" inputMode="url" value={form.url} onChange={onText("url")} placeholder="https://…" />}
+            </Field>
 
-          <div className="grid grid-cols-3 gap-2">
-            <FieldRow label="costo_mensual">
-              <Input type="number" value={form.cost_monthly} onChange={set("cost_monthly")} placeholder="0.00"
-                className="bg-background border-border font-mono text-sm" />
-            </FieldRow>
-            <FieldRow label="costo_anual">
-              <Input type="number" value={form.cost_yearly} onChange={set("cost_yearly")} placeholder="0.00"
-                className="bg-background border-border font-mono text-sm" />
-            </FieldRow>
-            <FieldRow label="moneda">
-              <select value={form.currency} onChange={set("currency")}
-                className="w-full rounded-md border border-border bg-background font-mono text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
-                <option>USD</option>
-                <option>HNL</option>
-              </select>
-            </FieldRow>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="Costo mensual">
+                {(c) => (
+                  <Input {...c} type="number" inputMode="decimal" step="0.01" min="0" value={form.cost_monthly}
+                    onChange={onText("cost_monthly")} placeholder="0.00" />
+                )}
+              </Field>
+              <Field label="Costo anual">
+                {(c) => (
+                  <Input {...c} type="number" inputMode="decimal" step="0.01" min="0" value={form.cost_yearly}
+                    onChange={onText("cost_yearly")} placeholder="0.00" />
+                )}
+              </Field>
+              <Field label="Moneda">
+                {(c) => (
+                  <Select value={form.currency} onValueChange={set("currency")}>
+                    <SelectTrigger id={c.id}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="HNL">HNL</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
+            </div>
+
+            <Field label="Fecha de renovación">
+              {(c) => <Input {...c} type="date" value={form.renewal_date} onChange={onText("renewal_date")} />}
+            </Field>
+
+            <Field label="Notas">
+              {(c) => <Textarea {...c} rows={2} className="resize-none" value={form.notes} onChange={onText("notes")} />}
+            </Field>
           </div>
 
-          <FieldRow label="fecha_renovacion">
-            <Input type="date" value={form.renewal_date} onChange={set("renewal_date")}
-              className="bg-background border-border font-mono text-sm" />
-          </FieldRow>
-
-          <FieldRow label="notas">
-            <Textarea value={form.notes} onChange={set("notes")}
-              className="bg-background border-border font-mono text-sm resize-none" rows={2} />
-          </FieldRow>
-
-          <div className="flex gap-2 pt-4 border-t border-border">
-            <Button onClick={handleSave} disabled={loading || !form.provider || !form.name} size="sm"
-              className="font-display text-xs bg-primary text-primary-foreground hover:bg-primary/90">
-              {loading ? "Guardando..." : "[ GUARDAR ]"}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={onClose} className="font-display text-xs">
+          <div className="flex shrink-0 justify-end gap-2 border-t px-6 py-4">
+            <Button type="button" variant="outline" size="sm" onClick={onClose}>
               Cancelar
             </Button>
+            <Button type="submit" size="sm" disabled={!canSave}>
+              {loading ? "Guardando…" : "Guardar servicio"}
+            </Button>
           </div>
-        </div>
+        </form>
       </SheetContent>
     </Sheet>
   );

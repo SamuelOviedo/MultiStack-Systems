@@ -1,9 +1,14 @@
-import { memo } from "react";
-import { X, Save, Edit2, User, Mail, Phone, FileText, ExternalLink } from "lucide-react";
+import { memo, type ReactNode } from "react";
+import { ExternalLink, Pencil } from "lucide-react";
+
+import { Panel } from "@/components/admin/Panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { STATUS_CONFIG, type Project, type ProjectStatus } from "@/types/projects";
+import type { Project, ProjectStatus } from "@/types/projects";
+import Field from "./Field";
+import { formatInstantDay } from "./format";
 
 /** Editable fields for the project identity card. */
 export interface ProjectEditForm {
@@ -26,14 +31,6 @@ const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
   { value: "cancelado",     label: "Cancelado" },
 ];
 
-const STATUS_DOT: Record<string, string> = {
-  activo:        "bg-success animate-pulse",
-  en_desarrollo: "bg-primary",
-  en_despliegue: "bg-accent",
-  pausado:       "bg-warning",
-  cancelado:     "bg-destructive",
-};
-
 export interface ProjectIdentityCardProps {
   project: Project;
   editing: boolean;
@@ -45,158 +42,167 @@ export interface ProjectIdentityCardProps {
   saving: boolean;
 }
 
-/** Header card: status, name, description, client contact + requirements doc. */
+function Item({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
+  return (
+    <div className={wide ? "sm:col-span-2" : undefined}>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 break-words text-sm">{children}</dd>
+    </div>
+  );
+}
+
+const Missing = ({ children = "No registrado" }: { children?: string }) => <span className="text-muted-foreground">{children}</span>;
+
+/**
+ * Datos del proyecto y del cliente como lista de definición; el botón «Editar proyecto» convierte la tarjeta en
+ * un formulario con etiquetas visibles. El nombre y el estado también salen en la cabecera de la página.
+ */
 function ProjectIdentityCard({
   project, editing, editForm, setEditForm,
   onStartEdit, onSaveEdit, onCancelEdit, saving,
 }: ProjectIdentityCardProps) {
-  const cfg = STATUS_CONFIG[project.estado] ?? STATUS_CONFIG.en_analisis;
+  const noClient = !project.client_name && !project.client_email && !project.client_phone;
+
+  if (editing) {
+    return (
+      <Panel title="Editar proyecto" description="Los cambios se aplican al guardar.">
+        <form
+          noValidate
+          aria-label="Editar proyecto"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!saving) onSaveEdit();
+          }}
+          className="space-y-5"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Nombre del proyecto" className="sm:col-span-2">
+              {(c) => (
+                <Input {...c} value={editForm.nombre_proyecto}
+                  onChange={(e) => setEditForm((f) => ({ ...f, nombre_proyecto: e.target.value }))} />
+              )}
+            </Field>
+            <Field label="Estado">
+              {(c) => (
+                <Select value={editForm.estado} onValueChange={(v) => setEditForm((f) => ({ ...f, estado: v as ProjectStatus }))}>
+                  <SelectTrigger id={c.id}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            </Field>
+            <Field label="Documento de requerimientos" hint="Enlace al documento (https://…).">
+              {(c) => (
+                <Input {...c} type="url" inputMode="url" placeholder="https://docs.google.com/document/d/…" value={editForm.google_docs_requirements_url}
+                  onChange={(e) => setEditForm((f) => ({ ...f, google_docs_requirements_url: e.target.value }))} />
+              )}
+            </Field>
+            <Field label="Descripción" className="sm:col-span-2">
+              {(c) => (
+                <Textarea {...c} rows={3} className="resize-none" placeholder="Descripción del proyecto" value={editForm.descripcion}
+                  onChange={(e) => setEditForm((f) => ({ ...f, descripcion: e.target.value }))} />
+              )}
+            </Field>
+          </div>
+
+          <fieldset className="space-y-3 border-t pt-4">
+            <legend className="text-sm font-medium">Datos del cliente</legend>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Nombre del cliente">
+                {(c) => (
+                  <Input {...c} autoComplete="off" value={editForm.client_name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, client_name: e.target.value }))} />
+                )}
+              </Field>
+              <Field label="Correo del cliente">
+                {(c) => (
+                  <Input {...c} inputMode="email" autoComplete="off" value={editForm.client_email}
+                    onChange={(e) => setEditForm((f) => ({ ...f, client_email: e.target.value }))} />
+                )}
+              </Field>
+              <Field label="Teléfono del cliente">
+                {(c) => (
+                  <Input {...c} type="tel" inputMode="tel" autoComplete="off" value={editForm.client_phone}
+                    onChange={(e) => setEditForm((f) => ({ ...f, client_phone: e.target.value }))} />
+                )}
+              </Field>
+            </div>
+          </fieldset>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onCancelEdit} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" size="sm" disabled={saving}>
+              {saving ? "Guardando…" : "Guardar cambios"}
+            </Button>
+          </div>
+        </form>
+      </Panel>
+    );
+  }
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <div className="px-6 pt-5 pb-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-3">
-              {editing ? (
-                <select
-                  value={editForm.estado}
-                  onChange={e => setEditForm(f => ({ ...f, estado: e.target.value as ProjectStatus }))}
-                  className="rounded-md border border-border bg-background font-mono text-xs text-foreground px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              ) : (
-                <span className={`inline-flex items-center gap-1.5 font-mono text-[10px] px-2.5 py-1 rounded-md border ${cfg.color}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[project.estado] ?? "bg-primary"}`} />
-                  {cfg.label.toUpperCase()}
-                </span>
-              )}
-            </div>
-
-            {editing ? (
-              <Input
-                value={editForm.nombre_proyecto}
-                onChange={e => setEditForm(f => ({ ...f, nombre_proyecto: e.target.value }))}
-                className="bg-background border-border font-display text-xl font-bold"
-              />
-            ) : (
-              <h1 className="font-display text-2xl font-bold text-foreground tracking-tight">
-                {project.nombre_proyecto}
-              </h1>
-            )}
-
-            {editing ? (
-              <Textarea
-                value={editForm.descripcion}
-                onChange={e => setEditForm(f => ({ ...f, descripcion: e.target.value }))}
-                className="bg-background border-border font-mono text-sm resize-none mt-3"
-                rows={2}
-                placeholder="Descripción del proyecto..."
-              />
-            ) : project.descripcion ? (
-              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{project.descripcion}</p>
-            ) : null}
-          </div>
-
-          <div className="shrink-0">
-            {editing ? (
-              <div className="flex gap-2">
-                <Button onClick={onSaveEdit} disabled={saving} size="sm"
-                  className="font-display text-xs bg-primary text-primary-foreground hover:bg-primary/90">
-                  <Save className="h-3.5 w-3.5 mr-1" />
-                  {saving ? "..." : "Guardar"}
-                </Button>
-                <Button onClick={onCancelEdit} variant="outline" size="sm" className="font-display text-xs">
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ) : (
-              <Button onClick={onStartEdit} variant="outline" size="sm"
-                className="font-display text-xs border-border hover:border-primary/40 hover:bg-primary/5">
-                <Edit2 className="h-3.5 w-3.5 mr-1.5" />
-                Editar
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Client bar */}
-      <div className="border-t border-border bg-primary/[0.02] px-6 py-3">
-        {editing ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {([["client_name", "Nombre", User], ["client_email", "Email", Mail], ["client_phone", "Teléfono", Phone]] as const).map(([k, label, Icon]) => (
-              <div key={k} className="flex items-center gap-2">
-                <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <Input
-                  value={editForm[k]}
-                  onChange={e => setEditForm(f => ({ ...f, [k]: e.target.value }))}
-                  placeholder={label}
-                  className="bg-background border-border font-mono text-xs h-8"
-                />
-              </div>
-            ))}
-          </div>
+    <Panel
+      title="Datos del proyecto"
+      actions={
+        <Button type="button" variant="outline" size="sm" onClick={onStartEdit}>
+          <Pencil aria-hidden="true" />
+          Editar proyecto
+        </Button>
+      }
+    >
+      <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+        <Item label="Descripción" wide>
+          {project.descripcion ? <span className="whitespace-pre-line">{project.descripcion}</span> : <Missing />}
+        </Item>
+        {noClient ? (
+          <Item label="Cliente" wide>
+            <Missing>Sin datos de cliente registrados</Missing>
+          </Item>
         ) : (
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
-            {project.client_name && (
-              <div className="flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5 text-primary" />
-                <span className="font-mono text-xs text-foreground font-medium">{project.client_name}</span>
-              </div>
-            )}
-            {project.client_email && (
-              <div className="flex items-center gap-1.5">
-                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-mono text-xs text-muted-foreground">{project.client_email}</span>
-              </div>
-            )}
-            {project.client_phone && (
-              <div className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-mono text-xs text-muted-foreground">{project.client_phone}</span>
-              </div>
-            )}
-            {!project.client_name && !project.client_email && !project.client_phone && (
-              <span className="text-xs text-muted-foreground italic font-mono">Sin datos de cliente registrados</span>
-            )}
-          </div>
+          <>
+            <Item label="Cliente">{project.client_name || <Missing />}</Item>
+            <Item label="Correo">
+              {project.client_email ? (
+                <a href={`mailto:${project.client_email}`} className="rounded-sm underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  {project.client_email}
+                </a>
+              ) : <Missing />}
+            </Item>
+            <Item label="Teléfono">
+              {project.client_phone ? (
+                <a href={`tel:${project.client_phone.replace(/[^\d+]/g, "")}`} className="rounded-sm underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  {project.client_phone}
+                </a>
+              ) : <Missing />}
+            </Item>
+          </>
         )}
-      </div>
-
-      {/* Google Docs requirements link */}
-      <div className="border-t border-border px-6 py-3">
-        {editing ? (
-          <div className="flex items-center gap-2">
-            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <Input
-              type="url"
-              value={editForm.google_docs_requirements_url}
-              onChange={e => setEditForm(f => ({ ...f, google_docs_requirements_url: e.target.value }))}
-              placeholder="https://docs.google.com/document/d/..."
-              className="bg-background border-border font-mono text-xs h-8"
-            />
-          </div>
-        ) : project.google_docs_requirements_url ? (
-          <a
-            href={project.google_docs_requirements_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 font-mono text-xs text-primary hover:underline"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Documento de requerimientos
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
-            <FileText className="h-3.5 w-3.5" />
-            Sin documento de requerimientos vinculado
-          </span>
-        )}
-      </div>
-    </div>
+        <Item label="Documento de requerimientos">
+          {project.google_docs_requirements_url ? (
+            <a
+              href={project.google_docs_requirements_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Documento de requerimientos
+              <ExternalLink aria-hidden="true" className="size-3.5" />
+              <span className="sr-only">(se abre en otra pestaña)</span>
+            </a>
+          ) : (
+            <Missing>Sin documento de requerimientos vinculado</Missing>
+          )}
+        </Item>
+        <Item label="Creado">
+          <time dateTime={project.fecha_creacion}>{formatInstantDay(project.fecha_creacion)}</time>
+        </Item>
+      </dl>
+    </Panel>
   );
 }
 
