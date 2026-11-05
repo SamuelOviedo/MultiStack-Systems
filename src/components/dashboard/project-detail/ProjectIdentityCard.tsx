@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from "react";
+import { memo, useRef, useState, type ReactNode } from "react";
 import { ExternalLink, Pencil } from "lucide-react";
 
 import { Panel } from "@/components/admin/Panel";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { EXTERNAL_URL_ERROR, safeExternalUrl } from "@/lib/safeUrl";
 import type { Project, ProjectStatus } from "@/types/projects";
 import Field from "./Field";
 import { formatInstantDay } from "./format";
@@ -63,6 +64,16 @@ function ProjectIdentityCard({
 }: ProjectIdentityCardProps) {
   const noClient = !project.client_name && !project.client_email && !project.client_phone;
 
+  // El enlace solo se guarda si es http(s). Se recuerda el valor rechazado: el error se muestra mientras el campo
+  // siga igual y desaparece solo en cuanto se edita.
+  const docsRef = useRef<HTMLInputElement>(null);
+  const [rejectedDocs, setRejectedDocs] = useState<string | null>(null);
+  const docsValue = editForm.google_docs_requirements_url;
+  const docsError = rejectedDocs !== null && rejectedDocs === docsValue ? EXTERNAL_URL_ERROR : undefined;
+
+  const requirementsUrl = project.google_docs_requirements_url?.trim() ?? "";
+  const requirementsHref = safeExternalUrl(requirementsUrl);
+
   if (editing) {
     return (
       <Panel title="Editar proyecto" description="Los cambios se aplican al guardar.">
@@ -71,7 +82,13 @@ function ProjectIdentityCard({
           aria-label="Editar proyecto"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!saving) onSaveEdit();
+            if (saving) return;
+            if (docsValue.trim() && !safeExternalUrl(docsValue)) {
+              setRejectedDocs(docsValue);
+              docsRef.current?.focus();
+              return;
+            }
+            onSaveEdit();
           }}
           className="space-y-5"
         >
@@ -94,9 +111,9 @@ function ProjectIdentityCard({
                 </Select>
               )}
             </Field>
-            <Field label="Documento de requerimientos" hint="Enlace al documento (https://…).">
+            <Field label="Documento de requerimientos" hint="Enlace al documento (https://…)." error={docsError}>
               {(c) => (
-                <Input {...c} type="url" inputMode="url" placeholder="https://docs.google.com/document/d/…" value={editForm.google_docs_requirements_url}
+                <Input {...c} ref={docsRef} type="url" inputMode="url" placeholder="https://docs.google.com/document/d/…" value={docsValue}
                   onChange={(e) => setEditForm((f) => ({ ...f, google_docs_requirements_url: e.target.value }))} />
               )}
             </Field>
@@ -183,9 +200,9 @@ function ProjectIdentityCard({
           </>
         )}
         <Item label="Documento de requerimientos">
-          {project.google_docs_requirements_url ? (
+          {requirementsHref ? (
             <a
-              href={project.google_docs_requirements_url}
+              href={requirementsHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 rounded-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -194,6 +211,12 @@ function ProjectIdentityCard({
               <ExternalLink aria-hidden="true" className="size-3.5" />
               <span className="sr-only">(se abre en otra pestaña)</span>
             </a>
+          ) : requirementsUrl ? (
+            // Valor guardado que no es http(s): nunca se pinta como enlace, solo como texto (React lo escapa).
+            <>
+              <Missing>Enlace no válido</Missing>
+              <span className="mt-0.5 block break-all text-xs text-muted-foreground">{requirementsUrl}</span>
+            </>
           ) : (
             <Missing>Sin documento de requerimientos vinculado</Missing>
           )}
