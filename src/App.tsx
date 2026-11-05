@@ -101,7 +101,10 @@ const App = () => (
                 path="/dashboard/tickets"
                 element={
                   <ProtectedRoute allowedTypes={[0]}>
-                    <TicketsGlobal />
+                    <AdminShell>
+                      <TicketsGlobal />
+                    </AdminShell>
+
                   </ProtectedRoute>
                 }
               />
