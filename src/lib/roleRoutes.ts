@@ -32,12 +32,16 @@ export function roleHome(userType: number | null): string {
 export function canAccessPath(userType: number | null, path: string): boolean {
   let pathname: string;
   try {
-    // El analizador de URL normaliza segmentos `.`/`..` y codificados; el router compara sin distinguir mayúsculas.
-    pathname = new URL(path, "http://route.invalid").pathname.toLowerCase();
+    // Como el router: se normalizan los segmentos `.`/`..`, se decodifica (`/%64ashboard` es `/dashboard`) y no se
+    // distingue mayúsculas. Si no se puede analizar, se deniega.
+    pathname = decodeURI(new URL(path, "http://route.invalid").pathname).toLowerCase();
   } catch {
     return false;
   }
-  const rule = RESTRICTED_ROUTES.find((r) => pathname === r.prefix || pathname.startsWith(`${r.prefix}/`));
+  // Un `%` justo tras el prefijo (p. ej. `/dashboard%2f…`) también cuenta: ante la duda, restringido.
+  const rule = RESTRICTED_ROUTES.find(
+    (r) => pathname === r.prefix || (pathname.startsWith(r.prefix) && "/%".includes(pathname.charAt(r.prefix.length))),
+  );
   if (!rule) return true;
   return userType !== null && rule.roles.includes(userType);
 }
