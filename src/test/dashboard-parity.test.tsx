@@ -419,7 +419,7 @@ describe("enlaces y destinos antiguos siguen llevando a páginas válidas", () =
     expect(await screen.findByRole("heading", { name: "Tienda Demo" }, WAIT)).toBeInTheDocument();
     // Hasta su propio rediseño el detalle conserva la barra superior anterior (sin el menú lateral).
     expect(screen.getByRole("link", { name: /\[ PANEL \]/ })).toHaveAttribute("href", "/dashboard");
-    expect(screen.getByRole("link", { name: /\[ SOPORTE \]/ })).toHaveAttribute("href", "/dashboard/tickets");
+    expect(screen.getByRole("link", { name: /\[ TICKETS \]/ })).toHaveAttribute("href", "/dashboard/tickets");
     expect(screen.getByRole("link", { name: /Dashboard/ })).toHaveAttribute("href", "/dashboard");
   });
 
