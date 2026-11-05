@@ -475,3 +475,18 @@ describe("visita directa al panel: el armazón y su primera página se piden a l
     }
   });
 });
+
+describe("indicador de carga ligero del Resumen y la lista", () => {
+  it("App usa el indicador de solo texto únicamente en /dashboard y /dashboard/proyectos; las demás rutas conservan el de siempre", () => {
+    expect(appSource).toContain('new Set(["/dashboard", "/dashboard/proyectos"])');
+    expect(appSource).toContain("<Suspense fallback={<RouteFallback />}>");
+    expect(appSource).toContain("<PageLoader />");
+  });
+
+  it("se pinta en el chunk de entrada: texto accesible, sin imágenes ni logotipos", async () => {
+    const { default: PanelLoader } = await import("@/components/admin/PanelLoader");
+    const { container } = render(<PanelLoader />);
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando el panel…");
+    expect(container.querySelector("img, svg")).toBeNull();
+  });
+});
