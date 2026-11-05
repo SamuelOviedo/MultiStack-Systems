@@ -31,6 +31,17 @@ export class ContactRateLimitError extends Error {
   }
 }
 
+/**
+ * The function refuses every message for now (HTTP 503): a missing server secret or a
+ * misconfigured limit check. Retrying right away will not help, unlike a network failure.
+ */
+export class ContactUnavailableError extends Error {
+  constructor() {
+    super('contact unavailable');
+    this.name = 'ContactUnavailableError';
+  }
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Digits plus common separators; 7–15 digits covers local (HN: 8) and E.164.
 const PHONE_CHARS_RE = /^\+?[\d\s().-]+$/;
@@ -91,5 +102,6 @@ export async function sendContactMessage(form: ContactPayload): Promise<void> {
   // FunctionsHttpError carries the HTTP response as `context`.
   const status = (error as { context?: { status?: unknown } }).context?.status;
   if (status === 429) throw new ContactRateLimitError();
+  if (status === 503) throw new ContactUnavailableError();
   throw error;
 }

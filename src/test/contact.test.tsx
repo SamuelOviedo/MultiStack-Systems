@@ -7,7 +7,7 @@ vi.mock("@/lib/contact", async (importOriginal) => {
 });
 
 import ContactForm from "@/components/marketing/ContactForm";
-import { isValidPhone, normalizeContact, sendContactMessage, validateContact } from "@/lib/contact";
+import { ContactUnavailableError, isValidPhone, normalizeContact, sendContactMessage, validateContact } from "@/lib/contact";
 
 const base = { name: "Ana López", phone: "", email: "", message: "Quiero automatizar facturas" };
 
@@ -69,6 +69,23 @@ describe("ContactForm", () => {
     expect(screen.getByText("Déjanos un teléfono o un correo para responderte.")).toBeInTheDocument();
     expect(document.activeElement).toBe(screen.getByLabelText("Nombre completo"));
     expect(sendContactMessage).not.toHaveBeenCalled();
+  });
+
+  it("ante un 503 muestra el aviso de servicio no disponible, distinto del error genérico y del límite", async () => {
+    vi.mocked(sendContactMessage).mockRejectedValueOnce(new ContactUnavailableError());
+    render(<ContactForm idPrefix="u" />);
+    fireEvent.change(screen.getByLabelText("Nombre completo"), { target: { value: "Ana López" } });
+    fireEvent.change(screen.getByLabelText("Número de teléfono (opcional)"), { target: { value: "+504 9999-9999" } });
+    fireEvent.change(screen.getByLabelText("Mensaje"), { target: { value: "Quiero un agente RAG" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar mensaje" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("El formulario no está disponible por ahora. Inténtalo más tarde.");
+    expect(alert).not.toHaveTextContent("Intenta de nuevo.");
+    expect(alert).not.toHaveTextContent("demasiados mensajes");
+    expect(screen.queryByText(/¡Mensaje enviado!/)).toBeNull();
+    // Los datos tecleados se conservan para reintentar más tarde.
+    expect(screen.getByLabelText("Mensaje")).toHaveValue("Quiero un agente RAG");
   });
 
   it("envía nombre + teléfono sin correo", async () => {

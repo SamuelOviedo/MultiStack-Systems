@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 
 import {
   CONTACT_LIMITS,
   ContactRateLimitError,
+  ContactUnavailableError,
   sendContactMessage,
   validateContact,
   type ContactPayload,
@@ -49,7 +50,7 @@ const honeypotStyle: CSSProperties = { position: "absolute", left: "-10000px", w
 const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; prefill?: ContactPrefill }) => {
   const [form, setForm] = useState<ContactPayload>(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "rate-limited">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "rate-limited" | "unavailable">("idle");
   const nameRef = useRef<HTMLInputElement>(null);
 
   // Prefill desde un CTA de servicio: reemplaza el mensaje y deja el foco en el
@@ -88,7 +89,9 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       setForm(EMPTY_FORM);
       setSubmitted(false);
     } catch (err) {
-      setStatus(err instanceof ContactRateLimitError ? "rate-limited" : "error");
+      setStatus(
+        err instanceof ContactRateLimitError ? "rate-limited" : err instanceof ContactUnavailableError ? "unavailable" : "error",
+      );
     }
   };
 
@@ -244,6 +247,11 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       {status === "rate-limited" && (
         <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
           Recibimos demasiados mensajes. Intenta de nuevo más tarde.
+        </div>
+      )}
+      {status === "unavailable" && (
+        <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
+          El formulario no está disponible por ahora. Inténtalo más tarde.
         </div>
       )}
     </form>

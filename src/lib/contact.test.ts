@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { functions: { invoke } } }));
 
-import { CONTACT_LIMITS, ContactRateLimitError, sendContactMessage, validateContact } from "./contact";
+import { CONTACT_LIMITS, ContactRateLimitError, ContactUnavailableError, sendContactMessage, validateContact } from "./contact";
 
 const valid = { name: "Ana Pérez", email: "ana@ejemplo.com", message: "Necesito una web" };
 
@@ -40,6 +40,11 @@ describe("sendContactMessage — server answers", () => {
   it("maps HTTP 429 to ContactRateLimitError", async () => {
     invoke.mockResolvedValue({ data: null, error: Object.assign(new Error("x"), { context: { status: 429 } }) });
     await expect(sendContactMessage(valid)).rejects.toBeInstanceOf(ContactRateLimitError);
+  });
+
+  it("maps HTTP 503 (function closed by missing configuration) to ContactUnavailableError", async () => {
+    invoke.mockResolvedValue({ data: null, error: Object.assign(new Error("x"), { context: { status: 503 } }) });
+    await expect(sendContactMessage(valid)).rejects.toBeInstanceOf(ContactUnavailableError);
   });
 
   it("rethrows any other error unchanged", async () => {
