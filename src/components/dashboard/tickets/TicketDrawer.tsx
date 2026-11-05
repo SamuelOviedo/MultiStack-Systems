@@ -4,7 +4,8 @@ import { CheckCircle2, FolderGit2, Loader2, Send } from "lucide-react";
 import { StatusDot } from "@/components/admin/StatusBadge";
 import { TICKET_PRIORITY_TONE, TICKET_STATUS_TONE } from "@/components/admin/statusTones";
 import { actionErrorMessage } from "@/components/dashboard/dashboard-home/loadErrors";
-import ProjectScopingModal from "@/components/dashboard/requests/ProjectScopingModal";
+import { LazyProjectScopingModal } from "@/components/dashboard/dashboard-home/LazyModals";
+import { loadProjectScopingModal } from "@/components/dashboard/dashboard-home/modalLoaders";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -94,6 +95,8 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated }: Props
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [updating, setUpdating] = useState<"status" | "priority" | "assign" | null>(null);
   const [showScoping, setShowScoping] = useState(false);
+  // El modal «Alcance» (formulario y select) se pide la primera vez que se abre, o al apuntar al botón.
+  const [scopingArmed, setScopingArmed] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const latestMessages = useRef(0);
@@ -264,7 +267,7 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated }: Props
         )}
         {/* Conversion CTA — admin only, tickets under review, not yet linked */}
         {canConvert && (
-          <Button type="button" variant="outline" size="sm" onClick={() => setShowScoping(true)} disabled={updating !== null}>
+          <Button type="button" variant="outline" size="sm" onClick={() => { setScopingArmed(true); setShowScoping(true); }} onPointerEnter={() => void loadProjectScopingModal()} onFocus={() => void loadProjectScopingModal()} disabled={updating !== null}>
             <FolderGit2 aria-hidden="true" />
             Convertir en proyecto
           </Button>
@@ -448,7 +451,8 @@ export default function TicketDrawer({ ticket, open, onClose, onUpdated }: Props
         </form>
       </SheetContent>
 
-      <ProjectScopingModal
+      <LazyProjectScopingModal
+        armed={scopingArmed}
         ticket={local}
         open={showScoping}
         onClose={() => setShowScoping(false)}
