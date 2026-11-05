@@ -1,13 +1,18 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+
 import { useAuth } from "@/hooks/useAuth";
 import { createProject } from "@/lib/projects";
 import { useToast } from "@/hooks/use-toast";
+import { useReturnFocus } from "@/components/dashboard/project-detail/panelBehavior";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { actionErrorMessage } from "./loadErrors";
 
 interface Props {
   open: boolean;
@@ -15,102 +20,140 @@ interface Props {
   onCreated: () => void;
 }
 
+interface Values {
+  nombre_proyecto: string;
+  descripcion: string;
+  client_name: string;
+  client_email: string;
+  client_phone: string;
+}
+
+const EMPTY_FORM: Values = { nombre_proyecto: "", descripcion: "", client_name: "", client_email: "", client_phone: "" };
+
 export default function NewProjectModal({ open, onClose, onCreated }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    nombre_proyecto: "",
-    descripcion: "",
-    client_name: "",
-    client_email: "",
-    client_phone: "",
-  });
+  const form = useForm<Values>({ defaultValues: EMPTY_FORM });
+  const nombre = form.watch("nombre_proyecto");
+  const focus = useReturnFocus();
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm(f => ({ ...f, [k]: e.target.value }));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.nombre_proyecto.trim() || !user) return;
+  const handleSubmit = async (v: Values) => {
+    if (!v.nombre_proyecto.trim() || !user) return;
     setLoading(true);
     try {
       await createProject(user.id, {
-        nombre_proyecto: form.nombre_proyecto.trim(),
-        descripcion: form.descripcion.trim() || null,
-        client_name: form.client_name.trim() || null,
-        client_email: form.client_email.trim() || null,
-        client_phone: form.client_phone.trim() || null,
+        nombre_proyecto: v.nombre_proyecto.trim(),
+        descripcion: v.descripcion.trim() || null,
+        client_name: v.client_name.trim() || null,
+        client_email: v.client_email.trim() || null,
+        client_phone: v.client_phone.trim() || null,
       });
       toast({ title: "Proyecto creado" });
-      setForm({ nombre_proyecto: "", descripcion: "", client_name: "", client_email: "", client_phone: "" });
+      form.reset(EMPTY_FORM);
       onCreated();
       onClose();
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } catch (error) {
+      // El detalle técnico no se muestra: solo un mensaje claro (y un código en el registro).
+      toast({ title: "No se pudo crear el proyecto", description: actionErrorMessage(error, "crear proyecto"), variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const field = (label: string, key: keyof typeof form, type = "text", placeholder = "") => (
-    <div>
-      <label className="font-display text-xs text-muted-foreground mb-1.5 block">{label}:</label>
-      <Input
-        type={type}
-        value={form[key]}
-        onChange={set(key)}
-        placeholder={placeholder}
-        className="bg-background border-border font-mono text-sm"
-      />
-    </div>
-  );
-
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="bg-card border-border max-w-md">
-        <DialogHeader>
-          <DialogTitle className="font-display text-sm text-foreground">
-            <span className="text-primary">$ </span>multistack create --project
-          </DialogTitle>
+      <DialogContent
+        closeLabel="Cerrar"
+        className="max-h-[90dvh] max-w-md overflow-y-auto"
+        onOpenAutoFocus={focus.onOpenAutoFocus}
+        onCloseAutoFocus={focus.onCloseAutoFocus}
+      >
+        <DialogHeader className="text-left">
+          <DialogTitle>Nuevo proyecto</DialogTitle>
+          <DialogDescription>Solo el nombre es obligatorio. Los demás datos puedes completarlos después.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          {field("nombre_proyecto *", "nombre_proyecto", "text", "Mi nuevo proyecto")}
-
-          <div>
-            <label className="font-display text-xs text-muted-foreground mb-1.5 block">descripcion:</label>
-            <Textarea
-              value={form.descripcion}
-              onChange={set("descripcion")}
-              placeholder="Descripción breve del proyecto"
-              className="bg-background border-border font-mono text-sm resize-none"
-              rows={2}
-              maxLength={500}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="nombre_proyecto"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Nombre del proyecto <span aria-hidden="true">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Mi nuevo proyecto" aria-required="true" autoComplete="off" />
+                  </FormControl>
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="border-t border-border pt-4 space-y-3">
-            <p className="font-mono text-[10px] text-muted-foreground">— datos del cliente —</p>
-            {field("client_name", "client_name", "text", "Nombre del cliente")}
-            {field("client_email", "client_email", "email", "cliente@email.com")}
-            {field("client_phone", "client_phone", "tel", "+504 0000-0000")}
-          </div>
+            <FormField
+              control={form.control}
+              name="descripcion"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descripción</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Descripción breve del proyecto" className="resize-none" rows={2} maxLength={500} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
-          <div className="flex gap-2 pt-2">
-            <Button
-              type="submit"
-              disabled={loading || !form.nombre_proyecto.trim()}
-              size="sm"
-              className="font-display text-xs bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {loading ? "Creando..." : "[ CREAR PROYECTO ]"}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={onClose} className="font-display text-xs">
-              Cancelar
-            </Button>
-          </div>
-        </form>
+            <fieldset className="space-y-3 border-t pt-4">
+              <legend className="text-sm font-medium">Datos del cliente</legend>
+              <FormField
+                control={form.control}
+                name="client_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Nombre del cliente" autoComplete="off" />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="client_email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Correo</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="email" inputMode="email" placeholder="cliente@email.com" autoComplete="off" />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="client_phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Teléfono</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="tel" inputMode="tel" placeholder="+504 0000-0000" autoComplete="off" />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </fieldset>
+
+            <DialogFooter className="gap-2 pt-2 sm:gap-0">
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading || !nombre.trim()} size="sm">
+                {loading ? "Creando…" : "Crear proyecto"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
