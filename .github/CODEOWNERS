@@ -1,0 +1,16 @@
+# Code owners: the repository owner owns everything.
+# Pull requests from anyone else need the owner's approval once the "Review main"
+# ruleset requires review from code owners. GitHub reads this file from the base
+# branch of each pull request, so a pull request cannot weaken its own requirement.
+
+*                     @SamuelOviedo
+
+# Listed explicitly so these stay owned even if the catch-all above is ever narrowed.
+/.github/             @SamuelOviedo
+/.github/CODEOWNERS   @SamuelOviedo
+/.github/workflows/   @SamuelOviedo
+/.claude/             @SamuelOviedo
+/supabase/            @SamuelOviedo
+/package.json         @SamuelOviedo
+/package-lock.json    @SamuelOviedo
+/vercel.json          @SamuelOviedo
