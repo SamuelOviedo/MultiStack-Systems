@@ -1,36 +1,50 @@
 import { memo, useMemo } from "react";
-import { FolderKanban, Activity, Clock, PauseCircle } from "lucide-react";
+import { KpiTile } from "@/components/admin/KpiTile";
 import { type Project } from "@/types/projects";
+import { projectCounts } from "./projectMetrics";
 
-/** Four headline counters summarizing the project portfolio. */
-function DashboardStats({ projects }: { projects: Project[] }) {
-  const tiles = useMemo(() => {
-    const counts = {
-      total:      projects.length,
-      activos:    projects.filter(p => p.estado === "activo" || p.estado === "mantenimiento").length,
-      desarrollo: projects.filter(p => ["en_analisis", "en_desarrollo", "en_despliegue"].includes(p.estado)).length,
-      pausados:   projects.filter(p => p.estado === "pausado" || p.estado === "cancelado").length,
-    };
-    return [
-      { icon: FolderKanban, label: "Total",       value: counts.total,      color: "text-foreground" },
-      { icon: Activity,     label: "Activos",      value: counts.activos,     color: "text-primary" },
-      { icon: Clock,        label: "En progreso",  value: counts.desarrollo,  color: "text-accent" },
-      { icon: PauseCircle,  label: "Pausados",     value: counts.pausados,    color: "text-muted-foreground" },
-    ];
-  }, [projects]);
+export interface DashboardStatsProps {
+  /** `undefined` mientras carga o si la carga falló (se muestra «—», nunca un 0 inventado). */
+  projects?: readonly Project[];
+  loading?: boolean;
+  /** Tickets abiertos reales; `undefined` o `null` = sin dato. */
+  openTickets?: number | null;
+  ticketsLoading?: boolean;
+}
 
+/**
+ * Indicadores del resumen. Los cuatro de proyectos usan las reglas de siempre (`projectCounts`);
+ * «Tickets abiertos» sale de `getAllTickets` y muestra «—» si esa lectura falla.
+ *
+ * Jerarquía: «Tickets abiertos» es lo que pide una acción, así que va primero y pesa más (`lead`); los cuatro de
+ * proyectos son contexto. La cuadrícula nunca deja un indicador suelto: en dos columnas el principal ocupa la fila
+ * entera y los cuatro restantes forman 2 × 2; desde `xl` son cinco columnas (el principal 1,5 veces más ancha).
+ */
+function DashboardStats({ projects, loading = false, openTickets, ticketsLoading = false }: DashboardStatsProps) {
+  const counts = useMemo(() => (projects ? projectCounts(projects) : null), [projects]);
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-      {tiles.map(({ icon: Icon, label, value, color }) => (
-        <div key={label} className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Icon className={`h-3.5 w-3.5 ${color}`} />
-            <span className="font-mono text-[10px] text-muted-foreground">{label}</span>
-          </div>
-          <p className={`font-display text-2xl font-bold ${color}`}>{value}</p>
-        </div>
-      ))}
-    </div>
+    <section
+      aria-label="Indicadores"
+      className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,1fr))]"
+    >
+      <KpiTile
+        label="Tickets abiertos"
+        value={openTickets}
+        hint="Recibidos, en revisión o en progreso"
+        loading={ticketsLoading}
+        emphasis="lead"
+        className="col-span-2 xl:col-span-1"
+      />
+      <KpiTile label="Total de proyectos" value={counts?.todos} loading={loading} />
+      <KpiTile label="Proyectos activos" value={counts?.activos} hint="Activos y en mantenimiento" loading={loading} />
+      <KpiTile
+        label="Proyectos en progreso"
+        value={counts?.enProgreso}
+        hint="En análisis, desarrollo o despliegue"
+        loading={loading}
+      />
+      <KpiTile label="Pausados o cancelados" value={counts?.pausados} loading={loading} />
+    </section>
   );
 }
 

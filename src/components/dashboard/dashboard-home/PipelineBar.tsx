@@ -1,30 +1,43 @@
 import { memo } from "react";
-import { PIPELINE_STAGES } from "@/types/projects";
+import { cn } from "@/lib/utils";
+import { stageProgress } from "./projectMetrics";
 
-const TOTAL_STAGES = PIPELINE_STAGES.length;
+export interface PipelineBarProps {
+  /** Etapas registradas del proyecto (0..6). */
+  completedCount: number;
+  /** Nombre del proyecto, para el nombre accesible de la barra. */
+  projectName: string;
+  className?: string;
+}
 
-/** Compact pipeline progress bar shown on a project card. */
-function PipelineBar({ completedCount }: { completedCount: number }) {
-  const pct = Math.round((completedCount / TOTAL_STAGES) * 100);
+/**
+ * Avance por etapas de un proyecto. Texto + barra: la etapa que toca, «2 de 6 etapas · 33%», y la
+ * barra (6 tramos) es un `progressbar` con valor, mínimo, máximo y texto de valor para lectores de pantalla.
+ */
+function PipelineBar({ completedCount, projectName, className }: PipelineBarProps) {
+  const { done, total, percent, currentLabel } = stageProgress(completedCount);
   return (
-    <div className="mt-3">
-      <div className="flex justify-between items-center mb-1">
-        <span className="text-[10px] text-muted-foreground font-mono">
-          {PIPELINE_STAGES[Math.min(completedCount, TOTAL_STAGES - 1)].label}
+    <div className={cn("space-y-1.5", className)}>
+      <div className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
+        <span className="min-w-0 truncate">{currentLabel}</span>
+        <span className="tabular shrink-0">
+          {done} de {total} etapas · <span className="font-medium text-foreground">{percent}%</span>
         </span>
-        <span className="text-[10px] text-primary font-mono">{pct}%</span>
       </div>
-      <div className="h-1 rounded-full bg-border overflow-hidden">
-        <div
-          className="h-full rounded-full bg-primary transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <div className="flex mt-1 gap-0.5">
-        {PIPELINE_STAGES.map((s, i) => (
-          <div
-            key={s.key}
-            className={`flex-1 h-0.5 rounded-full ${i < completedCount ? "bg-primary" : "bg-border"}`}
+      <div
+        role="progressbar"
+        aria-label={`Avance de ${projectName}`}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={done}
+        aria-valuetext={`${done} de ${total} etapas (${percent}%)`}
+        className="flex gap-0.5"
+      >
+        {Array.from({ length: total }, (_, i) => (
+          <span
+            key={i}
+            aria-hidden="true"
+            className={cn("h-1.5 flex-1 rounded-full", i < done ? "bg-primary" : "bg-muted-foreground/25")}
           />
         ))}
       </div>

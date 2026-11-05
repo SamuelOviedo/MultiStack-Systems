@@ -15,9 +15,12 @@ import RecoveryRedirect from "@/components/auth/RecoveryRedirect";
 import Index from "./pages/marketing/Index.tsx";
 
 // Lazy-load: cada página genera su propio chunk
+// Armazón del panel del administrador: chunk propio, fuera de la entrada.
+const AdminShell            = lazy(() => import("./components/admin/AdminShell.tsx"));
 const Login                 = lazy(() => import("./pages/auth/Login.tsx"));
 const Signup                = lazy(() => import("./pages/auth/Signup.tsx"));
 const Dashboard             = lazy(() => import("./pages/dashboard/Dashboard.tsx"));
+const ProjectsList          = lazy(() => import("./pages/dashboard/ProjectsList.tsx"));
 const ProjectDetail         = lazy(() => import("./pages/dashboard/ProjectDetail.tsx"));
 const TicketsGlobal         = lazy(() => import("./pages/dashboard/TicketsGlobal.tsx"));
 const MisSolicitudes        = lazy(() => import("./pages/client/MisSolicitudes.tsx"));
@@ -57,7 +60,19 @@ const App = () => (
                 path="/dashboard"
                 element={
                   <ProtectedRoute>
-                    <Dashboard />
+                    <AdminShell>
+                      <Dashboard />
+                    </AdminShell>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/proyectos"
+                element={
+                  <ProtectedRoute>
+                    <AdminShell>
+                      <ProjectsList />
+                    </AdminShell>
                   </ProtectedRoute>
                 }
               />
