@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { commercialToday } from "@/lib/calendarDate";
 import { upsertStage } from "@/lib/projects";
 import { cn } from "@/lib/utils";
 import type { PipelineStage, ProjectStage } from "@/types/projects";
@@ -274,8 +275,11 @@ const STAGE_FORMS: Record<string, React.ComponentType<StageFormProps>> = {
 export default function StageDrawer({ projectId, stage, existing, open, onClose, onSaved }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  // Una etapa nueva propone el hoy comercial (día de Honduras): el día UTC ya es el siguiente desde las 18:00. Una etapa
+  // guardada se reabre con el día UTC de su instante, porque el guardado de abajo manda la medianoche UTC del día
+  // elegido: leerlo en Honduras restaría un día en cada guardado.
   const [completedAt, setCompletedAt] = useState(
-    existing?.completed_at?.split("T")[0] ?? new Date().toISOString().split("T")[0]
+    () => existing?.completed_at?.split("T")[0] ?? commercialToday()
   );
   const [completedBy, setCompletedBy] = useState(existing?.completed_by ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
