@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createContactHandler, type ContactDeps, type ContactStore, type OutgoingEmail } from "./handler";
 import { alertSubject, type Lead } from "./templates";
 import { LocalLimiter } from "./limiter";
+import { hasUnsafeText } from "./lead";
 
 const SALT = "a".repeat(64);
 const IP = "203.0.113.7";
@@ -137,6 +138,48 @@ describe("contact handler — protocol", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/entre 5 y 5000 caracteres/);
     expect(t.calls!.buckets).toEqual([]);
+  });
+
+  describe("text a database column cannot store (U+0000, other controls, unpaired surrogates)", () => {
+    const INVALID_400 = { error: "Se requiere nombre, un teléfono o email válido y un mensaje de entre 5 y 5000 caracteres" };
+
+    it.each([
+      ["NUL in the message", { message: "Necesito\u0000una web" }],
+      ["a control character in the message", { message: "Necesito\u0007una web" }],
+      ["DEL in the name", { name: "Ana\u007fPérez" }],
+      ["NUL in the e-mail", { email: "ana\u0000@example.com" }],
+      ["NUL in the phone", { email: "", phone: "+504 9999\u0000-9999" }],
+      ["an unpaired surrogate in the message", { message: "Necesito \ud83d una web" }],
+    ])("%s: 400 before anything is counted, stored or e-mailed", async (_label, over) => {
+      const t = setup();
+      const res = await t.handle(post(lead(over)));
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual(INVALID_400); // the same fixed text as every other validation failure
+      expect(t.calls!.buckets).toEqual([]); // no IP or e-mail event recorded
+      expect(t.calls!.recorded).toEqual([]);
+      expect(t.calls!.leadQueries).toEqual([]);
+      expect(t.calls!.purges).toBe(0);
+      expect(t.calls!.inserted).toEqual([]);
+      expect(t.emails).toEqual([]);
+      const logged = t.logs.map(([, m]) => m).join("\n");
+      expect(logged).not.toMatch(/Necesito|Ana|ana@|9999/);
+      expect(hasUnsafeText(logged)).toBe(false); // the offending character is not echoed either
+    });
+
+    it("a control character in the message never reaches the store, even for a sender close to the limits", async () => {
+      const t = setup({ store: { ipCount: 15 } });
+      expect((await t.handle(post(lead({ message: "x\u0000yz hola" })))).status).toBe(400);
+      expect(t.calls!.inserted).toEqual([]);
+      expect(t.emails).toEqual([]);
+    });
+
+    it("tab, line feed and carriage return in the message still go through", async () => {
+      const t = setup();
+      const res = await t.handle(post(lead({ message: "Línea uno\r\n\tLínea dos" })));
+      expect(res.status).toBe(200);
+      expect(t.calls!.inserted).toHaveLength(1);
+      expect(t.emails).toHaveLength(1);
+    });
   });
 });
 

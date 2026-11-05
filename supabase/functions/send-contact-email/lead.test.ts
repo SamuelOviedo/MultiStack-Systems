@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { checkLead, clientIp, decideThrottle, HONEYPOT_FIELD, LEAD_LIMITS, THROTTLE } from "./lead";
+import { checkLead, clientIp, decideThrottle, HONEYPOT_FIELD, hasUnsafeText, LEAD_LIMITS, THROTTLE } from "./lead";
 
 const valid = { name: "Ana Pérez", email: "Ana@Example.com", message: "Necesito una web" };
 
@@ -60,6 +60,80 @@ describe("checkLead (S4)", () => {
     if (r.kind !== "ok") throw new Error("expected ok");
     expect(`Mensaje web de ${r.lead.name}`.length).toBeLessThanOrEqual(200);
     expect(`Teléfono: ${r.lead.phone}\n\n${r.lead.message}`.length).toBeLessThanOrEqual(10000);
+  });
+});
+
+describe("checkLead — characters a database column cannot always store", () => {
+  const base = { name: "Ana Pérez", email: "ana@example.com", phone: "", message: "Necesito una web" };
+  const FIELDS: Array<[string, (c: string) => string]> = [
+    ["name", (c) => `Ana${c}Pérez`],
+    ["email", (c) => `ana${c}@example.com`],
+    ["phone", (c) => `+504 9999${c}-9999`],
+    ["message", (c) => `Necesito${c}una web`],
+  ];
+  const UNSAFE: Array<[string, string]> = [
+    ["NUL U+0000", "\u0000"],
+    ["C0 control U+0001", "\u0001"],
+    ["C0 control U+0007 (bell)", "\u0007"],
+    ["C0 control U+0008 (backspace)", "\u0008"],
+    ["C0 control U+000B (vertical tab)", "\u000b"],
+    ["C0 control U+000C (form feed)", "\u000c"],
+    ["C0 control U+000E", "\u000e"],
+    ["C0 control U+001B (escape)", "\u001b"],
+    ["C0 control U+001F", "\u001f"],
+    ["DEL U+007F", "\u007f"],
+    ["a lone high surrogate", "\ud83d"],
+    ["a lone low surrogate", "\ude00"],
+    ["a reversed surrogate pair", "\ude00\ud83d"],
+  ];
+
+  describe.each(FIELDS)("in %s", (field, put) => {
+    it.each(UNSAFE)("rejects %s", (_label, c) => {
+      const r = checkLead({ ...base, [field]: put(c) });
+      expect(r.kind).toBe("invalid");
+      // only the field's name is reported: the content is never echoed back or logged
+      expect(r.kind === "invalid" && r.reason).toBe(field);
+    });
+  });
+
+  it.each(UNSAFE)("rejects %s at the start or the end of a field, where trim() would otherwise hide it", (_label, c) => {
+    for (const edge of [(v: string) => c + v, (v: string) => v + c]) {
+      const r = checkLead({ ...base, message: edge("Necesito una web") });
+      expect(r.kind === "invalid" && r.reason).toBe("message");
+    }
+  });
+
+  it("rejects a control character in an optional field that trims to nothing", () => {
+    expect(checkLead({ ...base, email: "\u000b" }).kind).toBe("invalid");
+    expect(checkLead({ ...base, phone: "\u000c" }).kind).toBe("invalid");
+  });
+
+  it("tells a lone surrogate from a well-formed pair", () => {
+    expect(hasUnsafeText("\ud83d")).toBe(true);
+    expect(hasUnsafeText("\ud83dx")).toBe(true);
+    expect(hasUnsafeText("\ude00")).toBe(true);
+    expect(hasUnsafeText("😀")).toBe(false);
+  });
+
+  it("still accepts tab, line feed and carriage return in the message, unchanged", () => {
+    const message = "Primera línea\r\n\tsegunda con tab\nTercera";
+    const r = checkLead({ ...base, message });
+    expect(r.kind === "ok" && r.lead.message).toBe(message);
+  });
+
+  it("still accepts tab, line feed and carriage return in the name (collapsed to one space, as before)", () => {
+    const r = checkLead({ ...base, name: "Ana\t\r\nPérez" });
+    expect(r.kind === "ok" && r.lead.name).toBe("Ana Pérez");
+  });
+
+  it.each([
+    ["an emoji (valid surrogate pair)", { message: "Hola 😀 necesito una web" }],
+    ["an emoji in the name", { name: "Ana 😀" }],
+    ["accents and eñe", { name: "José Ñandú Pérez", message: "¿Cuánto cuesta una página con diseño a medida?" }],
+    ["kanji and kana", { name: "山田太郎", message: "ホームページを作りたいです。見積もりをお願いします" }],
+    ["right-to-left text", { name: "علي", message: "أحتاج إلى موقع إلكتروني للشركة" }],
+  ])("still accepts %s", (_label, over) => {
+    expect(checkLead({ ...base, ...over }).kind).toBe("ok");
   });
 });
 
