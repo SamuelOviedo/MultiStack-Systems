@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { addCalendarDays, calendarDayOf, calendarDaysBetween, commercialToday } from '@/lib/calendarDate';
 import type {
   Project, ProjectStage, ProjectService, ProjectMaintenance, ProjectStatus,
 } from '@/types/projects';
@@ -145,13 +146,15 @@ export async function deleteService(id: string): Promise<void> {
 }
 
 export async function getUpcomingRenewals(days = 30): Promise<(ProjectService & { nombre_proyecto: string })[]> {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() + days);
+  // Ventana inclusiva [hoy comercial, hoy comercial + days] en días de calendario de Honduras, no del proceso:
+  // lo que vence hoy sigue en la lista hasta la medianoche de Honduras.
+  const from = commercialToday();
+  const to = addCalendarDays(from, days);
   const { data, error } = await db
     .from('project_services')
     .select('*, proyectos_clientes(nombre_proyecto)')
-    .lte('renewal_date', cutoff.toISOString().split('T')[0])
-    .gte('renewal_date', new Date().toISOString().split('T')[0])
+    .lte('renewal_date', to)
+    .gte('renewal_date', from)
     .order('renewal_date', { ascending: true });
   if (error) throw error;
   return (data || []).map((r: any) => ({
@@ -185,9 +188,10 @@ export async function upsertMaintenance(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/** Días de calendario del hoy comercial (Honduras) a `dateStr`: 0 hoy, 1 mañana, negativo si pasó; `NaN` si no es válida. */
 export function daysUntil(dateStr: string): number {
-  const diff = new Date(dateStr).getTime() - Date.now();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  const day = calendarDayOf(dateStr);
+  return day === null ? NaN : calendarDaysBetween(commercialToday(), day);
 }
 
 export function formatMonth(dateStr: string): string {
