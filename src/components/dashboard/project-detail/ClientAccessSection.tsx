@@ -14,6 +14,7 @@ import { generateToken } from "@/lib/tickets";
 import type { ClientAccessToken } from "@/types/tickets";
 import Field from "./Field";
 import { formatInstantDateTime, formatInstantDay } from "./format";
+import { useReturnFocus } from "./panelBehavior";
 
 interface Props {
   projectId: string;
@@ -59,6 +60,9 @@ export default function ClientAccessSection({ projectId, tokens, onRefresh }: Pr
       toast({ title: "No se pudo copiar", description: "Selecciona el enlace y cópialo con Ctrl+C.", variant: "destructive" });
     }
   };
+
+  // El diálogo de confirmación no tiene disparador propio: se devuelve el foco al botón que lo abrió.
+  const returnFocus = useReturnFocus();
 
   // Regenerar desactiva el enlace que el cliente ya tiene: pide confirmación. Generar el primero no.
   const requestGenerate = () => (activeToken ? setConfirmOpen(true) : void handleGenerate());
@@ -176,7 +180,7 @@ export default function ClientAccessSection({ projectId, tokens, onRefresh }: Pr
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent {...returnFocus}>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Regenerar el enlace de acceso?</AlertDialogTitle>
             <AlertDialogDescription>

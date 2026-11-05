@@ -691,6 +691,17 @@ describe("acceso del cliente", () => {
     await waitFor(() => expect(libs.generateToken).toHaveBeenCalledTimes(1), WAIT);
   });
 
+  it("al cerrar la confirmación de regenerar, el foco vuelve al botón que la abrió", async () => {
+    await abrirAcceso();
+    const boton = screen.getByRole("button", { name: "Regenerar enlace" });
+    boton.focus();
+    fireEvent.click(boton);
+    const dialogo = await screen.findByRole("alertdialog", {}, WAIT);
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull(), WAIT);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Regenerar enlace" })).toHaveFocus(), WAIT);
+  });
+
   it("el formulario de datos del cliente tiene etiquetas asociadas", async () => {
     await abrirAcceso();
     const region = screen.getByRole("region", { name: "Acceso del cliente" });
