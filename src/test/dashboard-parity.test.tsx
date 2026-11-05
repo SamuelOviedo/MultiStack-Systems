@@ -188,15 +188,15 @@ function routeBlocks(): Record<string, string> {
   return out;
 }
 
-describe("rutas y roles: ProtectedRoute y allowedTypes no cambian", () => {
+describe("rutas y roles: el panel es solo del administrador (allowedTypes [0]); /solicitudes sigue en [2]", () => {
   const blocks = routeBlocks();
 
-  it("las 4 rutas del panel usan ProtectedRoute sin allowedTypes (por defecto [0, 1]); /solicitudes sigue en [2]", () => {
-    expect(protectedRouteSource).toContain("allowedTypes = [0, 1]");
+  it("las 4 rutas del panel usan ProtectedRoute con allowedTypes={[0]} explícito (sin valor por defecto); /solicitudes sigue en [2]", () => {
+    expect(protectedRouteSource).not.toMatch(/allowedTypes\s*=\s*\[/);
     for (const path of ["/dashboard", "/dashboard/proyectos", "/dashboard/project/:id", "/dashboard/tickets"]) {
       const open = blocks[path]?.match(/<ProtectedRoute([^>]*)>/);
       expect(open, path).not.toBeNull();
-      expect(open![1].trim(), `${path}: sin allowedTypes`).toBe("");
+      expect(open![1].trim(), `${path}: solo administrador`).toBe("allowedTypes={[0]}");
     }
     expect(blocks["/solicitudes"]).toMatch(/<ProtectedRoute allowedTypes=\{\[2\]\}>/);
     expect(blocks["/solicitudes"]).not.toContain("AdminShell");
@@ -270,16 +270,17 @@ describe("inicio anterior → Resumen (/dashboard): lo que ofrecía sigue ahí",
     expect(libs.getTeamMembers).toHaveBeenCalled();
   });
 
-  it("colaborador: ve proyectos y renovaciones, no consulta ni ve las solicitudes y su menú es de 3 entradas", async () => {
+  it("colaborador: ya no entra al Resumen, va a la landing y no se consulta nada del panel", async () => {
     signIn(1);
     goTo("/dashboard");
-    const main = await screen.findByRole("main", {}, WAIT);
-    await within(main).findAllByText("Tienda Demo", {}, WAIT);
+    expect(await screen.findByRole("heading", { name: "Landing (simulada)" }, WAIT)).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+    expect(screen.queryByRole("main")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Principal" })).toBeNull();
+    expect(libs.getProjects).not.toHaveBeenCalled();
     expect(libs.getProjectRequests).not.toHaveBeenCalled();
-    expect(within(main).queryByText(/Solicitudes de proyecto pendientes/)).toBeNull();
-    expect(within(main).getByRole("button", { name: "Nuevo proyecto" })).toBeInTheDocument();
-    const nav = within(screen.getByRole("navigation", { name: "Principal" }));
-    expect(nav.getAllByRole("link")).toHaveLength(3);
+    expect(libs.getUpcomingRenewals).not.toHaveBeenCalled();
+    expect(libs.getOpenTicketsCount).not.toHaveBeenCalled();
   });
 
   it("si falla la carga se dice en español y se puede reintentar (antes era un aviso suelto)", async () => {
@@ -374,11 +375,13 @@ describe("la lista completa vive en /dashboard/proyectos", () => {
     expect((await within(main2).findAllByRole("link", { name: /Creado el/ }, WAIT)).length).toBe(PROJECTS.length);
   });
 
-  it("colaborador: la lista es la misma y no consulta solicitudes", async () => {
+  it("colaborador: tampoco entra a la lista, va a la landing y no se consulta nada", async () => {
     signIn(1);
     goTo("/dashboard/proyectos");
-    const main = await screen.findByRole("main", {}, WAIT);
-    expect((await within(main).findAllByRole("link", { name: /Creado el/ }, WAIT)).length).toBe(PROJECTS.length);
+    expect(await screen.findByRole("heading", { name: "Landing (simulada)" }, WAIT)).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+    expect(screen.queryByRole("main")).toBeNull();
+    expect(libs.getProjects).not.toHaveBeenCalled();
     expect(libs.getProjectRequests).not.toHaveBeenCalled();
   });
 });

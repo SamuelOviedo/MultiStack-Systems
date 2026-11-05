@@ -2,22 +2,27 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Mail } from "lucide-react";
 import BrandLoader from "@/components/common/BrandLoader";
+import { roleHome } from "@/lib/roleRoutes";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedTypes?: number[];
+  /**
+   * Roles que pueden ver la ruta (0 administrador, 1 colaborador, 2 cliente). Obligatorio y sin valor por
+   * defecto: una ruta nueva no hereda acceso por omisión, quien la declara decide quién entra.
+   */
+  allowedTypes: readonly number[];
 }
 
-const ProtectedRoute = ({ children, allowedTypes = [0, 1] }: ProtectedRouteProps) => {
+const FullScreenLoader = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center">
+    <BrandLoader />
+  </div>
+);
+
+const ProtectedRoute = ({ children, allowedTypes }: ProtectedRouteProps) => {
   const { session, userType, loading, signOut } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <BrandLoader />
-      </div>
-    );
-  }
+  if (loading) return <FullScreenLoader />;
 
   if (!session) {
     return <Navigate to="/login" replace />;
@@ -56,8 +61,12 @@ const ProtectedRoute = ({ children, allowedTypes = [0, 1] }: ProtectedRouteProps
     );
   }
 
-  if (userType !== null && !allowedTypes.includes(userType)) {
-    return <Navigate to={userType === 2 ? "/solicitudes" : "/"} replace />;
+  // Con sesión pero rol aún desconocido (hasta 8 s tras un SIGNED_IN en la misma pestaña): no se monta nada de la
+  // ruta. Los hijos lanzan consultas al montarse y no deben correr antes de saber quién es.
+  if (userType === null) return <FullScreenLoader />;
+
+  if (!allowedTypes.includes(userType)) {
+    return <Navigate to={roleHome(userType)} replace />;
   }
 
   return <>{children}</>;

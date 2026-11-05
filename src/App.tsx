@@ -72,7 +72,7 @@ const App = () => (
               <Route
                 path="/dashboard"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedTypes={[0]}>
                     <AdminShell>
                       <Dashboard />
                     </AdminShell>
@@ -82,7 +82,7 @@ const App = () => (
               <Route
                 path="/dashboard/proyectos"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedTypes={[0]}>
                     <AdminShell>
                       <ProjectsList />
                     </AdminShell>
@@ -92,7 +92,7 @@ const App = () => (
               <Route
                 path="/dashboard/project/:id"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedTypes={[0]}>
                     <ProjectDetail />
                   </ProtectedRoute>
                 }
@@ -100,7 +100,7 @@ const App = () => (
               <Route
                 path="/dashboard/tickets"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedTypes={[0]}>
                     <TicketsGlobal />
                   </ProtectedRoute>
                 }
