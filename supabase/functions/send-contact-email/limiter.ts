@@ -131,6 +131,18 @@ export class LocalLimiter {
     };
   }
 
+  /**
+   * Leads this instance has accepted in the last ten minutes (the current one included, as `observe` already counted it),
+   * without recording anything. It lives in memory, so it does not depend on the database being able to store or count.
+   */
+  globalCount(): number {
+    const cutoff = this.now() - TEN_MIN_MS;
+    let drop = 0;
+    while (drop < this.recent.length && this.recent[drop] <= cutoff) drop++;
+    if (drop) this.recent.splice(0, drop);
+    return this.recent.length;
+  }
+
   private hit(key: string, t: number): number {
     let stamps = this.keys.get(key);
     if (!stamps) {

@@ -180,6 +180,16 @@ describe("LocalLimiter", () => {
     expect(l.observe("ip:b", "em:a")).toEqual({ perIp: 1, perEmail: 2, global10Min: 3 });
   });
 
+  it("globalCount reads the ten-minute count without recording anything, and forgets old attempts", () => {
+    const c = clock(); const l = new LocalLimiter(c.now);
+    expect(l.globalCount()).toBe(0);
+    l.observe("ip:a", null); l.observe("ip:b", null);
+    expect(l.globalCount()).toBe(2);
+    expect(l.globalCount()).toBe(2); // reading twice does not add
+    c.advance(10 * 60_000);
+    expect(l.globalCount()).toBe(0);
+  });
+
   it("unknown IP / e-mail give null, still counting globally", () => {
     const l = new LocalLimiter(clock().now);
     expect(l.observe(null, null)).toEqual({ perIp: null, perEmail: null, global10Min: 1 });

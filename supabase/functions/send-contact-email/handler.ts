@@ -325,6 +325,19 @@ export function createContactHandler(deps: ContactDeps) {
         log("error", `[contact] ⚠ ticket insert threw: ${describeError(e)}`);
       }
 
+      // CONTINGENCY — a lead whose storage really failed (database down, a hiccup, a timeout) is still e-mailed: the e-mail is
+      // then the only copy, and the team is told twice (error log "ticket insert failed|threw" and the "not stored" notice in the
+      // e-mail). Content that can never be stored is refused earlier with a 400 (checkLead), so this is no way around the limits.
+      // The shared global counters count stored tickets and cannot see such a lead, so it counts against this instance's own hard
+      // global cap, held in memory and independent of the database that just failed.
+      if (!stored && decideDegraded(
+        { perIp: null, perEmail: null, global10Min: local.globalCount() },
+        { ip: false, email: false, global: true },
+      ) === "reject") {
+        log("warn", "[contact] Throttled: the lead could not be stored and this instance's global cap is reached");
+        return json(429, { error: "Recibimos demasiados mensajes. Intenta de nuevo más tarde." });
+      }
+
       // Under a flood (soft global limit) the lead is kept but the team e-mail is
       // skipped — unless storing failed, in which case the e-mail is its only copy.
       if (decision === "store-only" && stored) {

@@ -121,6 +121,19 @@ describe("checkLead — characters a database column cannot always store", () =>
     expect(r.kind === "ok" && r.lead.message).toBe(message);
   });
 
+  it.each([
+    ["tab, line feed and carriage return", "uno\tdos\nlínea tres\r\ncuatro"],
+    ["an emoji (surrogate pair)", "Hola 😀 y 👨‍👩‍👧 listo"],
+    ["accents, eñe and diaeresis", "¿Cuánto cuesta? Pingüino, canción, Ñandú, año"],
+    ["kanji and kana", "山田太郎さん、ホームページを作りたいです"],
+    ["single and double quotes", `Dijo "hola" y 'adiós' y \`eco\``],
+    ["angle brackets and ampersands", "<b>negrita</b> & <script>alert(1)</script> a < b > c"],
+    ["backslashes and percent signs", "C:\\ruta\\archivo 100% seguro %s {{x}} $1"],
+  ])("never alters a legitimate message silently: %s come back exactly as sent", (_label, message) => {
+    const r = checkLead({ name: "Ana Pérez", email: "ana@example.com", message });
+    expect(r.kind === "ok" && r.lead.message).toBe(message);
+  });
+
   it("still accepts tab, line feed and carriage return in the name (collapsed to one space, as before)", () => {
     const r = checkLead({ ...base, name: "Ana\t\r\nPérez" });
     expect(r.kind === "ok" && r.lead.name).toBe("Ana Pérez");

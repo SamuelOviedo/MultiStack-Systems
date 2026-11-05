@@ -173,6 +173,14 @@ describe("contact handler — protocol", () => {
       expect(t.emails).toEqual([]);
     });
 
+    it("a legitimate message reaches the store and the e-mail unchanged (tab, CRLF, emoji, accents, kanji, quotes, angle brackets)", async () => {
+      const message = "Línea uno\r\n\tLínea dos 😀 山田 ¿qué tal? \"comillas\" 'simples' <b>a</b> & c";
+      const t = setup();
+      expect((await t.handle(post(lead({ message })))).status).toBe(200);
+      expect(t.calls!.inserted[0].message).toBe(message);
+      expect(t.emails).toHaveLength(1);
+    });
+
     it("tab, line feed and carriage return in the message still go through", async () => {
       const t = setup();
       const res = await t.handle(post(lead({ message: "Línea uno\r\n\tLínea dos" })));
@@ -762,6 +770,89 @@ describe("contact handler — storing is non-fatal", () => {
     const t = setup({ store: { insertThrows: true } });
     expect((await t.handle(post(lead()))).status).toBe(200);
     expect(t.emails[0].html).toContain("No se registró en el panel");
+  });
+
+  // The contingency: a REAL storage failure is the only way left to an e-mail without a ticket. It must be visible twice.
+  it.each([
+    ["an insert error", { insertError: "insert failed" }, "ticket insert failed"],
+    ["an insert that throws", { insertThrows: true }, "ticket insert threw"],
+  ])("%s is visible: error-level log token and the notice in the e-mail, and the visitor still gets 200", async (_n, store, token) => {
+    const t = setup({ store });
+    const res = await t.handle(post(lead()));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(t.emails).toHaveLength(1);
+    expect(t.emails[0].html).toContain("No se registró en el panel");
+    expect(t.logs.some(([l, m]) => l === "error" && m.includes(token))).toBe(true);
+    const logged = t.logs.map(([, m]) => m).join("\n");
+    expect(logged).not.toMatch(/Ana|ana@|Necesito|example\.com/); // no name, e-mail or message text in any line
+  });
+
+  it("a stored lead logs the success token and no failure token", async () => {
+    const t = setup();
+    await t.handle(post(lead()));
+    expect(t.logs.some(([, m]) => m.includes("ticket row created"))).toBe(true);
+    expect(t.logs.some(([, m]) => /ticket insert (failed|threw)/.test(m))).toBe(false);
+    expect(t.emails[0].html).not.toContain("No se registró en el panel");
+  });
+});
+
+describe("contact handler — a lead whose storage fails counts against this instance's hard global cap", () => {
+  const CAP = 100; // DEGRADED_THROTTLE.globalHardPer10Min
+  const NOT_STORED = "No se registró en el panel";
+  const body = (i: number) => lead({ name: `Visitante ${i}`, email: `visitante${i}@example.com` });
+
+  it("the shared counters never see them (storage fails), yet the 101st is refused and nothing else is e-mailed", async () => {
+    const t = setup({ store: { insertError: "insert failed" } }); // shared counts stay healthy and low
+    const codes: number[] = [];
+    for (let i = 1; i <= CAP + 5; i++) codes.push((await t.handle(post(body(i), { "cf-connecting-ip": `198.51.100.${(i % 200) + 1}` }))).status);
+    // every request came from a different e-mail; IPs repeat only after 200 requests, far below the per-IP limit of 15
+    expect(codes.slice(0, CAP).every((c) => c === 200)).toBe(true);
+    expect(codes.slice(CAP)).toEqual([429, 429, 429, 429, 429]);
+    expect(t.emails).toHaveLength(CAP);
+    expect(t.emails.every((e) => e.html.includes(NOT_STORED))).toBe(true);
+    expect(t.logs.some(([l, m]) => l === "warn" && m.includes("Throttled: the lead could not be stored"))).toBe(true);
+    const refused = t.logs.map(([, m]) => m).join("\n");
+    expect(refused).not.toMatch(/Visitante|visitante\d|example\.com/);
+  });
+
+  it("the 429 has the same fixed body as every other rate limit", async () => {
+    const t = setup({ store: { insertError: "insert failed" } });
+    let last!: Response;
+    for (let i = 1; i <= CAP + 1; i++) last = await t.handle(post(body(i), { "cf-connecting-ip": `198.51.100.${(i % 200) + 1}` }));
+    expect(last.status).toBe(429);
+    expect(await last.json()).toEqual({ error: "Recibimos demasiados mensajes. Intenta de nuevo más tarde." });
+  });
+
+  it("the cap holds when the insert THROWS or hangs (time-boxed) as well", async () => {
+    const t = setup({ store: { insertThrows: true } });
+    let status = 0;
+    for (let i = 1; i <= CAP + 1; i++) status = (await t.handle(post(body(i), { "cf-connecting-ip": `198.51.100.${(i % 200) + 1}` }))).status;
+    expect(status).toBe(429);
+    expect(t.emails).toHaveLength(CAP);
+  });
+
+  it("a healthy store is never refused by it, however many leads (the shared limits are the ones that judge)", async () => {
+    const t = setup();
+    for (let i = 1; i <= CAP + 20; i++) expect((await t.handle(post(body(i), { "cf-connecting-ip": `198.51.100.${(i % 200) + 1}` }))).status).toBe(200);
+    expect(t.calls!.inserted).toHaveLength(CAP + 20);
+    expect(t.emails.every((e) => !e.html.includes(NOT_STORED))).toBe(true);
+  });
+
+  it("the count is per instance and expires after ten minutes", async () => {
+    let clock = 1_000_000;
+    const t = setup({ store: { insertError: "insert failed" }, now: () => clock, localLimiter: new LocalLimiter(() => clock) });
+    for (let i = 1; i <= CAP + 1; i++) await t.handle(post(body(i), { "cf-connecting-ip": `198.51.100.${(i % 200) + 1}` }));
+    expect((await t.handle(post(body(500), { "cf-connecting-ip": "198.51.100.250" }))).status).toBe(429);
+    clock += 10 * 60_000;
+    expect((await t.handle(post(body(501), { "cf-connecting-ip": "198.51.100.251" }))).status).toBe(200);
+    expect((await setup({ store: { insertError: "insert failed" } }).handle(post(body(1)))).status).toBe(200); // another instance
+  });
+
+  it("with only a few leads whose storage fails nothing is refused", async () => {
+    const t = setup({ store: { insertError: "insert failed" } });
+    for (let i = 1; i <= 10; i++) expect((await t.handle(post(body(i), { "cf-connecting-ip": `198.51.100.${i}` }))).status).toBe(200);
+    expect(t.emails).toHaveLength(10);
   });
 });
 
