@@ -85,10 +85,9 @@ describe("adminNav · estructura", () => {
     }
   });
 
-  it("roles: [0,1] para Inicio, Proyectos y Soporte; [0] para el resto", () => {
-    const abiertos = new Set(["Resumen", "Proyectos", "Tickets"]);
+  it("roles: todas las entradas son solo del administrador ([0]), también Resumen, Proyectos y Tickets", () => {
     for (const item of allItems()) {
-      expect([...item.roles], item.label).toEqual(abiertos.has(item.label) ? [0, 1] : [0]);
+      expect([...item.roles], item.label).toEqual([0]);
     }
   });
 
@@ -105,13 +104,14 @@ describe("adminNav · visibilidad por rol (solo presentación)", () => {
     expect(labels(0)).toContain("Equipo y roles");
   });
 
-  it("el colaborador ve solo Resumen, Proyectos y Tickets y los grupos vacíos desaparecen", () => {
-    expect(labels(1)).toEqual(["Resumen", "Proyectos", "Tickets"]);
-    expect(navGroupsForRole(1).map((g) => g.label)).toEqual(["Inicio", "Gestión comercial", "Soporte"]);
+  it("el colaborador no ve ninguna entrada y no queda ningún grupo", () => {
+    expect(labels(1)).toEqual([]);
+    expect(navGroupsForRole(1)).toEqual([]);
   });
 
-  it("con el rol aún sin resolver (null) se muestra lo mínimo, nunca lo exclusivo del administrador", () => {
-    expect(labels(null)).toEqual(["Resumen", "Proyectos", "Tickets"]);
+  it("con el rol aún sin resolver (null) no se muestra ninguna entrada", () => {
+    expect(labels(null)).toEqual([]);
+    expect(navGroupsForRole(null)).toEqual([]);
   });
 
   it("un cliente (2) no ve ningún menú del panel", () => {
@@ -251,12 +251,7 @@ describe("adminNav · disponibles y próximamente", () => {
       expect(upcomingNavGroups(role), String(role)).toEqual([]);
       expect(countNavItems(upcomingNavGroups(role))).toBe(0);
     }
-    expect(names(availableNavGroups(1))).toEqual([
-      ["Inicio", ["Resumen"]],
-      ["Gestión comercial", ["Proyectos"]],
-      ["Soporte", ["Tickets"]],
-    ]);
-    expect(availableNavGroups(2)).toEqual([]);
+    for (const role of [1, null, 2]) expect(availableNavGroups(role), String(role)).toEqual([]);
   });
 
   it("los grupos devueltos son copias: no mutan la configuración", () => {
