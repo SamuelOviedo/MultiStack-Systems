@@ -440,7 +440,7 @@ describe("servicios en tabla", () => {
     const region = screen.getByRole("region", { name: "Servicios del proyecto" });
     expect(region).toHaveAttribute("tabindex", "0");
     const cabeceras = within(region).getAllByRole("columnheader").map((h) => h.textContent);
-    expect(cabeceras).toEqual(["Servicio", "Tipo", "Proveedor", "Renovación", "Costo", "Acciones"]);
+    expect(cabeceras).toEqual(["Servicio", "Tipo", "Proveedor", "Renovación", "Costo anual", "Acciones"]);
     expect(within(region).getAllByRole("row")).toHaveLength(4);
   });
 
@@ -471,7 +471,7 @@ describe("servicios en tabla", () => {
     expect(screen.getByText("alfa.example.test").closest("tr")).toHaveTextContent("7 nov 2026");
   });
 
-  it("el costo sale con la moneda registrada en el servicio y, sin ella, sin inventar una", async () => {
+  it("el costo anual sale con la moneda registrada en el servicio y, sin ella, sin inventar una; el mensual no se muestra", async () => {
     libs.getProjectServices.mockResolvedValue([
       service({ id: "a", name: "Con moneda", cost_yearly: 12, cost_monthly: 3, currency: "HNL" }),
       service({ id: "b", name: "Sin moneda", cost_yearly: 40, cost_monthly: null, currency: "" }),
@@ -481,10 +481,21 @@ describe("servicios en tabla", () => {
     await cargado();
     const fila = (n: string) => screen.getByText(n).closest("tr")!;
     expect(fila("Con moneda")).toHaveTextContent("12 HNL/año");
-    expect(fila("Con moneda")).toHaveTextContent("3 HNL/mes");
+    // Misma exposición que antes del rediseño: la lista nunca mostró el costo mensual (ni en la tabla ni en la línea móvil).
+    expect(fila("Con moneda").textContent).not.toMatch(/\/mes/);
+    expect(fila("Con moneda").textContent).not.toMatch(/\b3\b/);
     expect(fila("Sin moneda")).toHaveTextContent("40/año");
     expect(fila("Sin moneda").textContent).not.toMatch(/USD|HNL/);
-    expect(within(fila("Sin costo")).getByText("Sin costo registrado")).toBeInTheDocument();
+    expect(within(fila("Sin costo")).getByText("Sin costo anual registrado")).toBeInTheDocument();
+  });
+
+  it("un servicio con solo costo mensual no muestra importe: sale como sin costo anual", async () => {
+    libs.getProjectServices.mockResolvedValue([service({ id: "m", name: "Solo mensual", cost_yearly: null, cost_monthly: 20, currency: "USD" })]);
+    montar();
+    await cargado();
+    const fila = screen.getByText("Solo mensual").closest("tr")!;
+    expect(fila.textContent).not.toMatch(/\b20\b|USD|\/mes/);
+    expect(within(fila).getByText("Sin costo anual registrado")).toBeInTheDocument();
   });
 
   it("sin servicios: estado vacío con título y explicación", async () => {

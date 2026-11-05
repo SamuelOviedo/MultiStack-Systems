@@ -185,15 +185,15 @@ export default function ContentTabs({
                   <TableHead scope="col" className="hidden sm:table-cell">Tipo</TableHead>
                   <TableHead scope="col" className="hidden sm:table-cell">Proveedor</TableHead>
                   <TableHead scope="col">Renovación</TableHead>
-                  <TableHead scope="col" className="hidden sm:table-cell">Costo</TableHead>
+                  <TableHead scope="col" className="hidden sm:table-cell">Costo anual</TableHead>
                   <TableHead scope="col" className="w-12"><span className="sr-only">Acciones</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {services.map(s => {
                   const Icon = SERVICE_ICON[s.service_type] ?? Server;
+                  // Solo el costo anual, como siempre. El mensual se captura en el formulario pero esta lista no lo muestra.
                   const yearly = s.cost_yearly ? formatMoney(s.cost_yearly, s.currency) : null;
-                  const monthly = s.cost_monthly ? formatMoney(s.cost_monthly, s.currency) : null;
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="sticky left-0 bg-card font-medium">
@@ -213,20 +213,15 @@ export default function ContentTabs({
                       <TableCell className="sm:whitespace-nowrap">
                         {s.renewal_date ? <Renewal date={s.renewal_date} /> : <span className="text-muted-foreground">—<span className="sr-only">Sin renovación registrada</span></span>}
                         {/* En pantallas angostas el costo baja a la renovación (la columna se oculta). */}
-                        {(yearly || monthly) && (
-                          <span className="tabular mt-1 block text-xs text-muted-foreground sm:hidden">
-                            {[yearly && `${yearly}/año`, monthly && `${monthly}/mes`].filter(Boolean).join(" · ")}
-                          </span>
+                        {yearly && (
+                          <span className="tabular mt-1 block text-xs text-muted-foreground sm:hidden">{yearly}/año</span>
                         )}
                       </TableCell>
                       <TableCell className="tabular hidden whitespace-nowrap sm:table-cell">
-                        {yearly || monthly ? (
-                          <>
-                            {yearly && <div>{yearly}/año</div>}
-                            {monthly && <div>{monthly}/mes</div>}
-                          </>
+                        {yearly ? (
+                          `${yearly}/año`
                         ) : (
-                          <span className="text-muted-foreground">—<span className="sr-only">Sin costo registrado</span></span>
+                          <span className="text-muted-foreground">—<span className="sr-only">Sin costo anual registrado</span></span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
