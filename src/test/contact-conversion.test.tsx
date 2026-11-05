@@ -405,6 +405,20 @@ describe.each(CONTAINERS)("conversión «Contacto enviado» en $label", (contain
     expect(eventsOf("page_view")).toHaveLength(1);
   });
 
+  it("honeypot lleno: se envía (el servidor lo cuenta) y se muestra éxito aparente, pero no hay conversión", async () => {
+    await mount(container);
+    send.mockResolvedValue(undefined);
+    fillForm();
+    const trap = document.querySelector<HTMLInputElement>('input[name="website"]') as HTMLInputElement;
+    fireEvent.change(trap, { target: { value: "http://spam.example.test" } });
+    fireEvent.click(submitButton());
+    expect(await findSuccess()).toBeInTheDocument();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ ...VISITOR, website: "http://spam.example.test" });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(conversions()).toHaveLength(0);
+  });
+
   it("con el script de gtag.js aún cargando (sin load) el envío funciona, sin conversión y sin crear gtag ni dataLayer", async () => {
     await mount(container, TEST_ENV, container.path, false);
     expect(scriptTags()).toHaveLength(1);

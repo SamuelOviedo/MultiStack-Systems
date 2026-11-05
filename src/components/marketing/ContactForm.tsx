@@ -84,7 +84,8 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
     setStatus("loading");
     try {
       await sendContactMessage(form);
-      trackContactConversion();
+      // Honeypot lleno: el servidor responde éxito sin guardar nada, y eso no es un contacto que medir.
+      if (!form.website?.trim()) trackContactConversion();
       setStatus("success");
       setForm(EMPTY_FORM);
       setSubmitted(false);
