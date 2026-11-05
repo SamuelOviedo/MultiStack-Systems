@@ -41,7 +41,7 @@ const RATE_SALT = Deno.env.get("CONTACT_RATE_SALT") ?? "";
 
 // RESEND_DEST (optional): override delivery address.
 // In sandbox mode Resend only delivers to the account owner — set this to
-// isaaccoviedo@gmail.com for testing, remove once domain is verified.
+// the account owner address for testing, remove once domain is verified.
 const DEST = Deno.env.get("RESEND_DEST") ?? "samuel.oviedo@multistacksystems.com";
 
 // ── Data store (supabase-js, edge_functions secret key) ───────────────────────
