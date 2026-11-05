@@ -4,7 +4,7 @@ import { CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDot } from "luci
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { PIPELINE_STAGES, type PipelineStage, type ProjectStage } from "@/types/projects";
-import { formatInstantDay, responsableLabel, stageSummary } from "./format";
+import { formatStageDay, responsableLabel, stageCalendarDay, stageSummary } from "./format";
 
 type StageState = "completada" | "actual" | "pendiente";
 
@@ -92,7 +92,7 @@ function PipelineHeader({ stagesData, onStageClick, isCollapsed, onToggleCollaps
                   {data ? (
                     <>
                       <span className="block text-xs text-muted-foreground">
-                        <time dateTime={data.completed_at}>{formatInstantDay(data.completed_at)}</time>
+                        <time dateTime={stageCalendarDay(data.completed_at) ?? undefined}>{formatStageDay(data.completed_at)}</time>
                         {who ? ` · ${who}` : ""}
                       </span>
                       {summary.length > 0 && <span className="block break-words text-xs text-foreground/80">{summary.join(" · ")}</span>}

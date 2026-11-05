@@ -3,6 +3,8 @@
  * Todas las fechas salen en `es-HN`.
  */
 
+import { calendarDayOf } from "@/lib/calendarDate";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Texto neutro cuando el responsable de una etapa es un identificador y no un nombre. */
@@ -47,6 +49,34 @@ export function formatInstantDay(iso: string): string {
   const d = new Date(iso);
   if (!validDate(d)) return "—";
   return new Intl.DateTimeFormat("es-HN", { day: "numeric", month: "short", year: "numeric" }).format(d);
+}
+
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Día de calendario («YYYY-MM-DD») de la fecha de una etapa (`completed_at`), o `null` si el valor no es una fecha.
+ *
+ * La columna es `timestamptz`, pero el cajón de etapas guarda ahí el día que se elige como la medianoche UTC de ese
+ * día (`2026-10-05T00:00:00.000Z`; Supabase la devuelve como `2026-10-05T00:00:00+00:00`). Medida en hora local, esa
+ * medianoche cae en la tarde del día anterior en Honduras (UTC-6). Por eso:
+ * - un instante exactamente en 00:00:00.000 UTC es una fecha de calendario codificada por el cajón: su día es el día UTC;
+ * - cualquier otro instante es un momento real (p. ej. el `DEFAULT now()` de la columna): su día es el de Honduras,
+ *   igual que el resto de las fechas del panel.
+ * Solo presentación: lo que se guarda no cambia.
+ */
+export function stageCalendarDay(completedAt: string | null | undefined): string | null {
+  if (typeof completedAt !== "string") return null;
+  const honduras = calendarDayOf(completedAt);
+  if (honduras === null) return null;
+  const ms = Date.parse(completedAt);
+  if (Number.isNaN(ms)) return honduras;
+  return ms % MS_PER_DAY === 0 ? new Date(ms).toISOString().slice(0, 10) : honduras;
+}
+
+/** Fecha de una etapa como día de calendario («5 oct 2026»), igual en cualquier zona; «—» si el valor no es una fecha. */
+export function formatStageDay(completedAt: string | null | undefined): string {
+  const day = stageCalendarDay(completedAt);
+  return day === null ? "—" : formatDateOnly(day);
 }
 
 /** Día y hora de un instante: «31 oct 2026, 9:00 a. m.». */

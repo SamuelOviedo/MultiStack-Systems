@@ -214,7 +214,8 @@ describe("pipeline como lista accesible", () => {
     montar();
     await cargado();
     const t = item(/Análisis/).querySelector("time")!;
-    expect(t).toHaveAttribute("datetime", "2026-10-05T15:00:00.000Z");
+    // El atributo lleva el día de calendario que se muestra (no el instante), para que máquina y persona lean el mismo día.
+    expect(t).toHaveAttribute("datetime", "2026-10-05");
     expect(t).toHaveTextContent("5 oct 2026");
   });
 

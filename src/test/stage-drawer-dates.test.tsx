@@ -1,17 +1,19 @@
-// Fechas del cajón de etapa (`StageDrawer`): qué fecha propone, qué guarda y cómo se lee de vuelta.
+// Fechas del cajón de etapa (`StageDrawer`) y de la lista de etapas (`PipelineHeader`): qué fecha propone el cajón, qué
+// guarda, cómo se lee de vuelta y cómo se muestra.
 //
-// Corrección: la fecha que PROPONE una etapa nueva es el hoy comercial (día de calendario en Honduras), no el día UTC.
-// Desde las 18:00 de Honduras el día UTC ya es el siguiente, y el cajón proponía la fecha de mañana.
+// La fecha que PROPONE una etapa nueva es el hoy comercial (día de calendario en Honduras), no el día UTC. Desde las
+// 18:00 de Honduras el día UTC ya es el siguiente, y el cajón proponía la fecha de mañana.
 //
-// Evidencia sin corregir (cambiarla es decisión del propietario): el cajón guarda «YYYY-MM-DD» como
-// `new Date(...).toISOString()`, es decir la medianoche UTC de ese día, en una columna `timestamptz`. En Honduras
-// (UTC-6) esa medianoche es la tarde del día anterior. Por eso:
-//   - al leer una etapa guardada, el campo usa el día UTC del instante (`split("T")[0]`): ida y vuelta estable;
-//   - pasarlo a `calendarDayOf` (día en Honduras) restaría un día en cada guardado, así que la lectura NO cambia;
-//   - `formatInstantDay` (la fecha que se ve en la lista de etapas) muestra un día antes en Honduras.
+// La fecha de una etapa se guarda como `new Date("YYYY-MM-DD").toISOString()`: la medianoche UTC del día elegido, en una
+// columna `timestamptz`. Esa escritura NO cambia. Lo que cambia es la presentación: un instante exactamente en
+// 00:00:00.000 UTC se entiende como fecha de calendario codificada por el cajón (se muestra su día UTC, igual en
+// cualquier zona) y cualquier otro instante es un momento real (p. ej. el `DEFAULT now()` de la columna) y se muestra
+// con el día de Honduras. La lista de etapas y el campo del cajón usan el mismo helper (`stageCalendarDay`), así que
+// coinciden.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { formatInstantDay } from "@/components/dashboard/project-detail/format";
+import { formatStageDay, stageCalendarDay } from "@/components/dashboard/project-detail/format";
+import PipelineHeader from "@/components/dashboard/project-detail/PipelineHeader";
 import { calendarDayOf } from "@/lib/calendarDate";
 import { PIPELINE_STAGES } from "@/types/projects";
 import { stage } from "./helpers/projectFixtures";
@@ -113,43 +115,140 @@ describe.each(ZONAS)("cajón de etapa · lectura de una etapa guardada · proces
     expect(campoFecha().value).toBe("2026-10-05");
   });
 
-  // Límite conocido, hoy sin datos que lo produzcan (el cajón es el único que escribe y siempre manda medianoche UTC):
-  // un instante real entre las 18:00 y las 23:59 de Honduras se lee con el día UTC, que ya es el siguiente.
-  it("límite conocido: un instante de las 20:00 de Honduras se lee con el día UTC (el siguiente)", () => {
+  // Antes la lectura usaba el día UTC (`split("T")[0]`) y reabría este instante con el día siguiente; la lista de
+  // etapas, en Honduras, enseñaba otro día. Ahora ambos usan el día de Honduras.
+  it("un instante real de las 20:00 de Honduras (02:00Z del día siguiente) se reabre con el día de Honduras", () => {
     abrir(stage("analisis", { completed_at: "2026-10-06T02:00:00.000Z" }));
-    expect(campoFecha().value).toBe("2026-10-06");
-    expect(calendarDayOf("2026-10-06T02:00:00.000Z")).toBe("2026-10-05");
+    expect(campoFecha().value).toBe("2026-10-05");
+  });
+
+  it("el valor que devuelve Supabase (+00:00) se lee igual que el que escribe el cajón (Z)", () => {
+    abrir(stage("analisis", { completed_at: "2026-10-05T00:00:00+00:00" }));
+    expect(campoFecha().value).toBe("2026-10-05");
+  });
+
+  it("una fecha guardada inválida no rompe el cajón: propone el hoy comercial y guarda un valor válido", async () => {
+    abrir(stage("analisis", { completed_at: "basura" }));
+    expect(campoFecha().value).toBe("2026-11-02");
+    guardar();
+    expect(await guardado()).toBe("2026-11-02T00:00:00.000Z");
+  });
+
+  it("ida y vuelta estable: reabrir y guardar varias veces seguidas no pierde ningún día", async () => {
+    let valor = "2026-10-05T00:00:00.000Z";
+    for (let vuelta = 0; vuelta < 4; vuelta++) {
+      cleanup();
+      libs.upsertStage.mockClear();
+      abrir(stage("analisis", { completed_at: valor }));
+      expect(campoFecha().value).toBe("2026-10-05");
+      guardar();
+      valor = await guardado();
+      expect(valor).toBe("2026-10-05T00:00:00.000Z");
+    }
+  });
+
+  it("el payload es el mismo que antes para el mismo día elegido (la escritura no cambió)", async () => {
+    abrir(stage("analisis", { completed_at: "2026-10-05T00:00:00.000Z" }));
+    fireEvent.change(campoFecha(), { target: { value: "2026-12-01" } });
+    guardar();
+    const guardadoEn = await guardado();
+    expect(guardadoEn).toBe(new Date("2026-12-01").toISOString());
+    expect(guardadoEn).toBe("2026-12-01T00:00:00.000Z");
+    expect(libs.upsertStage.mock.calls[0].slice(0, 3)).toEqual(["p-1", "analisis", ETAPA.label]);
   });
 });
 
-describe("cajón de etapa · evidencia de la escritura (sin corregir; decisión del propietario)", () => {
-  afterEach(() => restaurarZona());
+describe.each(ZONAS)("fecha de una etapa · presentación · proceso en $tz", (zona) => {
+  beforeEach(() => aplicarZona(zona));
 
-  it("calendarDayOf del valor que escribe el cajón da el día ANTERIOR: usarlo para leer haría perder un día por guardado", () => {
-    const escrito = "2026-10-05T00:00:00.000Z";
-    expect(calendarDayOf(escrito)).toBe("2026-10-04");
-    // Dos guardados seguidos con esa lectura: 5 -> 4 -> 3.
-    const segundo = new Date(calendarDayOf(escrito)!).toISOString();
-    expect(calendarDayOf(segundo)).toBe("2026-10-03");
+  it("control: el cambio de zona surte efecto", () => {
+    expect(new Date(2026, 0, 1).getTimezoneOffset()).toBe(zona.offset);
   });
 
-  it.each([
-    [ZONAS[0], /^5 oct\.? 2026$/],
-    [ZONAS[1], /^4 oct\.? 2026$/],
-    [ZONAS[2], /^5 oct\.? 2026$/],
-  ] as const)("la fecha que se ve en la lista de etapas (formatInstantDay) con proceso en $0.tz: $1", (zona, esperado) => {
-    aplicarZona(zona);
-    expect(formatInstantDay("2026-10-05T00:00:00.000Z")).toMatch(esperado);
+  it.each(["2026-10-05T00:00:00.000Z", "2026-10-05T00:00:00+00:00", "2026-10-05T00:00:00Z"])(
+    "la medianoche UTC codificada por el cajón (%s) se muestra como el día elegido, 5 oct 2026",
+    (valor) => {
+      expect(stageCalendarDay(valor)).toBe("2026-10-05");
+      expect(formatStageDay(valor)).toMatch(/^5 oct\.? 2026$/);
+    },
+  );
+
+  it("un instante real a las 20:00 de Honduras (02:00Z del día siguiente) se muestra con el día de Honduras", () => {
+    const real = instanteHN("2026-10-05", "20:00").toISOString();
+    expect(real).toBe("2026-10-06T02:00:00.000Z");
+    expect(stageCalendarDay(real)).toBe("2026-10-05");
+    expect(formatStageDay(real)).toMatch(/^5 oct\.? 2026$/);
   });
 
-  it("flujo completo en Honduras: se elige el 5 de octubre y la lista de etapas lo muestra como 4 de octubre", async () => {
-    aplicarZona(ZONAS[1]);
+  it("los instantes reales de un mismo día de Honduras se muestran todos con ese día, no con el UTC", () => {
+    for (const hora of ["00:00:01", "09:30", "17:59:59.999", "18:00:00.001", "23:59:59.999"]) {
+      expect(stageCalendarDay(instanteHN("2026-10-05", hora).toISOString()), hora).toBe("2026-10-05");
+    }
+  });
+
+  // Límite inherente a la regla: las 18:00:00.000 en punto de Honduras SON la medianoche UTC y no se distinguen de una
+  // fecha codificada por el cajón. Un instante real así (un milisegundo exacto) se muestra con el día siguiente.
+  it("límite conocido: las 18:00:00.000 exactas de Honduras se leen como fecha codificada (día siguiente)", () => {
+    expect(stageCalendarDay(instanteHN("2026-10-05", "18:00").toISOString())).toBe("2026-10-06");
+  });
+
+  it("solo la medianoche UTC EXACTA es una fecha codificada: un milisegundo después ya es un instante real", () => {
+    expect(stageCalendarDay("2026-10-05T00:00:00.001Z")).toBe("2026-10-04");
+    expect(stageCalendarDay("2026-10-05T00:00:01Z")).toBe("2026-10-04");
+  });
+
+  it.each(["basura", "", "2026-13-40T00:00:00Z", "2026-02-30T00:00:00Z", "0050-01-01T00:00:00Z"])(
+    "un valor inválido (%j) sale como «—», sin NaN ni Invalid Date",
+    (valor) => {
+      expect(stageCalendarDay(valor)).toBeNull();
+      expect(formatStageDay(valor)).toBe("—");
+    },
+  );
+
+  it("sin valor sale como «—»", () => {
+    expect(formatStageDay(null)).toBe("—");
+    expect(formatStageDay(undefined)).toBe("—");
+  });
+
+  it("la lista de etapas (PipelineHeader) y el cajón muestran el mismo día", () => {
+    vi.setSystemTime(instanteHN("2026-11-02", "10:00"));
+    const etapas = [
+      stage("analisis", { completed_at: "2026-10-05T00:00:00+00:00" }),
+      stage("dominio", { completed_at: instanteHN("2026-10-08", "20:00").toISOString() }),
+    ];
+    render(<PipelineHeader stagesData={etapas} onStageClick={vi.fn()} isCollapsed={false} onToggleCollapse={vi.fn()} />);
+    const items = screen.getAllByRole("listitem");
+    const dia = (i: number) => items[i].querySelector("time")!;
+    expect(dia(0).textContent).toMatch(/^5 oct\.? 2026$/);
+    expect(dia(0).getAttribute("datetime")).toBe("2026-10-05");
+    expect(dia(1).textContent).toMatch(/^8 oct\.? 2026$/);
+    expect(dia(1).getAttribute("datetime")).toBe("2026-10-08");
+    cleanup();
+    abrir(etapas[0]);
+    expect(campoFecha().value).toBe("2026-10-05");
+  });
+
+  it("flujo completo: se elige el 5 de octubre, se guarda y la lista lo muestra como 5 de octubre", async () => {
     vi.setSystemTime(instanteHN("2026-11-02", "10:00"));
     abrir();
     fireEvent.change(campoFecha(), { target: { value: "2026-10-05" } });
     guardar();
     const guardadoEn = await guardado();
     expect(guardadoEn).toBe("2026-10-05T00:00:00.000Z");
-    expect(formatInstantDay(guardadoEn)).toMatch(/^4 oct\.? 2026$/);
+    expect(formatStageDay(guardadoEn)).toMatch(/^5 oct\.? 2026$/);
+  });
+});
+
+describe("fecha de una etapa · por qué hace falta el caso especial", () => {
+  afterEach(() => restaurarZona());
+
+  it("calendarDayOf del valor que escribe el cajón da el día ANTERIOR: usarlo sin más haría perder un día por guardado", () => {
+    const escrito = "2026-10-05T00:00:00.000Z";
+    expect(calendarDayOf(escrito)).toBe("2026-10-04");
+    // Dos guardados seguidos con esa lectura: 5 -> 4 -> 3.
+    const segundo = new Date(calendarDayOf(escrito)!).toISOString();
+    expect(calendarDayOf(segundo)).toBe("2026-10-03");
+    // Con `stageCalendarDay` la lectura es estable.
+    expect(stageCalendarDay(new Date(stageCalendarDay(escrito)!).toISOString())).toBe("2026-10-05");
   });
 });

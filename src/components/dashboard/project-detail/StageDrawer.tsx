@@ -14,7 +14,7 @@ import { upsertStage } from "@/lib/projects";
 import { cn } from "@/lib/utils";
 import type { PipelineStage, ProjectStage } from "@/types/projects";
 import Field from "./Field";
-import { isUuid } from "./format";
+import { isUuid, stageCalendarDay } from "./format";
 import { FORM_SHEET_CLASS, OVERLAY_MOTION, useReturnFocus } from "./panelBehavior";
 
 interface Props {
@@ -276,10 +276,10 @@ export default function StageDrawer({ projectId, stage, existing, open, onClose,
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   // Una etapa nueva propone el hoy comercial (día de Honduras): el día UTC ya es el siguiente desde las 18:00. Una etapa
-  // guardada se reabre con el día UTC de su instante, porque el guardado de abajo manda la medianoche UTC del día
-  // elegido: leerlo en Honduras restaría un día en cada guardado.
+  // guardada se reabre con el mismo día que enseña la lista (`stageCalendarDay`): el guardado de abajo manda la medianoche
+  // UTC del día elegido y esa medianoche se lee como fecha de calendario, no como la tarde del día anterior en Honduras.
   const [completedAt, setCompletedAt] = useState(
-    () => existing?.completed_at?.split("T")[0] ?? commercialToday()
+    () => (existing ? stageCalendarDay(existing.completed_at) : null) ?? commercialToday()
   );
   const [completedBy, setCompletedBy] = useState(existing?.completed_by ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
