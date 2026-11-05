@@ -3,7 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { functions: { invoke } } }));
 
-import { CONTACT_LIMITS, ContactRateLimitError, ContactUnavailableError, sendContactMessage, validateContact } from "./contact";
+import {
+  CONTACT_LIMITS,
+  ContactInvalidError,
+  ContactRateLimitError,
+  ContactUnavailableError,
+  hasUnsafeText,
+  normalizeContact,
+  sendContactMessage,
+  validateContact,
+} from "./contact";
 
 const valid = { name: "Ana Pérez", email: "ana@ejemplo.com", message: "Necesito una web" };
 
@@ -58,7 +67,12 @@ describe("sendContactMessage — server answers", () => {
     await expect(sendContactMessage(valid)).rejects.toBeInstanceOf(ContactUnavailableError);
   });
 
-  it.each([[500], [400], [401], [405], [502]])("rethrows HTTP %i unchanged", async (status) => {
+  it("maps HTTP 400 (content the function refuses) to ContactInvalidError", async () => {
+    invoke.mockResolvedValue({ data: null, error: Object.assign(new Error("x"), { context: { status: 400 } }) });
+    await expect(sendContactMessage(valid)).rejects.toBeInstanceOf(ContactInvalidError);
+  });
+
+  it.each([[500], [401], [405], [502]])("rethrows HTTP %i unchanged", async (status) => {
     const err = Object.assign(new Error("boom"), { context: { status } });
     invoke.mockResolvedValue({ data: null, error: err });
     await expect(sendContactMessage(valid)).rejects.toBe(err);
@@ -68,5 +82,75 @@ describe("sendContactMessage — server answers", () => {
     const err = Object.assign(new Error("Failed to send a request to the Edge Function"), { context: new TypeError("Failed to fetch") });
     invoke.mockResolvedValue({ data: null, error: err });
     await expect(sendContactMessage(valid)).rejects.toBe(err);
+  });
+});
+
+// Same exact set as the function (W2.1 lead.ts hasUnsafeText): U+0000-0008, 000B, 000C, 000E-001F, 007F, lone surrogates.
+describe("hasUnsafeText - same set as the function", () => {
+  const UNSAFE = [...Array(0x20).keys()].filter((c) => c !== 0x09 && c !== 0x0a && c !== 0x0d).concat(0x7f);
+
+  it.each(UNSAFE.map((c) => [c.toString(16).padStart(4, "0"), c] as const))("rejects U+%s", (_hex, code) => {
+    expect(hasUnsafeText(`ab${String.fromCharCode(code)}cd`)).toBe(true);
+    expect(hasUnsafeText(String.fromCharCode(code))).toBe(true); // alone, and at the edges
+  });
+
+  it("rejects an unpaired surrogate (high alone, low alone, high before a letter), accepts a real pair", () => {
+    expect(hasUnsafeText("a\ud83d")).toBe(true);
+    expect(hasUnsafeText("\ude00a")).toBe(true);
+    expect(hasUnsafeText("\ud83dx")).toBe(true);
+    expect(hasUnsafeText("😀")).toBe(false);
+  });
+
+  it("accepts tab, line feed, carriage return and every legitimate kind of text", () => {
+    const fine = [
+      "a\tb",
+      "a\nb",
+      "a\r\nb",
+      "Ana Pérez ñ á ü",
+      "😀 🇭🇳 👨‍👩‍👧",
+      "漢字かな한글",
+      "\"comillas\" 'simples' `acento`",
+      "<b>x</b> & > < \\ %",
+      "\u0080\u009f\u00a0\u2028", // C1 controls, nbsp and line separator are NOT in the function's set
+    ];
+    for (const ok of fine) expect(hasUnsafeText(ok), ok).toBe(false);
+  });
+});
+
+describe("validateContact - control characters (S4)", () => {
+  const field = (k: "name" | "phone" | "email" | "message", v: string) =>
+    validateContact({ name: "Ana Pérez", phone: "+504 9999-0000", email: "", message: "Necesito una web", [k]: v });
+
+  it.each([
+    ["name", "Ana\u0000 Pérez", "Hay caracteres invisibles no permitidos en el nombre. Revisa lo que pegaste."],
+    ["phone", "+504 9999\u0007-0000", "Hay caracteres invisibles no permitidos en el teléfono. Revisa lo que pegaste."],
+    ["email", "ana@ejemplo\u007f.com", "Hay caracteres invisibles no permitidos en el correo. Revisa lo que pegaste."],
+    ["message", "Necesito\u001b una web", "Hay caracteres invisibles no permitidos en el mensaje. Revisa lo que pegaste."],
+  ] as const)("flags a control character in %s with its own message", (k, value, msg) => {
+    expect(field(k, value)[k]).toBe(msg);
+  });
+
+  it("looks at the raw text: a vertical tab or form feed at the edge is flagged, not hidden by trim", () => {
+    expect(field("name", "Ana Pérez\u000b").name).toMatch(/caracteres invisibles/);
+    expect(field("message", "\u000cNecesito una web").message).toMatch(/caracteres invisibles/);
+    expect(field("phone", "+504 9999-0000\u000b").phone).toMatch(/caracteres invisibles/);
+  });
+
+  it("a lone surrogate is flagged", () => {
+    expect(field("message", "Necesito una web \ud83d").message).toMatch(/caracteres invisibles/);
+  });
+
+  it("the control message wins over a length error of the same field, and only that field is flagged", () => {
+    const e = field("name", "\u0001");
+    expect(e.name).toMatch(/caracteres invisibles/);
+    expect(Object.keys(e)).toEqual(["name"]);
+  });
+
+  it("legitimate text is NOT flagged and is NOT altered: tab, line breaks, emoji, accents, kanji, quotes, < >", () => {
+    const message = "Hola,\n\tnecesito una web 😀 con acentos áéíóú ñ, 漢字, \"comillas\", 'simples', `acento` y <b>etiquetas</b> & más > <\r\nFin";
+    const form = { name: "Ana Pérez 😀 漢字", phone: "+504 9999-0000", email: "ana@ejemplo.com", message };
+    expect(validateContact(form)).toEqual({});
+    expect(normalizeContact(form).message).toBe(message);
+    expect(normalizeContact(form).name).toBe(form.name);
   });
 });

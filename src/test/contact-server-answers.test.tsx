@@ -13,6 +13,7 @@ import { CONTACT_LIMITS } from "@/lib/contact";
 
 const GENERIC = "No se pudo enviar. Intenta de nuevo.";
 const RATE_LIMITED = "Recibimos demasiados mensajes. Intenta de nuevo más tarde.";
+const INVALID = "No pudimos aceptar el contenido. Revisa el nombre, el contacto y el mensaje, y quita lo que hayas pegado.";
 const UNAVAILABLE = "El formulario no está disponible por ahora. Inténtalo más tarde.";
 const SENT = "¡Mensaje enviado! Te responderemos a la brevedad.";
 
@@ -88,7 +89,7 @@ describe("respuestas del servidor vistas por el visitante", () => {
     ["429 (límite)", httpError(429), RATE_LIMITED],
     ["503 (servicio cerrado por configuración)", httpError(503), UNAVAILABLE],
     ["500 (error interno)", httpError(500), GENERIC],
-    ["400 (cuerpo rechazado)", httpError(400), GENERIC],
+    ["400 (contenido que la función no acepta)", httpError(400), INVALID],
     ["401 (JWT rechazado por la pasarela)", httpError(401), GENERIC],
     ["405 (método)", httpError(405), GENERIC],
     ["fallo de red", networkError(), GENERIC],
@@ -99,15 +100,44 @@ describe("respuestas del servidor vistas por el visitante", () => {
     submit();
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(expected);
-    for (const other of [GENERIC, RATE_LIMITED, UNAVAILABLE].filter((t) => t !== expected)) expect(screen.queryByText(other)).toBeNull();
+    for (const other of [GENERIC, RATE_LIMITED, UNAVAILABLE, INVALID].filter((t) => t !== expected)) expect(screen.queryByText(other)).toBeNull();
     expect(screen.queryByText(SENT)).toBeNull();
     expect(screen.getByLabelText("Mensaje")).toHaveValue("Mensaje de PRUEBA para el formulario");
+  });
+
+  it.each([
+    ["Nombre completo", "Ana\u0000", "Hay caracteres invisibles no permitidos en el nombre. Revisa lo que pegaste."],
+    ["Número de teléfono (opcional)", "+504 0000\u0008-0001", "Hay caracteres invisibles no permitidos en el teléfono. Revisa lo que pegaste."],
+    ["Correo electrónico (opcional)", "a@b.co\u007f", "Hay caracteres invisibles no permitidos en el correo. Revisa lo que pegaste."],
+    ["Mensaje", "Mensaje\u001f de prueba", "Hay caracteres invisibles no permitidos en el mensaje. Revisa lo que pegaste."],
+  ])("pegar un carácter de control en «%s»: aviso del campo, foco ahí y nada se envía", (label, bad, text) => {
+    render(<ContactForm idPrefix="c" />);
+    fill({ email: "ana@ejemplo.com" });
+    fireEvent.change(screen.getByLabelText(label), { target: { value: bad } });
+    submit();
+    expect(screen.getByText(text)).toBeInTheDocument();
+    expect(screen.getByLabelText(label)).toHaveAttribute("aria-invalid", "true");
+    expect(document.activeElement).toBe(screen.getByLabelText(label));
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("tab, salto de línea, emoji, acentos, kanji, comillas y <> se envían tal cual", async () => {
+    invoke.mockResolvedValue({ data: { ok: true }, error: null });
+    render(<ContactForm idPrefix="l" />);
+    const message = "Hola,\n\tquiero una web 😀 áéíóú ñ 漢字 \"a\" 'b' `c` <b>x</b> > <";
+    fill({ name: "Ana 😀 漢字", message });
+    submit();
+    await screen.findByText(SENT);
+    expect(invoke.mock.calls[0][1].body.message).toBe(message);
+    expect(invoke.mock.calls[0][1].body.name).toBe("Ana 😀 漢字");
   });
 
   it("el aviso de 503 no pide reintentar «ya» y el genérico sí: no se confunden", () => {
     expect(UNAVAILABLE).not.toMatch(/Intenta de nuevo/);
     expect(UNAVAILABLE).not.toBe(GENERIC);
     expect(UNAVAILABLE).not.toBe(RATE_LIMITED);
+    expect(INVALID).not.toBe(GENERIC);
+    expect(INVALID).not.toMatch(/Intenta de nuevo/);
   });
 
   it("tras un 429 el visitante puede reintentar y el aviso desaparece al tener éxito", async () => {

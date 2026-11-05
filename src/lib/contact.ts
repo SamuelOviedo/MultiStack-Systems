@@ -42,6 +42,38 @@ export class ContactUnavailableError extends Error {
   }
 }
 
+/**
+ * The function answers 400 to content it cannot store (S4, W2.1 lead.ts `hasUnsafeText`): C0 controls other than tab,
+ * line feed and carriage return (U+0000-0008, 000B, 000C, 000E-001F), DEL (007F) and unpaired UTF-16 surrogates. Same
+ * exact set here, so the person is told which field has it before sending. Looked at the RAW text (trim would hide a
+ * vertical tab or form feed at the edge) and never cleaned up silently. No regular expression: one pass.
+ */
+export function hasUnsafeText(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c <= 0x08 || c === 0x0b || c === 0x0c || (c >= 0x0e && c <= 0x1f) || c === 0x7f) return true;
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const next = s.charCodeAt(i + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+      i++; // a well-formed pair
+    } else if (c >= 0xdc00 && c <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * The function rejected the content (HTTP 400, fixed text). The client validates the same rules first, so this only
+ * happens when the browser let something through that the server does not accept.
+ */
+export class ContactInvalidError extends Error {
+  constructor() {
+    super('contact rejected');
+    this.name = 'ContactInvalidError';
+  }
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Digits plus common separators; 7–15 digits covers local (HN: 8) and E.164.
 const PHONE_CHARS_RE = /^\+?[\d\s().-]+$/;
@@ -68,14 +100,23 @@ export function validateContact(form: ContactPayload): Partial<Record<ContactFie
   const name = form.name.trim();
   const phone = form.phone?.trim() ?? '';
   const email = form.email?.trim() ?? '';
-
-  if (name.length < CONTACT_LIMITS.nameMin) errors.name = 'Escribe tu nombre completo.';
-  else if (name.length > CONTACT_LIMITS.nameMax) errors.name = 'El nombre es demasiado largo.';
-  if (phone && !isValidPhone(phone)) errors.phone = 'Revisa el número de teléfono.';
-  if (email && !isValidEmail(email)) errors.email = 'Revisa el correo electrónico.';
-  if (!phone && !email) errors.contact = 'Déjanos un teléfono o un correo para responderte.';
   const message = form.message.trim();
-  if (message.length < CONTACT_LIMITS.messageMin) errors.message = 'Cuéntanos un poco más.';
+
+  // Hidden or control characters win over any other error of the same field: they are what to fix first.
+  if (hasUnsafeText(form.name)) errors.name = 'Hay caracteres invisibles no permitidos en el nombre. Revisa lo que pegaste.';
+  else if (name.length < CONTACT_LIMITS.nameMin) errors.name = 'Escribe tu nombre completo.';
+  else if (name.length > CONTACT_LIMITS.nameMax) errors.name = 'El nombre es demasiado largo.';
+
+  if (hasUnsafeText(form.phone ?? '')) errors.phone = 'Hay caracteres invisibles no permitidos en el teléfono. Revisa lo que pegaste.';
+  else if (phone && !isValidPhone(phone)) errors.phone = 'Revisa el número de teléfono.';
+
+  if (hasUnsafeText(form.email ?? '')) errors.email = 'Hay caracteres invisibles no permitidos en el correo. Revisa lo que pegaste.';
+  else if (email && !isValidEmail(email)) errors.email = 'Revisa el correo electrónico.';
+
+  if (!phone && !email) errors.contact = 'Déjanos un teléfono o un correo para responderte.';
+
+  if (hasUnsafeText(form.message)) errors.message = 'Hay caracteres invisibles no permitidos en el mensaje. Revisa lo que pegaste.';
+  else if (message.length < CONTACT_LIMITS.messageMin) errors.message = 'Cuéntanos un poco más.';
   else if (message.length > CONTACT_LIMITS.messageMax) errors.message = 'El mensaje es demasiado largo.';
   return errors;
 }
@@ -103,5 +144,6 @@ export async function sendContactMessage(form: ContactPayload): Promise<void> {
   const status = (error as { context?: { status?: unknown } }).context?.status;
   if (status === 429) throw new ContactRateLimitError();
   if (status === 503) throw new ContactUnavailableError();
+  if (status === 400) throw new ContactInvalidError();
   throw error;
 }

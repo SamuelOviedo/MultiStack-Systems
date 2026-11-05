@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import {
   CONTACT_LIMITS,
+  ContactInvalidError,
   ContactRateLimitError,
   ContactUnavailableError,
   sendContactMessage,
@@ -50,7 +51,7 @@ const honeypotStyle: CSSProperties = { position: "absolute", left: "-10000px", w
 const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; prefill?: ContactPrefill }) => {
   const [form, setForm] = useState<ContactPayload>(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "rate-limited" | "unavailable">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "rate-limited" | "unavailable" | "invalid">("idle");
   const nameRef = useRef<HTMLInputElement>(null);
 
   // Prefill desde un CTA de servicio: reemplaza el mensaje y deja el foco en el
@@ -91,7 +92,13 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       setSubmitted(false);
     } catch (err) {
       setStatus(
-        err instanceof ContactRateLimitError ? "rate-limited" : err instanceof ContactUnavailableError ? "unavailable" : "error",
+        err instanceof ContactRateLimitError
+          ? "rate-limited"
+          : err instanceof ContactUnavailableError
+            ? "unavailable"
+            : err instanceof ContactInvalidError
+              ? "invalid"
+              : "error",
       );
     }
   };
@@ -253,6 +260,11 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       {status === "unavailable" && (
         <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
           El formulario no está disponible por ahora. Inténtalo más tarde.
+        </div>
+      )}
+      {status === "invalid" && (
+        <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
+          No pudimos aceptar el contenido. Revisa el nombre, el contacto y el mensaje, y quita lo que hayas pegado.
         </div>
       )}
     </form>
