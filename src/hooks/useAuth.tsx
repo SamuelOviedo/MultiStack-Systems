@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { clearRecoveryPending, isRecoveryPending, markRecoveryPending } from "@/lib/authRedirect";
 
 /**
  * Authentication context for the app.
@@ -17,6 +18,10 @@ interface AuthContextType {
   user: User | null;
   userType: number | null;
   loading: boolean;
+  /** True while a password-recovery link session awaits a new password. */
+  recoveryPending: boolean;
+  /** Call once the new password is saved. */
+  finishRecovery: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -30,6 +35,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   userType: null,
   loading: true,
+  recoveryPending: false,
+  finishRecovery: () => {},
   signOut: async () => {},
 });
 
@@ -66,6 +73,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userType, setUserType] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  // Seeded from the URL hash captured at startup (lib/authRedirect).
+  const [recoveryPending, setRecoveryPending] = useState(() => isRecoveryPending());
 
   useEffect(() => {
     let active = true;
@@ -109,6 +118,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         supabase.functions.invoke("send-welcome-email").catch(() => {});
       }
 
+      // Second signal for recovery links (the hash capture is the first).
+      if (event === "PASSWORD_RECOVERY") {
+        markRecoveryPending();
+        setRecoveryPending(true);
+      }
+      if (event === "SIGNED_OUT") {
+        clearRecoveryPending();
+        setRecoveryPending(false);
+      }
+
       // Defer DB work out of the callback: querying inside the onAuthStateChange
       // callback can deadlock the Supabase auth lock.
       setTimeout(() => {
@@ -122,13 +141,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  const finishRecovery = () => {
+    clearRecoveryPending();
+    setRecoveryPending(false);
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     // onAuthStateChange(SIGNED_OUT) clears session/user/userType via applySession.
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, userType, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user, userType, loading, recoveryPending, finishRecovery, signOut }}>
       {children}
     </AuthContext.Provider>
   );

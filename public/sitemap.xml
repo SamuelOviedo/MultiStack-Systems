@@ -6,10 +6,18 @@
 
   <!-- Landing page — primary SEO target -->
   <url>
-    <loc>https://multistacksystems.com/</loc>
-    <lastmod>2026-10-13</lastmod>
+    <loc>https://www.multistacksystems.com/</loc>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
+  </url>
+
+  <!-- Landing de páginas web (Google Ads) -->
+  <url>
+    <loc>https://www.multistacksystems.com/paginas-web</loc>
+    <lastmod>2026-10-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
   </url>
 
 </urlset>

@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { routeHeadPlugin } from "./build/routeHeadPlugin";
 import { getSupabaseEnvProblems } from "./src/integrations/supabase/env";
 
 type ViteEnv = Record<string, string>;
@@ -41,6 +42,36 @@ function checkSupabaseEnv(env: ViteEnv) {
   console.warn(`\n⚠ ${message} The built app will refuse to start until they are set.\n`);
 }
 
+type ModuleLookup = (id: string) => { isEntry: boolean; importers: readonly string[] } | null;
+
+const reachCache = new Map<string, boolean>();
+
+/**
+ * True when `id` can be reached from an entry module by walking STATIC importers
+ * only (`importers` excludes dynamic `import()`), i.e. it is part of the eager graph.
+ */
+function reachableFromEntry(id: string, getModuleInfo: ModuleLookup): boolean {
+  const cached = reachCache.get(id);
+  if (cached !== undefined) return cached;
+  const seen = new Set<string>();
+  const stack = [id];
+  let found = false;
+  while (stack.length) {
+    const current = stack.pop() as string;
+    if (seen.has(current)) continue;
+    seen.add(current);
+    const info = getModuleInfo(current);
+    if (!info) continue;
+    if (info.isEntry) {
+      found = true;
+      break;
+    }
+    for (const importer of info.importers) stack.push(importer);
+  }
+  reachCache.set(id, found);
+  return found;
+}
+
 export default defineConfig(({ command, mode }) => {
   if (command === "build") {
     const env = loadEnv(mode, process.cwd(), "VITE_");
@@ -53,14 +84,14 @@ export default defineConfig(({ command, mode }) => {
       port: 8080,
       hmr: { overlay: false },
     },
-    plugins: [react()],
+    plugins: [react(), routeHeadPlugin()],
     resolve: {
       alias: { "@": path.resolve(__dirname, "./src") },
     },
     build: {
       rollupOptions: {
         output: {
-          manualChunks: (id) => {
+          manualChunks: (id, { getModuleInfo }) => {
             // React core — cargado en cada página, va primero
             if (id.includes("node_modules/react/") ||
                 id.includes("node_modules/react-dom/") ||
@@ -80,20 +111,17 @@ export default defineConfig(({ command, mode }) => {
             if (id.includes("node_modules/lucide-react/")) {
               return "vendor-icons";
             }
-            // Radix used only by the lazy AI chat demo: no manual chunk, so Rollup
-            // keeps them in its lazy chunk instead of the eager vendor-ui.
-            if (id.includes("node_modules/@radix-ui/react-scroll-area/") ||
-                id.includes("node_modules/@radix-ui/react-avatar/") ||
-                id.includes("node_modules/@radix-ui/react-use-is-hydrated/") ||
-                id.includes("node_modules/@radix-ui/number/")) {
-              return undefined;
-            }
-            // Radix UI primitives + class-variance-authority + clsx
+            // Radix UI primitives + class-variance-authority + clsx + tailwind-merge:
+            // `vendor-ui` (eager) holds ONLY what the entry chunk reaches through static
+            // imports. Anything used just by lazy routes or lazy widgets (the admin shell,
+            // dropdown-menu, select, the AI chat demo...) stays in Rollup's own lazy chunks,
+            // so adding a Radix primitive to a lazy page cannot grow the eager bundle.
+            // There is no package list to maintain.
             if (id.includes("node_modules/@radix-ui/") ||
                 id.includes("node_modules/class-variance-authority/") ||
                 id.includes("node_modules/clsx/") ||
                 id.includes("node_modules/tailwind-merge/")) {
-              return "vendor-ui";
+              return reachableFromEntry(id, getModuleInfo) ? "vendor-ui" : undefined;
             }
           },
         },

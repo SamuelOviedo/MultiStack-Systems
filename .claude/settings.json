@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(git push *)",
+      "Edit(./src/integrations/supabase/types.ts)",
+      "Write(./src/integrations/supabase/types.ts)",
+      "Bash(supabase db push *)",
+      "Bash(npx supabase db push *)",
+      "Bash(supabase db reset --linked *)",
+      "Bash(npx supabase db reset --linked *)",
+      "Bash(supabase migration repair *)",
+      "Bash(npx supabase migration repair *)",
+      "Bash(supabase functions deploy *)",
+      "Bash(npx supabase functions deploy *)",
+      "Bash(supabase secrets *)",
+      "Bash(npx supabase secrets *)",
+      "Bash(supabase link *)",
+      "Bash(npx supabase link *)",
+      "Bash(vercel *)",
+      "Bash(npx vercel *)",
+      "Bash(gh pr merge *)",
+      "Read(./.vercel/**)",
+      "Read(./supabase/.temp/**)",
+      "Read(./supabase/.env)"
+    ]
+  },
+  "enabledPlugins": {
+    "accesslint@accesslint": true
+  }
+}

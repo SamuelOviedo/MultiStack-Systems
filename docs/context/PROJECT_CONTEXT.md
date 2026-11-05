@@ -165,8 +165,8 @@ Usadas en `src/lib/portal.ts`. No requieren sesión de Supabase.
 
 | Función | Trigger | Descripción |
 |---|---|---|
-| `send-auth-email` | Supabase Auth hook | Emails de confirmación y recovery con HTML styled |
-| `send-notification` | Manual desde tickets.ts | Notifica team y cliente en cambios de ticket |
+| `send-auth-email` | Supabase Auth hook (firma Standard Webhooks, `SEND_EMAIL_HOOK_SECRET`) | Emails de confirmación, recovery e invitación con HTML styled |
+| `send-notification` | `notifyTeamReply()` en tickets.ts (solo staff, JWT) | Avisa al cliente de una respuesta del equipo; recibe solo `ticket_id` + `message_id` |
 
 Las notificaciones fallan silenciosamente si Resend API cae. **No hay retry ni queue.**
 

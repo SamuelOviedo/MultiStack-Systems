@@ -472,14 +472,14 @@ Same split shell + `AuthBrandPanel`. Two states.
 
 **Blocks (legal shell):** Navbar → `max-w-3xl pt-28 pb-28` → back link `Volver al inicio` (ArrowLeft) → header (`// legal` eyebrow + H1 + version line) → `space-y-14` body (10 sections) → footer cross-link → fixed ScrollTopButton (`ArrowUp`, aria `Volver arriba`). Helpers: `SectionTitle` (mono number + h2), `SubHeading` (h3), `BulletList` (accent-dot ul).
 
-**Meta:** browser title `Política de Privacidad — MultiStack Systems`; description `Conoce cómo MultiStack Systems recopila, usa y protege tus datos personales. Plataforma digital de tecnología e ingeniería de software con sede en Honduras.`; canonical `https://multistacksystems.com/politica-de-privacidad`.
+**Meta:** browser title `Política de Privacidad — MultiStack Systems`; description `Conoce cómo MultiStack Systems recopila, usa y protege tus datos personales. Plataforma digital de tecnología e ingeniería de software con sede en Honduras.`; canonical `https://www.multistacksystems.com/politica-de-privacidad`.
 **Header:** eyebrow `// legal` · H1 `Política de Privacidad` · version `Vigente desde: Junio 2026  |  Versión 1.0`.
 
 **Full body (verbatim):**
 
 **01 — Responsable del Tratamiento de Datos**
 - "El responsable del tratamiento de los datos personales recopilados a través de esta plataforma es **MultiStack Systems**, plataforma digital de tecnología e ingeniería de software, con operaciones en Siguatepeque, Comayagua, Honduras."
-- "Para consultas relacionadas con esta Política, puede contactarnos a través de nuestro canal oficial de **WhatsApp Business** [https://wa.me/50433023042], o bien ingresando a nuestra plataforma en **multistacksystems.com** [https://multistacksystems.com] donde, una vez autenticado, podrá enviarnos una solicitud directamente desde su cuenta seleccionando el tipo de solicitud **«Otro»** e incluyendo sus observaciones, notas o recomendaciones en el campo de comentarios."
+- "Para consultas relacionadas con esta Política, puede contactarnos a través de nuestro canal oficial de **WhatsApp Business** [https://wa.me/50433023042], o bien ingresando a nuestra plataforma en **www.multistacksystems.com** [https://www.multistacksystems.com] donde, una vez autenticado, podrá enviarnos una solicitud directamente desde su cuenta seleccionando el tipo de solicitud **«Otro»** e incluyendo sus observaciones, notas o recomendaciones en el campo de comentarios."
 
 **02 — Datos que Recopilamos**
 - *2.1 Datos proporcionados mediante autenticación OAuth* — "Al iniciar sesión con Google, recopilamos automáticamente: nombre completo, dirección de correo electrónico, identificador único de cuenta (UID) y fotografía de perfil pública asociada a la cuenta de Google."
@@ -526,13 +526,13 @@ Same split shell + `AuthBrandPanel`. Two states.
 
 **Blocks:** identical legal shell; no providers table (body inline). Footer cross-link `← Política de Privacidad`.
 
-**Meta:** browser title `Términos del Servicio — MultiStack Systems`; description `Términos y condiciones de uso de MultiStack Systems. Conoce tus derechos, obligaciones y la jurisdicción aplicable como usuario de nuestra plataforma.`; canonical `https://multistacksystems.com/terminos-del-servicio`.
+**Meta:** browser title `Términos del Servicio — MultiStack Systems`; description `Términos y condiciones de uso de MultiStack Systems. Conoce tus derechos, obligaciones y la jurisdicción aplicable como usuario de nuestra plataforma.`; canonical `https://www.multistacksystems.com/terminos-del-servicio`.
 **Header:** eyebrow `// legal` · H1 `Términos del Servicio` · version `Vigentes desde: Junio 2026  |  Versión 1.0`.
 
 **Full body (verbatim):**
 
 **01 — Aceptación de los Términos**
-- "Al acceder, registrarse o utilizar cualquier servicio ofrecido a través de la plataforma de MultiStack Systems (**multistacksystems.com** [https://multistacksystems.com]), usted declara haber leído, comprendido y aceptado íntegramente los presentes Términos del Servicio. Si no está de acuerdo con alguna de estas condiciones, deberá abstenerse de utilizar la plataforma."
+- "Al acceder, registrarse o utilizar cualquier servicio ofrecido a través de la plataforma de MultiStack Systems (**www.multistacksystems.com** [https://www.multistacksystems.com]), usted declara haber leído, comprendido y aceptado íntegramente los presentes Términos del Servicio. Si no está de acuerdo con alguna de estas condiciones, deberá abstenerse de utilizar la plataforma."
 - "Estos términos constituyen un acuerdo legalmente vinculante entre usted (el \"Cliente\" o \"Usuario\") y **MultiStack Systems** (el \"Proveedor\"), plataforma digital de tecnología e ingeniería de software, conforme a las leyes de la República de Honduras."
 
 **02 — Descripción de los Servicios**

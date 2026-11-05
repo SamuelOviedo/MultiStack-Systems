@@ -21,7 +21,7 @@ export type Database = {
           fecha_creacion: string
           id: string
           nombre_proyecto: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           descripcion?: string | null
@@ -29,7 +29,7 @@ export type Database = {
           fecha_creacion?: string
           id?: string
           nombre_proyecto: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           descripcion?: string | null
@@ -37,7 +37,7 @@ export type Database = {
           fecha_creacion?: string
           id?: string
           nombre_proyecto?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }

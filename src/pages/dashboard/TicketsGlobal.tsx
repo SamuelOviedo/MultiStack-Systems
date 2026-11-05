@@ -261,7 +261,6 @@ export default function TicketsGlobal() {
             load();
           }
         }}
-        portalBaseUrl={window.location.origin}
       />
       </div>
     </div>

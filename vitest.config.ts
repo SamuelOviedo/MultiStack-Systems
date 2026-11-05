@@ -14,7 +14,9 @@ export default defineConfig({
       VITE_SUPABASE_URL: "https://test-project.supabase.co",
       VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable-key",
     },
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Edge Function logic lives in pure handler modules (no Deno globals), so
+    // its security tests run here too — in CI, on every PR.
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "supabase/functions/**/*.test.ts"],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },

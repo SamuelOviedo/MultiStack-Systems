@@ -95,12 +95,16 @@ export async function getTicketMessages(ticketId: string): Promise<TicketMessage
   return data as TicketMessage[];
 }
 
-export async function addTeamMessage(ticketId: string, senderName: string, message: string): Promise<void> {
-  const { error } = await db
+/** Inserts a team reply and returns its id (needed to notify the client). */
+export async function addTeamMessage(ticketId: string, senderName: string, message: string): Promise<string> {
+  const { data, error } = await db
     .from('ticket_messages')
-    .insert({ ticket_id: ticketId, sender_type: 'team', sender_name: senderName, message });
+    .insert({ ticket_id: ticketId, sender_type: 'team', sender_name: senderName, message })
+    .select('id')
+    .single();
   if (error) throw error;
   await db.from('tickets').update({ updated_at: new Date().toISOString() }).eq('id', ticketId);
+  return data.id as string;
 }
 
 export async function updateTicketStatus(ticketId: string, status: TicketStatus): Promise<void> {
@@ -216,23 +220,20 @@ export async function generateToken(
   return data as ClientAccessToken;
 }
 
-// ── Email notification (graceful — fails silently if edge function not deployed)
-export async function notifyNewTicket(ticket: Ticket, projectName: string): Promise<void> {
+// ── Email notification ────────────────────────────────────────────────────────
+/**
+ * Asks the `send-notification` Edge Function to e-mail the client about a
+ * team reply. Only identifiers travel: the function reads recipient, title and
+ * message from the database under the caller's RLS (fix S2). Never throws —
+ * the reply is already saved; returns false when the e-mail was not sent.
+ */
+export async function notifyTeamReply(ticketId: string, messageId: string): Promise<boolean> {
   try {
-    await (supabase as any).functions.invoke('send-notification', {
-      body: { type: 'new_ticket', ticket, projectName },
+    const { error } = await supabase.functions.invoke('send-notification', {
+      body: { type: 'team_reply', ticket_id: ticketId, message_id: messageId },
     });
-  } catch { /* silent */ }
-}
-
-export async function notifyTeamReply(
-  ticket: Ticket,
-  message: string,
-  portalUrl: string,
-): Promise<void> {
-  try {
-    await (supabase as any).functions.invoke('send-notification', {
-      body: { type: 'team_reply', ticket, message, portalUrl },
-    });
-  } catch { /* silent */ }
+    return !error;
+  } catch {
+    return false;
+  }
 }

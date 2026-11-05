@@ -1044,3 +1044,581 @@
     gap: 10px;
   }
 }
+
+/* ====================================================================
+   /paginas-web — landing del anuncio «Páginas web en Honduras». Clases .ms-pw-*,
+   con los tokens MS de .ms-landing (sin hex). Las anclas ya reservan los 72px
+   del Navbar fijo con `.ms-landing [id]`.
+   ==================================================================== */
+.ms-pw-section {
+  padding: clamp(64px, 8vw, 96px) 0;
+  background: var(--bg);
+}
+.ms-pw-section--tight {
+  padding: clamp(48px, 6vw, 72px) 0;
+}
+.ms-pw-section--alt {
+  background: var(--surface-2);
+}
+.ms-pw-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* Hero: deja pasar los 72px del Navbar y dibuja la retícula MS (--grid-*), que se desvanece. */
+.ms-pw-hero {
+  position: relative;
+  padding-top: calc(72px + clamp(48px, 7vw, 88px));
+  padding-bottom: clamp(48px, 6vw, 72px);
+}
+.ms-pw-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--grid-image);
+  background-size: var(--grid-size);
+  -webkit-mask-image: var(--grid-mask);
+  mask-image: var(--grid-mask);
+  pointer-events: none;
+}
+.ms-pw-hero > .ms-pw-wrap {
+  position: relative;
+}
+
+/* Tipografía: Sora para titulares, Hanken Grotesk (heredada) para texto, JetBrains Mono para rótulos. */
+.ms-pw-eyebrow {
+  margin: 0 0 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--accent);
+}
+.ms-pw-h1,
+.ms-pw-h2,
+.ms-pw-h3 {
+  margin: 0;
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  color: var(--text);
+  text-wrap: balance;
+}
+.ms-pw-h1 {
+  max-width: 12ch;
+  font-size: clamp(40px, 6.2vw, 72px);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+}
+.ms-pw-h2 {
+  max-width: 22ch;
+  font-size: clamp(28px, 3.4vw, 42px);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+.ms-pw-h3 {
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.ms-pw-lead,
+.ms-pw-intro,
+.ms-pw-text,
+.ms-pw-note,
+.ms-pw-quote {
+  margin: 0;
+  color: var(--text2);
+  text-wrap: pretty;
+}
+.ms-pw-lead {
+  max-width: 48ch;
+  margin-top: 24px;
+  font-size: clamp(17px, 1.5vw, 19.5px);
+  line-height: 1.6;
+}
+.ms-pw-intro {
+  max-width: 58ch;
+  margin-top: 16px;
+  font-size: 16.5px;
+  line-height: 1.65;
+}
+.ms-pw-text {
+  max-width: 60ch;
+  font-size: 15.5px;
+  line-height: 1.65;
+}
+.ms-pw-h3 + .ms-pw-text {
+  margin-top: 6px;
+}
+.ms-pw-note {
+  margin-top: 16px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.ms-pw-quote {
+  max-width: 58ch;
+  margin-top: 40px;
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--text);
+}
+.ms-pw-location {
+  margin: 20px 0 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--text2);
+}
+
+/* Botones y enlaces de acción (siempre <a>): 48px de alto, objetivo táctil holgado. */
+.ms-pw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 36px;
+}
+.ms-pw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 26px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  /* Al tabular, el foco no debe quedar bajo el Navbar fijo. */
+  scroll-margin-top: 96px;
+  transition: transform 0.2s, filter 0.2s, background-color 0.2s;
+}
+.ms-pw-btn svg {
+  flex: none;
+}
+.ms-pw-btn--primary {
+  background: var(--primary);
+  color: var(--btn-primary-text);
+}
+.ms-pw-btn--ghost {
+  border-color: var(--primary);
+  color: var(--text);
+}
+.ms-pw-btn--block {
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+}
+.ms-pw-btn:focus-visible,
+.ms-pw-card button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (hover: hover) {
+  .ms-pw-btn--primary:hover {
+    filter: brightness(1.08);
+    transform: translateY(-2px);
+  }
+  .ms-pw-btn--ghost:hover {
+    background: var(--primary-soft);
+  }
+}
+.ms-pw-btn:active {
+  transform: scale(0.98);
+}
+.ms-pw-stack {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Franja de datos (hero) y columna de datos (proceso). */
+.ms-pw-facts {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  margin: clamp(40px, 6vw, 64px) 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+.ms-pw-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px 24px 22px 0;
+}
+.ms-pw-fact + .ms-pw-fact {
+  padding-left: 24px;
+  border-left: 1px solid var(--hairline);
+}
+.ms-pw-fact__value {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: clamp(20px, 2.2vw, 24px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  text-wrap: balance;
+}
+.ms-pw-fact__label {
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text2);
+}
+.ms-pw-facts--stack {
+  grid-auto-flow: row;
+  margin-top: 0;
+}
+.ms-pw-facts--stack .ms-pw-fact {
+  padding: 20px 0;
+}
+.ms-pw-facts--stack .ms-pw-fact + .ms-pw-fact {
+  border-top: 1px solid var(--hairline);
+  border-left: 0;
+}
+
+/* Qué incluye: términos y descripciones en filas abiertas, como TechStack. */
+.ms-pw-rows {
+  margin: 48px 0 0;
+  border-top: 1px solid var(--hairline);
+}
+.ms-pw-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 300px) minmax(0, 1fr);
+  gap: 8px 32px;
+  align-items: baseline;
+  padding: 22px 4px;
+  border-bottom: 1px solid var(--hairline);
+}
+.ms-pw-row__term {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.ms-pw-row__desc {
+  max-width: 60ch;
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--text2);
+}
+
+/* Precio: el monto es lo más grande de la página; debajo, incluye y no incluye. */
+.ms-pw-amount {
+  margin: 40px 0 0;
+  line-height: 1;
+  color: var(--text);
+}
+.ms-pw-amount__prefix {
+  margin-right: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text2);
+}
+.ms-pw-amount__value {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: clamp(56px, 9vw, 104px);
+  letter-spacing: -0.045em;
+}
+.ms-pw-amount + .ms-pw-note {
+  margin-top: 12px;
+}
+.ms-pw-ledger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 48px;
+  border-top: 1px solid var(--hairline);
+}
+.ms-pw-ledger__col {
+  padding: 32px 40px 0 0;
+}
+.ms-pw-ledger__col + .ms-pw-ledger__col {
+  padding: 32px 0 0 40px;
+  border-left: 1px solid var(--hairline);
+}
+.ms-pw-checks {
+  display: grid;
+  gap: 16px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ms-pw-checks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.ms-pw-checks svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--success);
+}
+.ms-pw-checks--no svg {
+  color: var(--text2);
+}
+.ms-pw-checks__title {
+  display: block;
+  font-weight: 600;
+}
+.ms-pw-checks__text {
+  display: block;
+  margin-top: 2px;
+  font-size: 14.5px;
+  color: var(--text2);
+}
+
+/* Proceso: pasos numerados con un riel fino y, al lado, plazo y revisiones. */
+.ms-pw-timeline {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 48px 80px;
+  align-items: start;
+  margin-top: 48px;
+}
+.ms-pw-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ms-pw-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 20px;
+  padding-bottom: 36px;
+}
+.ms-pw-step:last-child {
+  padding-bottom: 0;
+}
+.ms-pw-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 48px;
+  bottom: 8px;
+  left: 20px;
+  width: 1px;
+  background: var(--border);
+}
+.ms-pw-step__n {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* Ingeniería: tres puntos en columnas con filete superior. */
+.ms-pw-points {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px 40px;
+  margin: 48px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ms-pw-point {
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline);
+}
+
+/* Atención y redes: texto a la izquierda, enlaces a la derecha. */
+.ms-pw-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 32px 64px;
+  align-items: center;
+}
+
+/* Preguntas: <details> nativos; marcador (chevron) y foco dibujados aquí. */
+.ms-pw-faq {
+  max-width: 860px;
+  margin-top: 48px;
+  border-top: 1px solid var(--hairline);
+}
+.ms-pw-faq__item {
+  border-bottom: 1px solid var(--hairline);
+}
+.ms-pw-faq__q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 64px;
+  padding: 16px 4px;
+  list-style: none;
+  cursor: pointer;
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  scroll-margin-top: 96px;
+  transition: color 0.2s;
+}
+.ms-pw-faq__q::-webkit-details-marker {
+  display: none;
+}
+.ms-pw-faq__q::after {
+  content: "";
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-3px) rotate(45deg);
+  transition: transform 0.2s;
+}
+.ms-pw-faq__item[open] > .ms-pw-faq__q::after {
+  transform: translateY(3px) rotate(-135deg);
+}
+.ms-pw-faq__q:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+@media (hover: hover) {
+  .ms-pw-faq__q:hover {
+    color: var(--primary);
+  }
+}
+.ms-pw-faq__a {
+  max-width: 70ch;
+  margin: 0;
+  padding: 0 44px 24px 4px;
+  font-size: 16.5px;
+  line-height: 1.7;
+  color: var(--text2);
+}
+
+/* Contacto: tarjeta del formulario como la de ContactSplit y, al lado, los canales alternativos. */
+.ms-pw-contact {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 32px 56px;
+  align-items: start;
+  margin-top: 48px;
+}
+.ms-pw-card {
+  padding: 30px 28px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.ms-pw-alt__label {
+  margin: 0 0 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text2);
+}
+/* ContactForm trae `outline: none` inline en sus campos: sin esto el foco de teclado no se ve. */
+.ms-pw-card input:focus-visible,
+.ms-pw-card textarea:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
+}
+.ms-pw-card input,
+.ms-pw-card textarea,
+.ms-pw-card button[type="submit"] {
+  min-height: 44px;
+}
+
+@media (max-width: 920px) {
+  .ms-pw-timeline,
+  .ms-pw-split,
+  .ms-pw-contact,
+  .ms-pw-points,
+  .ms-pw-ledger {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ms-pw-ledger__col,
+  .ms-pw-ledger__col + .ms-pw-ledger__col {
+    padding: 28px 0 0;
+    border-left: 0;
+  }
+  .ms-pw-ledger__col + .ms-pw-ledger__col {
+    margin-top: 28px;
+    border-top: 1px solid var(--hairline);
+  }
+}
+@media (max-width: 720px) {
+  .ms-pw-facts {
+    grid-auto-flow: row;
+  }
+  .ms-pw-fact,
+  .ms-pw-fact + .ms-pw-fact {
+    padding: 18px 0;
+  }
+  .ms-pw-fact + .ms-pw-fact {
+    border-top: 1px solid var(--hairline);
+    border-left: 0;
+  }
+  .ms-pw-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 20px 0;
+  }
+}
+/* Safari en iOS hace zoom al enfocar un campo de menos de 16px, y ContactForm fija 13.5px inline: solo
+   !important vence un estilo inline. Vale en pantallas angostas y en táctiles de cualquier ancho
+   (pointer: coarse), porque un iPhone en horizontal mide 812-932px de ancho CSS. En escritorio con
+   ratón no cambia. */
+@media (max-width: 720px), (pointer: coarse) {
+  .ms-pw-card input,
+  .ms-pw-card textarea {
+    font-size: 16px !important;
+  }
+}
+@media (max-width: 480px) {
+  .ms-pw-wrap {
+    padding: 0 20px;
+  }
+  .ms-pw-card {
+    padding: 22px 18px;
+  }
+  .ms-pw-actions > * {
+    flex: 1 1 100%;
+  }
+  .ms-pw-faq__a {
+    padding-right: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-pw-btn,
+  .ms-pw-faq__q,
+  .ms-pw-faq__q::after {
+    transition: none;
+  }
+  .ms-pw-btn:hover,
+  .ms-pw-btn:active {
+    transform: none;
+  }
+}

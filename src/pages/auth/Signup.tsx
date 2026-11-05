@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { signInWithOAuth, signUpWithEmail } from "@/lib/auth";
+import { describeAuthError, signInWithOAuth, signUpWithEmail } from "@/lib/auth";
 import { Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,7 +60,7 @@ const Signup = () => {
     } catch (error) {
       toast({
         title: "Error al crear cuenta",
-        description: error instanceof Error ? error.message : String(error),
+        description: describeAuthError(error),
         variant: "destructive",
       });
     } finally {

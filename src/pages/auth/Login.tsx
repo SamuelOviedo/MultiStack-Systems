@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { signInWithOAuth, signInWithPassword } from "@/lib/auth";
+import {
+  authErrorCode, describeAuthError, resendSignupConfirmation, signInWithOAuth, signInWithPassword,
+} from "@/lib/auth";
+import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,10 +53,11 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, userType, loading: authLoading } = useAuth();
+  const { user, userType, loading: authLoading, recoveryPending } = useAuth();
 
   useEffect(() => {
-    if (authLoading || !user || userType === null) return;
+    // A recovery-link session must set a new password first (RecoveryRedirect).
+    if (authLoading || !user || userType === null || recoveryPending) return;
 
     // Clean up any stored service intent from landing CTA
     sessionStorage.removeItem("postLoginIntent");
@@ -71,7 +75,7 @@ const Login = () => {
     } else {
       navigate("/solicitudes", { replace: true });
     }
-  }, [user, userType, authLoading, navigate, location.search]);
+  }, [user, userType, authLoading, recoveryPending, navigate, location.search]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,12 +84,29 @@ const Login = () => {
     try {
       await signInWithPassword(email, password);
     } catch (error) {
+      const unconfirmed = authErrorCode(error) === "email_not_confirmed";
       toast({
         title: "Error de autenticación",
-        description: error instanceof Error ? error.message : String(error),
+        description: describeAuthError(error),
         variant: "destructive",
+        ...(unconfirmed && {
+          action: (
+            <ToastAction altText="Reenviar el enlace de confirmación" onClick={handleResendConfirmation}>
+              Reenviar enlace
+            </ToastAction>
+          ),
+        }),
       });
       setLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    try {
+      await resendSignupConfirmation(email);
+      toast({ title: "Enlace enviado", description: "Revisa tu bandeja de entrada (y la carpeta de spam)." });
+    } catch (error) {
+      toast({ title: "No se pudo reenviar", description: describeAuthError(error), variant: "destructive" });
     }
   };
 

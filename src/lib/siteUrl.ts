@@ -1,4 +1,6 @@
-const PRODUCTION_ORIGIN = "https://multistacksystems.com";
+// Con www: host canónico (Vercel redirige el dominio sin www desde la configuración de Dominios) y el que
+// está en las Redirect URLs de Supabase.
+const PRODUCTION_ORIGIN = "https://www.multistacksystems.com";
 
 /**
  * Origen público del sitio para redirecciones de auth.

@@ -2,38 +2,15 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowUp } from "lucide-react";
 import Navbar from "@/components/common/Navbar";
+import { applyPageMeta } from "@/lib/pageMeta";
 
-const CANONICAL = "https://multistacksystems.com/terminos-del-servicio";
+const TITLE = "Términos del Servicio — MultiStack Systems";
+const CANONICAL = "https://www.multistacksystems.com/terminos-del-servicio";
 const META_DESC  =
   "Términos y condiciones de uso de MultiStack Systems. Conoce tus derechos, obligaciones y la jurisdicción aplicable como usuario de nuestra plataforma.";
 
 export default function TerminosDelServicio() {
-  useEffect(() => {
-    const prevTitle = document.title;
-    document.title = "Términos del Servicio — MultiStack Systems";
-
-    const setMeta = (name: string, content: string) => {
-      let el = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
-      if (!el) { el = document.createElement("meta"); el.name = name; document.head.appendChild(el); }
-      el.content = content;
-      return el;
-    };
-    const setLink = (rel: string, href: string) => {
-      let el = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
-      if (!el) { el = document.createElement("link"); el.rel = rel; document.head.appendChild(el); }
-      el.href = href;
-      return el;
-    };
-
-    const desc      = setMeta("description", META_DESC);
-    const canonical = setLink("canonical", CANONICAL);
-
-    return () => {
-      document.title = prevTitle;
-      desc.remove();
-      canonical.remove();
-    };
-  }, []);
+  useEffect(() => applyPageMeta({ title: TITLE, description: META_DESC, canonical: CANONICAL }), []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -73,12 +50,12 @@ export default function TerminosDelServicio() {
               Al acceder, registrarse o utilizar cualquier servicio ofrecido a través de la
               plataforma de MultiStack Systems (
               <a
-                href="https://multistacksystems.com"
+                href="https://www.multistacksystems.com"
                 className="text-primary hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                multistacksystems.com
+                www.multistacksystems.com
               </a>
               ), usted declara haber leído, comprendido y aceptado íntegramente los presentes
               Términos del Servicio. Si no está de acuerdo con alguna de estas condiciones, deberá

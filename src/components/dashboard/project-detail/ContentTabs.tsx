@@ -221,7 +221,6 @@ export default function ContentTabs({
         open={!!selectedTicket}
         onClose={() => setSelectedTicket(null)}
         onUpdated={onRefresh}
-        portalBaseUrl={window.location.origin}
       />
     </>
   );

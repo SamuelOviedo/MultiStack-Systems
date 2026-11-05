@@ -1,4 +1,4 @@
-# robots.txt — MultiStack Systems (https://multistacksystems.com)
+# robots.txt — MultiStack Systems (https://www.multistacksystems.com)
 # Software Engineering & Tech Solutions — Siguatepeque, Honduras
 
 User-agent: *
@@ -12,4 +12,4 @@ Disallow: /signup
 Disallow: /auth/
 Disallow: /client/
 
-Sitemap: https://multistacksystems.com/sitemap.xml
+Sitemap: https://www.multistacksystems.com/sitemap.xml

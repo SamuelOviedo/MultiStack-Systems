@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { CONTACT_LIMITS, sendContactMessage, validateContact, type ContactPayload } from "@/lib/contact";
+import { trackContactConversion } from "@/lib/analytics";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -73,6 +74,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
     setStatus("loading");
     try {
       await sendContactMessage(form);
+      trackContactConversion();
       setStatus("success");
       setForm(EMPTY_FORM);
       setSubmitted(false);
