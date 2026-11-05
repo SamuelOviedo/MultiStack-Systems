@@ -56,7 +56,7 @@ describe("normalizeContact", () => {
 describe("ContactForm", () => {
   it("el honeypot queda fuera del orden de tabulación y oculto a lectores de pantalla (S4)", () => {
     const { container } = render(<ContactForm idPrefix="h" />);
-    const trap = container.querySelector<HTMLInputElement>('input[name="website"]');
+    const trap = container.querySelector<HTMLInputElement>('input[name="ms_hp"]');
     expect(trap).not.toBeNull();
     expect(trap?.tabIndex).toBe(-1);
     expect(trap?.closest('[aria-hidden="true"]')).not.toBeNull();

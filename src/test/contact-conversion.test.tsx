@@ -405,18 +405,24 @@ describe.each(CONTAINERS)("conversión «Contacto enviado» en $label", (contain
     expect(eventsOf("page_view")).toHaveLength(1);
   });
 
-  it("honeypot lleno: se envía (el servidor lo cuenta) y se muestra éxito aparente, pero no hay conversión", async () => {
+  it("honeypot lleno (autocompletado): no se envía ni se mide, se vacía y avisa; el reintento envía sin él y mide una vez", async () => {
     await mount(container);
     send.mockResolvedValue(undefined);
     fillForm();
-    const trap = document.querySelector<HTMLInputElement>('input[name="website"]') as HTMLInputElement;
-    fireEvent.change(trap, { target: { value: "http://spam.example.test" } });
+    const trap = document.querySelector<HTMLInputElement>('input[name="ms_hp"]') as HTMLInputElement;
+    fireEvent.change(trap, { target: { value: "http://autofill.example.test" } });
+    fireEvent.click(submitButton());
+    expect(await screen.findByText(SEND_ERROR)).toBeInTheDocument();
+    expect(screen.queryByText(/¡Mensaje enviado!/)).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+    expect(conversions()).toHaveLength(0);
+    expect(trap.value).toBe("");
+
     fireEvent.click(submitButton());
     expect(await findSuccess()).toBeInTheDocument();
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledWith({ ...VISITOR, website: "http://spam.example.test" });
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(conversions()).toHaveLength(0);
+    expect(send).toHaveBeenCalledWith({ ...VISITOR, website: "" }) // vacío: normalizeContact lo omite del cuerpo;
+    expect(conversions()).toHaveLength(1);
   });
 
   it("con el script de gtag.js aún cargando (sin load) el envío funciona, sin conversión y sin crear gtag ni dataLayer", async () => {

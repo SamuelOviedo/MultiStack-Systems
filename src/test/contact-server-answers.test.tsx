@@ -53,6 +53,29 @@ describe("topes de longitud del formulario = contrato del servidor (lead.ts y CH
   });
 });
 
+describe("honeypot: atributos del campo oculto (autocompletado, teclado, lectores de pantalla)", () => {
+  it("el DOM no sugiere un sitio web ni una dirección, y el cliente no lo alcanza", () => {
+    const { container } = render(<ContactForm idPrefix="a" />);
+    const trap = container.querySelector('input[name="ms_hp"]') as HTMLInputElement;
+    expect(trap).not.toBeNull();
+    // Nada de website / url / sitio / empresa en name, id, label ni placeholder: los gestores completan por esas pistas.
+    const clues = [trap.name, trap.id, trap.placeholder, trap.labels?.[0]?.textContent ?? "", trap.type].join(" ");
+    expect(clues).not.toMatch(/web|url|sitio|site|http|empresa|company|link|enlace/i);
+    expect(container.querySelector('[name="website"], #a-website')).toBeNull();
+    expect(trap.type).toBe("text");
+    expect(trap.getAttribute("autocomplete")).toBe("off");
+    for (const flag of ["data-lpignore", "data-1p-ignore", "data-bwignore"]) expect(trap.getAttribute(flag)).toBe("true");
+    expect(trap.tabIndex).toBe(-1);
+    expect(trap.closest('[aria-hidden="true"]')).not.toBeNull();
+    expect((trap.closest('[aria-hidden="true"]') as HTMLElement).style.left).toBe("-10000px");
+  });
+
+  it("la clave del cuerpo sigue siendo «website» (contrato de lead.ts) aunque el campo ya no se llame así", async () => {
+    const { normalizeContact } = await import("@/lib/contact");
+    expect(normalizeContact({ name: "Ana", message: "hola mundo", email: "a@b.co", website: "x" })).toHaveProperty("website", "x");
+  });
+});
+
 describe("respuestas del servidor vistas por el visitante", () => {
   it("200: muestra el éxito y vacía el formulario", async () => {
     invoke.mockResolvedValue({ data: { ok: true }, error: null });
@@ -65,15 +88,23 @@ describe("respuestas del servidor vistas por el visitante", () => {
     expect(invoke.mock.calls[0][0]).toBe("send-contact-email");
   });
 
-  it("honeypot: el campo se llama «website», viaja al servidor y el bot ve un éxito sin error", async () => {
-    invoke.mockResolvedValue({ data: { ok: true }, error: null }); // lo que responde el servidor al honeypot (200 {ok:true})
+  it("honeypot lleno por el autocompletado: no se envía, no hay éxito falso, el campo se vacía y el reintento envía sin él", async () => {
+    invoke.mockResolvedValue({ data: { ok: true }, error: null });
     const { container } = render(<ContactForm idPrefix="h" />);
     fill();
-    fireEvent.change(container.querySelector('input[name="website"]') as HTMLInputElement, { target: { value: "http://spam.example.test" } });
+    const trap = container.querySelector('input[name="ms_hp"]') as HTMLInputElement;
+    fireEvent.change(trap, { target: { value: "http://autofill.example.test" } });
+    submit();
+    expect(await screen.findByRole("alert")).toHaveTextContent(GENERIC);
+    expect(screen.queryByText(SENT)).toBeNull();
+    expect(invoke).not.toHaveBeenCalled();
+    expect(trap.value).toBe("");
+    expect(screen.getByLabelText("Mensaje")).toHaveValue("Mensaje de PRUEBA para el formulario");
+
     submit();
     expect(await screen.findByText(SENT)).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(invoke.mock.calls[0][1].body.website).toBe("http://spam.example.test");
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke.mock.calls[0][1].body).not.toHaveProperty("website");
   });
 
   it("sin honeypot el cuerpo no lleva el campo", async () => {
