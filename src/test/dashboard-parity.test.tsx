@@ -202,9 +202,9 @@ describe("rutas y roles: el panel es solo del administrador (allowedTypes [0]); 
     expect(blocks["/solicitudes"]).not.toContain("AdminShell");
   });
 
-  it("solo /dashboard y /dashboard/proyectos usan el shell; el resto de rutas privadas y públicas queda como estaba", () => {
+  it("/dashboard, /dashboard/proyectos y /dashboard/tickets usan el shell; el detalle, el resto de rutas privadas y las públicas quedan como estaban", () => {
     const conShell = Object.entries(blocks).filter(([, b]) => b.includes("<AdminShell>")).map(([p]) => p);
-    expect(conShell.sort()).toEqual(["/dashboard", "/dashboard/proyectos"]);
+    expect(conShell.sort()).toEqual(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"]);
     const protegidas = Object.entries(blocks).filter(([, b]) => b.includes("<ProtectedRoute")).map(([p]) => p);
     expect(protegidas.sort()).toEqual(["/dashboard", "/dashboard/project/:id", "/dashboard/proyectos", "/dashboard/tickets", "/solicitudes"]);
     // Portal de clientes, acceso y recuperación: públicos y sin shell.
@@ -423,11 +423,13 @@ describe("enlaces y destinos antiguos siguen llevando a páginas válidas", () =
     expect(screen.getByRole("link", { name: /Dashboard/ })).toHaveAttribute("href", "/dashboard");
   });
 
-  it("Tickets sigue en /dashboard/tickets con sus datos y la barra anterior; un error de carga del detalle vuelve a /dashboard", async () => {
+  it("Tickets sigue en /dashboard/tickets con sus datos, ahora dentro del shell y sin la barra anterior; un error de carga del detalle vuelve a /dashboard", async () => {
     signIn(0);
     goTo("/dashboard/tickets");
     expect(await screen.findByText("Botón de pago roto", {}, WAIT)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /\[ PANEL \]/ })).toHaveAttribute("href", "/dashboard");
+    expect(screen.queryByRole("link", { name: /\[ PANEL \]/ })).toBeNull();
+    const nav = within(screen.getByRole("navigation", { name: "Principal" }));
+    expect(nav.getByRole("link", { name: /Tickets/, current: "page" })).toHaveAttribute("href", "/dashboard/tickets");
 
     cleanup();
     window.history.pushState({}, "", "/");
