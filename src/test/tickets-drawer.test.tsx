@@ -1,5 +1,5 @@
 // TicketDrawer: nombre y descripción del diálogo, cierre en español, controles con etiqueta, lista de
-// datos, conversación como `log`, composición de respuesta, estados de carga/error del hilo, errores de acciones sin
+// datos, conversación (lista + región de anuncios), composición de respuesta, estados de carga/error del hilo, errores de acciones sin
 // texto técnico y que un parche tardío no se mezcla con otro ticket. Datos inventados.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -306,13 +306,75 @@ describe("lista de datos", () => {
 });
 
 describe("conversación", () => {
-  it("es un `log` con nombre, aviso educado (polite) y solo anuncia lo que se añade", async () => {
+  // Antes el contenedor del hilo era un `log` con aria-live: al abrir un ticket el lector de pantalla podía leer toda la
+  // conversación. Ahora el hilo es una región con nombre y una lista; solo se anuncia lo que llega después de abrirlo.
+  const regionAnuncios = (d: ReturnType<typeof within>) => d.getByRole("status");
+
+  it("el hilo es una sección con nombre y una lista: no es un `log` ni lleva aria-live", async () => {
     montar();
     const d = await dialogo();
-    const log = await d.findByRole("log", { name: "Conversación (2)" }, WAIT).catch(() => d.getByRole("log"));
-    expect(log).toHaveAttribute("aria-live", "polite");
-    expect(log).toHaveAttribute("aria-relevant", "additions");
-    expect(log).toHaveAccessibleName(/Conversación/);
+    const titulo = await d.findByRole("heading", { name: /^Conversación\s*\(2\)$/ }, WAIT);
+    const region = titulo.closest("section")!;
+    expect(region).toHaveAccessibleName(/^Conversación\s*\(2\)$/);
+    expect(d.queryByRole("log")).toBeNull();
+    expect(within(region).getAllByRole("listitem")).toHaveLength(2);
+    // Ningún ancestro de la lista ni la lista misma son regiones vivas.
+    const lista = within(region).getByRole("list");
+    for (let el: HTMLElement | null = lista; el && el !== region.parentElement; el = el.parentElement) {
+      expect(el.hasAttribute("aria-live"), el.tagName).toBe(false);
+      expect(el.hasAttribute("aria-relevant"), el.tagName).toBe(false);
+      expect(el.getAttribute("role")).not.toBe("log");
+    }
+  });
+
+  it("al abrir, la región de anuncios existe pero está vacía y oculta a la vista", async () => {
+    montar();
+    const d = await dialogo();
+    await d.findByText("No puedo pagar", {}, WAIT);
+    const anuncios = regionAnuncios(d);
+    expect(anuncios).toHaveAttribute("aria-live", "polite");
+    expect(anuncios).toBeEmptyDOMElement();
+    expect(anuncios.className).toMatch(/sr-only/);
+  });
+
+  it("al llegar un mensaje nuevo se anuncia solo ese (autor), no el hilo entero", async () => {
+    montar();
+    const d = await dialogo();
+    await d.findByText("No puedo pagar", {}, WAIT);
+    libs.getTicketMessages.mockResolvedValue([...MENSAJES, { id: "m3", ticket_id: "t1", sender_type: "team", sender_name: "Ana Demo", message: "Hecho", created_at: "2026-11-02T14:00:00.000Z" }]);
+    fireEvent.change(d.getByRole("textbox"), { target: { value: "Hecho" } });
+    fireEvent.click(d.getByRole("button", { name: "Responder" }));
+    await waitFor(() => expect(regionAnuncios(d)).toHaveTextContent("Nuevo mensaje de Ana Demo"), WAIT);
+    const texto = regionAnuncios(d).textContent ?? "";
+    expect(texto).toBe("Nuevo mensaje de Ana Demo");
+    expect(texto).not.toMatch(/No puedo pagar|Lo revisamos|Cliente Demo|Hecho/);
+  });
+
+  it("al cambiar de ticket no se anuncia el hilo nuevo completo", async () => {
+    const { cambiarTicket } = montar(base());
+    const d = await dialogo();
+    await d.findByText("No puedo pagar", {}, WAIT);
+    libs.getTicketMessages.mockResolvedValue([
+      { id: "n1", ticket_id: "t2", sender_type: "client", sender_name: "Otra Persona", message: "Hola desde el otro", created_at: "2026-10-31T10:00:00.000Z" },
+      { id: "n2", ticket_id: "t2", sender_type: "team", sender_name: "MultiStack Team", message: "Recibido", created_at: "2026-10-31T11:00:00.000Z" },
+    ]);
+    cambiarTicket(base({ id: "t2", title: "Segundo" }));
+    expect(await d.findByText("Hola desde el otro", {}, WAIT)).toBeInTheDocument();
+    expect(regionAnuncios(d)).toBeEmptyDOMElement();
+  });
+
+  it("tras cambiar de ticket, un mensaje que llega después sí se anuncia", async () => {
+    const { cambiarTicket } = montar(base());
+    const d = await dialogo();
+    await d.findByText("No puedo pagar", {}, WAIT);
+    const otro = { id: "n1", ticket_id: "t2", sender_type: "client", sender_name: "Otra Persona", message: "Hola desde el otro", created_at: "2026-10-31T10:00:00.000Z" };
+    libs.getTicketMessages.mockResolvedValue([otro]);
+    cambiarTicket(base({ id: "t2", title: "Segundo" }));
+    await d.findByText("Hola desde el otro", {}, WAIT);
+    libs.getTicketMessages.mockResolvedValue([otro, { ...otro, id: "n2", sender_type: "team", sender_name: "Ana Demo", message: "Respuesta" }]);
+    fireEvent.change(d.getByRole("textbox"), { target: { value: "Respuesta" } });
+    fireEvent.click(d.getByRole("button", { name: "Responder" }));
+    await waitFor(() => expect(regionAnuncios(d)).toHaveTextContent("Nuevo mensaje de Ana Demo"), WAIT);
   });
 
   it("distingue equipo y cliente con una etiqueta de texto y con la alineación (no solo por color)", async () => {
@@ -346,12 +408,13 @@ describe("conversación", () => {
     expect(a.compareDocumentPosition(d.getByText("Lo revisamos")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("cargando: barras y texto «Cargando mensajes…» y el `log` ocupado", async () => {
+  it("cargando: barras y texto «Cargando mensajes…» y el contenedor del hilo ocupado", async () => {
     libs.getTicketMessages.mockReturnValue(new Promise(() => {}));
     montar();
     const d = await dialogo();
     expect(d.getByText("Cargando mensajes…")).toBeInTheDocument();
-    expect(d.getByRole("log")).toHaveAttribute("aria-busy", "true");
+    expect(d.getByText("Cargando mensajes…").closest("[aria-busy]")).toHaveAttribute("aria-busy", "true");
+    expect(regionAnuncios(d)).toBeEmptyDOMElement();
   });
 
   it("sin mensajes: «Sin mensajes todavía.»", async () => {
@@ -370,6 +433,8 @@ describe("conversación", () => {
     fireEvent.click(within(alerta).getByRole("button", { name: "Reintentar" }));
     expect(await d.findByText("No puedo pagar", {}, WAIT)).toBeInTheDocument();
     expect(d.queryByRole("alert")).toBeNull();
+    // Lo que trae el reintento es el punto de partida del hilo: no se anuncia.
+    expect(regionAnuncios(d)).toBeEmptyDOMElement();
   });
 
   it("al abrir NO baja el hilo (se ven primero los datos); al llegar un mensaje nuevo, sí", async () => {

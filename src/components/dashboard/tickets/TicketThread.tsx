@@ -1,4 +1,4 @@
-import { useId, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,9 +34,20 @@ function Message({ msg, now }: { msg: TicketMessage; now: Date }) {
   );
 }
 
+/** Texto que anuncia el lector de pantalla cuando llegan mensajes después de abrir el hilo. */
+function announcementFor(fresh: TicketMessage[]): string {
+  const last = fresh[fresh.length - 1];
+  return fresh.length === 1
+    ? `Nuevo mensaje de ${last.sender_name}`
+    : `${fresh.length} mensajes nuevos, el último de ${last.sender_name}`;
+}
+
 /**
- * Hilo de la conversación. El contenedor es un `log` con avisos educados: cuando llega un mensaje nuevo el lector
- * de pantalla lo anuncia sin interrumpir. Equipo a la derecha y cliente a la izquierda, además de la etiqueta.
+ * Hilo de la conversación: una lista de mensajes, equipo a la derecha y cliente a la izquierda, además de la etiqueta.
+ * La lista NO es una región viva: al abrir un ticket el lector de pantalla no lee toda la conversación sin que se
+ * lo pidan. Solo los mensajes que llegan DESPUÉS de abrir el hilo se anuncian, de forma educada, en una región aparte
+ * y oculta («Nuevo mensaje de …»). Al cargar o cambiar de ticket el hilo vuelve a empezar: lo que trae la carga es
+ * el punto de partida y no se anuncia.
  */
 export function TicketThread({
   state, messages, now, onRetry, endRef,
@@ -48,6 +59,27 @@ export function TicketThread({
   endRef: RefObject<HTMLDivElement>;
 }) {
   const headingId = useId();
+  // Ids ya presentes al terminar de cargar (el punto de partida). `null` mientras el hilo carga o falla.
+  const seen = useRef<Set<string> | null>(null);
+  const [announcement, setAnnouncement] = useState<{ id: number; text: string } | null>(null);
+
+  useEffect(() => {
+    if (state !== "ready") {
+      seen.current = null;
+      setAnnouncement(null);
+      return;
+    }
+    if (seen.current === null) {
+      seen.current = new Set(messages.map((m) => m.id));
+      return;
+    }
+    const known = seen.current;
+    const fresh = messages.filter((m) => !known.has(m.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((m) => known.add(m.id));
+    setAnnouncement((prev) => ({ id: (prev?.id ?? 0) + 1, text: announcementFor(fresh) }));
+  }, [state, messages]);
+
   return (
     <section aria-labelledby={headingId}>
       <h3 id={headingId} className="mb-3 text-sm font-semibold">
@@ -64,13 +96,7 @@ export function TicketThread({
           </Button>
         </div>
       ) : (
-        <div
-          role="log"
-          aria-labelledby={headingId}
-          aria-live="polite"
-          aria-relevant="additions"
-          aria-busy={state === "loading" || undefined}
-        >
+        <div aria-busy={state === "loading" || undefined}>
           {state === "loading" ? (
             <div className="space-y-3">
               <span className="sr-only">Cargando mensajes…</span>
@@ -88,6 +114,11 @@ export function TicketThread({
           )}
         </div>
       )}
+      {/* Región viva siempre presente y vacía al abrir: solo anuncia lo que llega después. Cada anuncio es un nodo nuevo
+          (clave distinta) para que dos mensajes seguidos del mismo autor se digan los dos. */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement && <p key={announcement.id}>{announcement.text}</p>}
+      </div>
       <div ref={endRef} />
     </section>
   );
