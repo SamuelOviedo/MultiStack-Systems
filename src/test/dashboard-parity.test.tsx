@@ -202,9 +202,9 @@ describe("rutas y roles: el panel es solo del administrador (allowedTypes [0]); 
     expect(blocks["/solicitudes"]).not.toContain("AdminShell");
   });
 
-  it("/dashboard, /dashboard/proyectos y /dashboard/tickets usan el shell; el detalle, el resto de rutas privadas y las públicas quedan como estaban", () => {
+  it("las 4 rutas del panel usan el shell; el resto de rutas privadas y las públicas quedan como estaban", () => {
     const conShell = Object.entries(blocks).filter(([, b]) => b.includes("<AdminShell>")).map(([p]) => p);
-    expect(conShell.sort()).toEqual(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"]);
+    expect(conShell.sort()).toEqual(["/dashboard", "/dashboard/project/:id", "/dashboard/proyectos", "/dashboard/tickets"]);
     const protegidas = Object.entries(blocks).filter(([, b]) => b.includes("<ProtectedRoute")).map(([p]) => p);
     expect(protegidas.sort()).toEqual(["/dashboard", "/dashboard/project/:id", "/dashboard/proyectos", "/dashboard/tickets", "/solicitudes"]);
     // Portal de clientes, acceso y recuperación: públicos y sin shell.
@@ -410,17 +410,17 @@ describe("lo que daba la barra superior anterior (Panel, Soporte, Salir, tema, s
 });
 
 describe("enlaces y destinos antiguos siguen llevando a páginas válidas", () => {
-  it("el detalle de un proyecto abre desde una tarjeta, conserva su barra anterior y su «Dashboard» vuelve a /dashboard", async () => {
+  it("el detalle de un proyecto abre desde una tarjeta, ahora dentro del shell, y su «Volver al resumen» vuelve a /dashboard", async () => {
     signIn(0);
     goTo("/dashboard/proyectos");
     const main = await screen.findByRole("main", {}, WAIT);
     fireEvent.click((await within(main).findAllByRole("link", { name: /Tienda Demo/ }, WAIT))[0]);
     await waitFor(() => expect(window.location.pathname).toBe("/dashboard/project/p1"), WAIT);
     expect(await screen.findByRole("heading", { name: "Tienda Demo" }, WAIT)).toBeInTheDocument();
-    // Hasta su propio rediseño el detalle conserva la barra superior anterior (sin el menú lateral).
-    expect(screen.getByRole("link", { name: /\[ PANEL \]/ })).toHaveAttribute("href", "/dashboard");
-    expect(screen.getByRole("link", { name: /\[ TICKETS \]/ })).toHaveAttribute("href", "/dashboard/tickets");
-    expect(screen.getByRole("link", { name: /Dashboard/ })).toHaveAttribute("href", "/dashboard");
+    // El detalle usa el shell: menú lateral con «Proyectos» marcado y sin la barra superior anterior.
+    expect(screen.queryByRole("link", { name: /\[ PANEL \]/ })).toBeNull();
+    expect(screen.getByRole("link", { name: "Proyectos", current: "page" })).toHaveAttribute("href", "/dashboard/proyectos");
+    expect(screen.getByRole("link", { name: "Volver al resumen" })).toHaveAttribute("href", "/dashboard");
   });
 
   it("Tickets sigue en /dashboard/tickets con sus datos, ahora dentro del shell y sin la barra anterior; un error de carga del detalle vuelve a /dashboard", async () => {

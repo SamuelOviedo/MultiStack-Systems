@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronRight } from "lucide-react";
-import Navbar from "@/components/common/Navbar";
+import { ArrowLeft } from "lucide-react";
 import BrandLoader from "@/components/common/BrandLoader";
+import { PageHeader } from "@/components/admin/PageHeader";
+import { StatusBadge } from "@/components/admin/StatusBadge";
+import { safeProjectStatus } from "@/components/dashboard/dashboard-home/projectStatus";
 import StageDrawer from "@/components/dashboard/project-detail/StageDrawer";
 import ServiceForm from "@/components/dashboard/project-detail/ServiceForm";
 import PipelineHeader from "@/components/dashboard/project-detail/PipelineHeader";
@@ -10,6 +12,7 @@ import ProjectIdentityCard, {
   type ProjectEditForm,
 } from "@/components/dashboard/project-detail/ProjectIdentityCard";
 import ContentTabs from "@/components/dashboard/project-detail/ContentTabs";
+import { formatInstantDay } from "@/components/dashboard/project-detail/format";
 import { useToast } from "@/hooks/use-toast";
 import {
   getProject, getProjectStages, getProjectServices, getProjectMaintenance,
@@ -125,8 +128,9 @@ export default function ProjectDetail() {
   }, [load]);
 
   if (loading) return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div role="status" className="flex min-h-[50vh] items-center justify-center">
       <BrandLoader />
+      <span className="sr-only">Cargando el proyecto…</span>
     </div>
   );
 
@@ -135,30 +139,40 @@ export default function ProjectDetail() {
   const showMaintenance = project.estado === "activo" || project.estado === "mantenimiento";
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      <div className="container mx-auto px-4 sm:px-6 pt-24 pb-16 max-w-5xl">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 mb-6">
-          <Link to="/dashboard"
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors font-display">
-            <ArrowLeft className="h-3.5 w-3.5" />Dashboard
+    <div className="container mx-auto max-w-6xl space-y-2 px-4 pb-16 sm:px-6">
+      <PageHeader
+        breadcrumb={
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center gap-1 rounded-sm text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+          >
+            <ArrowLeft aria-hidden="true" className="size-3.5" />
+            Volver al resumen
           </Link>
-          <ChevronRight className="h-3 w-3 text-muted-foreground" />
-          <span className="text-xs text-foreground font-display truncate max-w-[200px]">
-            {project.nombre_proyecto}
-          </span>
-        </div>
+        }
+        title={project.nombre_proyecto}
+        meta={
+          <>
+            <StatusBadge kind="project" value={safeProjectStatus(project.estado)} />
+            <span>
+              Creado el <time dateTime={project.fecha_creacion}>{formatInstantDay(project.fecha_creacion)}</time>
+            </span>
+          </>
+        }
+      />
 
-        <div className="space-y-6">
+      {/* En pantallas anchas el pipeline queda a la derecha; en las angostas va primero, como resumen del avance. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
+        <div className="lg:col-start-2 lg:row-start-1">
           <PipelineHeader
             stagesData={stages}
             onStageClick={setActiveStage}
             isCollapsed={pipelineCollapsed}
             onToggleCollapse={toggleCollapse}
           />
+        </div>
 
+        <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
           <ProjectIdentityCard
             project={project}
             editing={editing}

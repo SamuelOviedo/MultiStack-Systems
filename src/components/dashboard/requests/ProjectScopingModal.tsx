@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { convertTicketToProject } from "@/lib/projects";
+import { EXTERNAL_URL_ERROR, safeExternalUrl } from "@/lib/safeUrl";
 import { getTeamMembers } from "@/lib/tickets";
 import { ROLE_LABELS, type Ticket, type TeamMember } from "@/types/tickets";
 
@@ -185,12 +186,14 @@ export default function ProjectScopingModal({ ticket, open, onClose, onConverted
             <FormField
               control={form.control}
               name="googleDocs"
+              rules={{ validate: (v) => !v.trim() || safeExternalUrl(v) !== null || EXTERNAL_URL_ERROR }}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Google Docs de requerimientos</FormLabel>
                   <FormControl>
                     <Input {...field} type="url" inputMode="url" placeholder="https://docs.google.com/document/d/…" />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />

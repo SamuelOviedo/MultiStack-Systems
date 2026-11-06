@@ -93,7 +93,9 @@ const App = () => (
                 path="/dashboard/project/:id"
                 element={
                   <ProtectedRoute allowedTypes={[0]}>
-                    <ProjectDetail />
+                    <AdminShell>
+                      <ProjectDetail />
+                    </AdminShell>
                   </ProtectedRoute>
                 }
               />
