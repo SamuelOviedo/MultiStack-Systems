@@ -642,12 +642,13 @@ describe("migas de pan: una sola línea en móvil", () => {
   /** Entradas que NO llevan `hidden` sin prefijo: las que se ven por debajo de 768 px. */
   const onNarrow = () => items().filter((li) => !/(^|\s)hidden(\s|$)/.test(li.className));
 
-  it("en dos niveles (Soporte / Tickets) solo queda la miga actual, sin cortar", () => {
+  it("en dos niveles (Panel / Tickets) solo queda la miga actual, sin cortar", () => {
     renderShell("/dashboard/tickets");
     expect(onNarrow().map((li) => li.textContent)).toEqual(["Tickets"]);
     expect(within(onNarrow()[0] as HTMLElement).getByText("Tickets")).toHaveAttribute("aria-current", "page");
-    // El grupo y el separador se ven desde 768 px.
-    expect(items().map((li) => li.textContent).filter(Boolean)).toEqual(["Soporte", "Tickets"]);
+    // «Panel» (enlace al Resumen) y el separador se ven desde 768 px.
+    expect(items().map((li) => li.textContent).filter(Boolean)).toEqual(["Panel", "Tickets"]);
+    expect(within(crumbs()).getByRole("link", { name: "Panel" })).toHaveAttribute("href", "/dashboard");
   });
 
   it("en el detalle (tres niveles) queda un enlace corto «‹ Proyectos» al padre, no «Det…» a medias", () => {

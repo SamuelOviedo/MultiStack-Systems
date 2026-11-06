@@ -230,11 +230,21 @@ describe("AdminShell · salidas coherentes", () => {
     expect(logos.length).toBeGreaterThan(0);
   });
 
-  it("migas «Soporte / Tickets» con el menú y la cabecera presentes", async () => {
+  it("migas «Panel / Tickets»: «Panel» es un enlace al Resumen y «Tickets» la miga actual", async () => {
     signIn(0);
     montarShell();
     const migas = within(await screen.findByRole("navigation", { name: "Migas de pan" }, WAIT));
-    expect(migas.getByText("Soporte")).toBeInTheDocument();
+    expect(migas.getByRole("link", { name: "Panel" })).toHaveAttribute("href", "/dashboard");
     expect(migas.getByText("Tickets")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("con un ticket abierto por dirección (?ticket=) las migas son las mismas y «Panel» lleva a /dashboard", async () => {
+    signIn(0);
+    montarShell("/dashboard/tickets?ticket=t1");
+    const migas = within(await screen.findByRole("navigation", { name: "Migas de pan" }, WAIT));
+    expect(migas.getByRole("link", { name: "Panel" })).toHaveAttribute("href", "/dashboard");
+    expect(migas.getByText("Tickets")).toHaveAttribute("aria-current", "page");
+    fireEvent.click(migas.getByRole("link", { name: "Panel" }));
+    await waitFor(() => expect(screen.getByTestId("donde")).toHaveTextContent(/^\/dashboard$/), WAIT);
   });
 });

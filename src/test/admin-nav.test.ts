@@ -164,8 +164,16 @@ describe("adminNav · migas", () => {
     expect(breadcrumbsFor("/dashboard/proyectos").map((c) => c.label)).toEqual(["Gestión comercial", "Proyectos"]);
   });
 
-  it("Tickets: Soporte / Tickets", () => {
-    expect(breadcrumbsFor("/dashboard/tickets").map((c) => c.label)).toEqual(["Soporte", "Tickets"]);
+  it("Tickets: Panel / Tickets, con «Panel» como enlace al Resumen y sin enlace en la miga actual", () => {
+    const crumbs = breadcrumbsFor("/dashboard/tickets");
+    expect(crumbs.map((c) => c.label)).toEqual(["Panel", "Tickets"]);
+    expect(crumbs[0].href).toBe("/dashboard");
+    expect(crumbs[1].href).toBeUndefined();
+  });
+
+  it("el menú sigue agrupando Tickets bajo «Soporte»: solo cambian las migas", () => {
+    const group = ADMIN_NAV_GROUPS.find((g) => g.items.some((i) => i.id === "tickets"));
+    expect(group?.label).toBe("Soporte");
   });
 
   it("Detalle de proyecto: Gestión comercial / Proyectos (enlace) / Detalle", () => {
