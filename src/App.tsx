@@ -104,7 +104,6 @@ const App = () => (
                     <AdminShell>
                       <TicketsGlobal />
                     </AdminShell>
-
                   </ProtectedRoute>
                 }
               />
