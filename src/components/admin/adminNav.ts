@@ -18,7 +18,8 @@ import {
  *
  * Es SOLO presentación: qué entradas se dibujan según el rol. La autorización
  * real sigue en `ProtectedRoute` (`allowedTypes` de cada ruta) y en RLS; ocultar
- * una entrada aquí no protege nada.
+ * una entrada aquí no protege nada. El panel es solo del administrador: todas
+ * las entradas llevan `roles: [0]` y el colaborador (1) no ve ninguna.
  *
  * - `funcional`: la pantalla existe hoy con datos reales.
  * - `proximamente`: aún sin ruta. Se dibuja como texto atenuado, no es un
@@ -55,7 +56,6 @@ export interface NavGroup {
   readonly items: readonly NavItem[];
 }
 
-const ADMIN_Y_COLABORADOR = [0, 1] as const satisfies readonly NavRole[];
 const SOLO_ADMIN = [0] as const satisfies readonly NavRole[];
 
 /** Menú completo: los módulos con pantalla y los que aún no la tienen (`proximamente`). */
@@ -71,7 +71,7 @@ export function buildAdminNavGroups(): readonly NavGroup[] {
           icon: LayoutDashboard,
           status: "funcional",
           href: "/dashboard",
-          roles: ADMIN_Y_COLABORADOR,
+          roles: SOLO_ADMIN,
           match: { exact: ["/dashboard"] },
         },
       ],
@@ -86,7 +86,7 @@ export function buildAdminNavGroups(): readonly NavGroup[] {
           icon: FolderKanban,
           status: "funcional",
           href: "/dashboard/proyectos",
-          roles: ADMIN_Y_COLABORADOR,
+          roles: SOLO_ADMIN,
           // El detalle de un proyecto (`/dashboard/project/:id`) también pertenece a esta entrada.
           match: { exact: ["/dashboard/proyectos"], prefix: ["/dashboard/project/"] },
         },
@@ -132,7 +132,7 @@ export function buildAdminNavGroups(): readonly NavGroup[] {
           icon: LifeBuoy,
           status: "funcional",
           href: "/dashboard/tickets",
-          roles: ADMIN_Y_COLABORADOR,
+          roles: SOLO_ADMIN,
           match: { exact: ["/dashboard/tickets"] },
           badge: "openTickets",
         },

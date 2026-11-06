@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { exchangeAuthCodeForSession } from "@/lib/auth";
 import { useAuth } from "@/hooks/useAuth";
 import BrandLoader from "@/components/common/BrandLoader";
+import { roleHome } from "@/lib/roleRoutes";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -37,11 +38,7 @@ const AuthCallback = () => {
     // Clean up any stored service intent from landing CTA
     sessionStorage.removeItem("postLoginIntent");
 
-    if (userType === 0 || userType === 1) {
-      navigate("/dashboard", { replace: true });
-    } else {
-      navigate("/solicitudes", { replace: true });
-    }
+    navigate(roleHome(userType), { replace: true });
   }, [user, userType, loading, recoveryPending, navigate]);
 
   return (

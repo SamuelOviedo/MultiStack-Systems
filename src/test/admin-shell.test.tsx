@@ -176,16 +176,16 @@ describe("visibilidad por rol (solo presentación)", () => {
     expect(nav.getAllByRole("link")).toHaveLength(3);
   });
 
-  it("el colaborador solo ve Inicio, Gestión comercial y Soporte con sus 3 entradas, y ninguna sección «Próximamente»", () => {
+  it("el colaborador no ve ninguna entrada ni sección «Próximamente» (el panel es solo del administrador)", () => {
     authState.userType = 1;
     renderShell();
     const nav = within(screen.getByRole("navigation", { name: "Principal" }));
-    expect(nav.getByRole("list", { name: "Gestión comercial" })).toBeInTheDocument();
-    expect(nav.queryByText("Finanzas")).toBeNull();
-    expect(nav.queryByText("Administración")).toBeNull();
-    expect(nav.queryByText("Clientes")).toBeNull();
+    expect(nav.queryAllByRole("link")).toHaveLength(0);
+    expect(nav.queryAllByRole("listitem")).toHaveLength(0);
+    for (const text of ["Resumen", "Proyectos", "Tickets", "Inicio", "Gestión comercial", "Soporte", "Finanzas", "Administración", "Clientes"]) {
+      expect(nav.queryByText(text), text).toBeNull();
+    }
     expect(nav.queryByRole("button", { name: /Próximamente/ })).toBeNull();
-    expect(nav.getAllByRole("listitem")).toHaveLength(3);
   });
 
   it("con el rol sin resolver no aparece nada exclusivo del administrador (ni la sección «Próximamente»)", () => {
