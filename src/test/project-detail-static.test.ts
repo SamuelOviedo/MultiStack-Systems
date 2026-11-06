@@ -195,27 +195,28 @@ describe("código de producción del detalle · datos y sistema de diseño", () 
 });
 
 describe("rutas y permisos del detalle de proyecto y los modales", () => {
-  it("ProtectedRoute sigue con su valor por defecto [0, 1]", () => {
-    expect(protectedRouteSource).toContain("allowedTypes = [0, 1]");
+  it("ProtectedRoute exige declarar quién entra (sin valor por defecto)", () => {
+    expect(protectedRouteSource).toContain("allowedTypes: readonly number[]");
+    expect(protectedRouteSource).not.toContain("allowedTypes = [");
   });
 
-  it("el detalle de proyecto sigue en <ProtectedRoute> sin allowedTypes propio y dentro del shell, como antes", () => {
+  it("el detalle de proyecto sigue en <ProtectedRoute allowedTypes={[0]}> (solo administrador) y dentro del shell", () => {
     const bloque = appSource.split("<Route").find((c) => /path="\/dashboard\/project\/:id"/.test(c))!;
     expect(bloque).toBeDefined();
-    expect(bloque).not.toMatch(/allowedTypes/);
+    expect(bloque).toContain("<ProtectedRoute allowedTypes={[0]}>");
     expect(bloque.indexOf("<ProtectedRoute")).toBeGreaterThan(-1);
     expect(bloque.indexOf("<ProtectedRoute")).toBeLessThan(bloque.indexOf("<AdminShell>"));
     expect(bloque).toContain("<ProjectDetail />");
     expect(appSource).toMatch(/const ProjectDetail\s*=\s*lazy\(\(\) => import\("\.\/pages\/dashboard\/ProjectDetail\.tsx"\)\)/);
   });
 
-  it("las demás rutas conservan sus permisos: solo /solicitudes lleva allowedTypes={[2]}", () => {
+  it("los permisos de las rutas no cambian: las 4 del panel llevan allowedTypes={[0]} y /solicitudes allowedTypes={[2]}", () => {
     const rutas = appSource.split("<Route").filter((c) => /path="\/(dashboard|solicitudes)/.test(c));
     expect(rutas).toHaveLength(5);
-    const conPermiso = rutas.filter((c) => /allowedTypes/.test(c));
-    expect(conPermiso).toHaveLength(1);
-    expect(conPermiso[0]).toMatch(/path="\/solicitudes"/);
-    expect(conPermiso[0]).toMatch(/allowedTypes=\{\[2\]\}/);
+    for (const c of rutas) {
+      const esperado = /path="\/solicitudes"/.test(c) ? "allowedTypes={[2]}" : "allowedTypes={[0]}";
+      expect(c, c.match(/path="[^"]+"/)?.[0]).toContain(`<ProtectedRoute ${esperado}>`);
+    }
   });
 
   it("no apareció ninguna ruta nueva (siguen las del Resumen y la lista de proyectos)", () => {

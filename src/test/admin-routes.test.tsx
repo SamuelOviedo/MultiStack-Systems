@@ -182,13 +182,13 @@ describe("App · allowedTypes originales (inspección del módulo)", () => {
   const blocks = routeBlocks();
 
   it.each(["/dashboard", "/dashboard/proyectos", "/dashboard/project/:id", "/dashboard/tickets"])(
-    "%s está en <ProtectedRoute> sin allowedTypes (por defecto [0, 1]) con el shell DENTRO",
+    "%s está en <ProtectedRoute allowedTypes={[0]}> (solo administrador) con el shell DENTRO",
     (path) => {
       const block = blocks[path];
       expect(block, path).toBeDefined();
       const open = block.match(/<ProtectedRoute([^>]*)>/);
       expect(open, path).not.toBeNull();
-      expect(open![1].trim(), `${path}: sin allowedTypes`).toBe("");
+      expect(open![1].trim(), `${path}: solo administrador`).toBe("allowedTypes={[0]}");
       expect(block.indexOf("<ProtectedRoute")).toBeLessThan(block.indexOf("<AdminShell>"));
       expect(block.indexOf("<AdminShell>")).toBeLessThan(block.indexOf("</AdminShell>"));
       expect(block.indexOf("</AdminShell>")).toBeLessThan(block.indexOf("</ProtectedRoute>"));
@@ -223,10 +223,11 @@ describe("App · allowedTypes originales (inspección del módulo)", () => {
     expect(appSource).not.toMatch(/^import .*ProjectsList/m);
   });
 
-  it("el shell se carga con React.lazy (fuera de la entrada) y ProtectedRoute conserva su valor por defecto", () => {
+  it("el shell se carga con React.lazy (fuera de la entrada) y ProtectedRoute exige declarar quién entra (sin valor por defecto)", () => {
     expect(appSource).toMatch(/const AdminShell\s*=\s*lazy\(\(\) => import\("\.\/components\/admin\/AdminShell\.tsx"\)\)/);
     expect(appSource).not.toMatch(/^import .*AdminShell/m);
-    expect(protectedRouteSource).toContain("allowedTypes = [0, 1]");
+    expect(protectedRouteSource).toContain("allowedTypes: readonly number[]");
+    expect(protectedRouteSource).not.toContain("allowedTypes = [");
   });
 
   it("las 3 páginas ya no importan ni renderizan el Navbar ni compensan su altura (pt-24)", () => {
@@ -280,17 +281,13 @@ describe("Dashboard dentro del shell", () => {
     expect(screen.getByRole("link", { name: "Resumen", current: "page" })).toBeInTheDocument();
   });
 
-  it("colaborador: no consulta solicitudes, no las ve y su menú se limita a 3 entradas", async () => {
+  it("colaborador: no entra al Resumen, termina en / y no consulta nada del panel", async () => {
     signIn(1);
     goTo("/dashboard");
-    const main = await screen.findByRole("main", {}, WAIT);
-    await within(main).findAllByText("Tienda Demo", {}, WAIT);
-    expect(libs.getProjectRequests).not.toHaveBeenCalled();
-    expect(within(main).queryByText(/Solicitudes de proyecto pendientes/)).toBeNull();
-    expect(within(main).queryByText("Centro de Operaciones y Finanzas")).toBeNull();
-    const nav = within(screen.getByRole("navigation", { name: "Principal" }));
-    expect(nav.getAllByRole("listitem")).toHaveLength(3);
-    expect(nav.queryByText("Finanzas")).toBeNull();
+    await waitFor(() => expect(window.location.pathname).toBe("/"), WAIT);
+    expect(screen.queryByRole("main")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Principal" })?.querySelector('a[href="/dashboard"]') ?? null).toBeNull();
+    for (const fn of [libs.getProjects, libs.getProjectRequests, libs.getUpcomingRenewals, libs.getAllTickets]) expect(fn).not.toHaveBeenCalled();
   });
 
   it("el administrador ve las 3 rutas reales y «Próximamente» cerrada (8 módulos, sin enlaces nuevos)", async () => {
@@ -311,12 +308,12 @@ describe("Dashboard dentro del shell", () => {
     expect(nav.getAllByRole("link")).toHaveLength(3);
   });
 
-  it("el colaborador no ve «Próximamente» y su menú sigue siendo de 3 entradas", async () => {
+  it("el colaborador no ve el panel ni «Próximamente»: se le redirige antes de pintar el menú", async () => {
     signIn(1);
     goTo("/dashboard");
-    const nav = within(await screen.findByRole("navigation", { name: "Principal" }, WAIT));
-    expect(nav.queryByRole("button", { name: /Próximamente/ })).toBeNull();
-    expect(nav.getAllByRole("link")).toHaveLength(3);
+    await waitFor(() => expect(window.location.pathname).toBe("/"), WAIT);
+    expect(screen.queryByRole("button", { name: /Próximamente/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Resumen" })).toBeNull();
   });
 
   it("el botón de cuenta muestra el rol y deja el correo completo para el menú", async () => {
@@ -394,13 +391,12 @@ describe("Tickets dentro del shell", () => {
     await waitFor(() => expect(screen.getByRole("link", { name: /Tickets/ })).toHaveTextContent("2 abiertos"));
   });
 
-  it("colaborador: consulta solo lo asignado a él y no ve el filtro «asignado»", async () => {
+  it("colaborador: no entra a Tickets, termina en / y no consulta tickets", async () => {
     signIn(1);
     goTo("/dashboard/tickets");
-    const main = await screen.findByRole("main", {}, WAIT);
-    await within(main).findByText("Botón de pago roto", {}, WAIT);
-    expect(libs.getAllTickets).toHaveBeenCalledWith({ assignedTo: "u-colab" });
-    expect(within(main).queryByRole("combobox", { name: "Asignado" })).toBeNull();
+    await waitFor(() => expect(window.location.pathname).toBe("/"), WAIT);
+    expect(screen.queryByRole("main")).toBeNull();
+    expect(libs.getAllTickets).not.toHaveBeenCalled();
   });
 
   it("abrir un ticket sigue abriendo el cajón, ahora dentro de `.erp`", async () => {

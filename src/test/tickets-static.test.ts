@@ -138,14 +138,15 @@ describe("código de producción del Soporte · datos y sistema de diseño", () 
 });
 
 describe("rutas y permisos del Soporte", () => {
-  it("auth y ProtectedRoute siguen con su valor por defecto [0, 1]", () => {
-    expect(protectedRouteSource).toContain("allowedTypes = [0, 1]");
+  it("ProtectedRoute exige declarar quién entra (sin valor por defecto)", () => {
+    expect(protectedRouteSource).toContain("allowedTypes: readonly number[]");
+    expect(protectedRouteSource).not.toContain("allowedTypes = [");
   });
 
-  it("/dashboard/tickets sigue en <ProtectedRoute> sin allowedTypes y dentro del shell, como antes", () => {
+  it("/dashboard/tickets sigue en <ProtectedRoute allowedTypes={[0]}> (solo administrador) y dentro del shell", () => {
     const bloque = appSource.split("<Route").find((c) => /path="\/dashboard\/tickets"/.test(c))!;
     expect(bloque).toBeDefined();
-    expect(bloque).not.toMatch(/allowedTypes/);
+    expect(bloque).toContain("<ProtectedRoute allowedTypes={[0]}>");
     expect(bloque.indexOf("<ProtectedRoute")).toBeGreaterThan(-1);
     expect(bloque.indexOf("<ProtectedRoute")).toBeLessThan(bloque.indexOf("<AdminShell>"));
     expect(bloque).toContain("<TicketsGlobal />");
