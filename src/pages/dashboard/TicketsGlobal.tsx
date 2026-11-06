@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FolderKanban, Search, TicketCheck } from "lucide-react";
 
 import { EmptyState } from "@/components/admin/EmptyState";
@@ -36,20 +36,19 @@ export default function TicketsGlobal() {
   const narrow = useNarrowViewport();
   // /dashboard/tickets?ticket=<id> abre el cajón de ese ticket (enlace directo y recarga). Solo se abre si el id está
   // entre los tickets que esta sesión ya pudo cargar; si no, se ignora y se quita de la dirección.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const ticketParam = searchParams.get("ticket");
+  // Se lee con useLocation y se escribe con navigate (ya en la entrada): useSearchParams añade código al chunk inicial.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const ticketParam = new URLSearchParams(location.search).get("ticket");
   const setTicketParam = useCallback(
-    (id: string | null) =>
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (id) next.set("ticket", id);
-          else next.delete("ticket");
-          return next;
-        },
-        { replace: true },
-      ),
-    [setSearchParams],
+    (id: string | null) => {
+      const next = new URLSearchParams(location.search);
+      if (id) next.set("ticket", id);
+      else next.delete("ticket");
+      const search = next.toString();
+      navigate({ pathname: location.pathname, search: search ? `?${search}` : "", hash: location.hash }, { replace: true });
+    },
+    [navigate, location.pathname, location.search, location.hash],
   );
 
   const [tickets, setTickets] = useState<ListTicket[]>([]);
