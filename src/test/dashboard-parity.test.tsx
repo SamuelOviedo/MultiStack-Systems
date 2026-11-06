@@ -202,9 +202,9 @@ describe("rutas y roles: el panel es solo del administrador (allowedTypes [0]); 
     expect(blocks["/solicitudes"]).not.toContain("AdminShell");
   });
 
-  it("solo /dashboard y /dashboard/proyectos usan el shell; el resto de rutas privadas y públicas queda como estaba", () => {
+  it("/dashboard, /dashboard/proyectos y /dashboard/tickets usan el shell; el detalle, el resto de rutas privadas y las públicas quedan como estaban", () => {
     const conShell = Object.entries(blocks).filter(([, b]) => b.includes("<AdminShell>")).map(([p]) => p);
-    expect(conShell.sort()).toEqual(["/dashboard", "/dashboard/proyectos"]);
+    expect(conShell.sort()).toEqual(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"]);
     const protegidas = Object.entries(blocks).filter(([, b]) => b.includes("<ProtectedRoute")).map(([p]) => p);
     expect(protegidas.sort()).toEqual(["/dashboard", "/dashboard/project/:id", "/dashboard/proyectos", "/dashboard/tickets", "/solicitudes"]);
     // Portal de clientes, acceso y recuperación: públicos y sin shell.
@@ -419,15 +419,17 @@ describe("enlaces y destinos antiguos siguen llevando a páginas válidas", () =
     expect(await screen.findByRole("heading", { name: "Tienda Demo" }, WAIT)).toBeInTheDocument();
     // Hasta su propio rediseño el detalle conserva la barra superior anterior (sin el menú lateral).
     expect(screen.getByRole("link", { name: /\[ PANEL \]/ })).toHaveAttribute("href", "/dashboard");
-    expect(screen.getByRole("link", { name: /\[ SOPORTE \]/ })).toHaveAttribute("href", "/dashboard/tickets");
+    expect(screen.getByRole("link", { name: /\[ TICKETS \]/ })).toHaveAttribute("href", "/dashboard/tickets");
     expect(screen.getByRole("link", { name: /Dashboard/ })).toHaveAttribute("href", "/dashboard");
   });
 
-  it("Tickets sigue en /dashboard/tickets con sus datos y la barra anterior; un error de carga del detalle vuelve a /dashboard", async () => {
+  it("Tickets sigue en /dashboard/tickets con sus datos, ahora dentro del shell y sin la barra anterior; un error de carga del detalle vuelve a /dashboard", async () => {
     signIn(0);
     goTo("/dashboard/tickets");
     expect(await screen.findByText("Botón de pago roto", {}, WAIT)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /\[ PANEL \]/ })).toHaveAttribute("href", "/dashboard");
+    expect(screen.queryByRole("link", { name: /\[ PANEL \]/ })).toBeNull();
+    const nav = within(screen.getByRole("navigation", { name: "Principal" }));
+    expect(nav.getByRole("link", { name: /Tickets/, current: "page" })).toHaveAttribute("href", "/dashboard/tickets");
 
     cleanup();
     window.history.pushState({}, "", "/");
@@ -466,11 +468,11 @@ describe("los modales viajan aparte: no pesan en la primera carga de la pantalla
 });
 
 describe("visita directa al panel: el armazón y su primera página se piden a la vez", () => {
-  it("App lo dispara con la ruta actual y solo conoce las dos pantallas que usan el armazón desde la primera carga", async () => {
+  it("App lo dispara con la ruta actual y solo conoce las pantallas que usan el armazón desde la primera carga", async () => {
     expect(appSource).toContain("preloadPanelForPath(window.location.pathname)");
     expect(preloadSource).toContain('"/dashboard": () =>');
     expect(preloadSource).toContain('"/dashboard/proyectos": () =>');
-    expect(preloadSource).not.toContain("/dashboard/tickets");
+    expect(preloadSource).toContain('"/dashboard/tickets": () =>');
     expect(preloadSource).not.toContain("/dashboard/project/");
     const { preloadPanelForPath } = await import("@/components/admin/preloadPanel");
     for (const path of ["/", "/login", "/dashboard/tickets", "/client/abc", "/dashboard/", "/dashboard/proyectos"]) {
@@ -480,8 +482,8 @@ describe("visita directa al panel: el armazón y su primera página se piden a l
 });
 
 describe("indicador de carga ligero del Resumen y la lista", () => {
-  it("App usa el indicador de solo texto únicamente en /dashboard y /dashboard/proyectos; las demás rutas conservan el de siempre", () => {
-    expect(appSource).toContain('new Set(["/dashboard", "/dashboard/proyectos"])');
+  it("App usa el indicador de solo texto únicamente en las pantallas con armazón; las demás rutas conservan el de siempre", () => {
+    expect(appSource).toContain('new Set(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"])');
     expect(appSource).toContain("<Suspense fallback={<RouteFallback />}>");
     expect(appSource).toContain("<PageLoader />");
   });

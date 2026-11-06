@@ -164,6 +164,9 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
   const { setTheme, resolvedTheme } = useTheme();
   const msVars = useMsThemeVars();
   const isClient = userType === 2;
+  // Solo el administrador tiene panel. El colaborador (1) aún no tiene zona propia y, mientras el rol llega (null),
+  // no se ofrece ningún enlace administrativo. Ocultar enlaces no es una barrera: la barrera real es ProtectedRoute y RLS.
+  const isAdmin = userType === 0;
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
@@ -174,9 +177,9 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
   const navVars: CSSProperties = overCinematic ? cinematicVars(cineTheme) : msVars;
 
   useEffect(() => {
-    if (!user || isClient) return;
+    if (!user || !isAdmin) return;
     getOpenTicketsCount().then(setOpenTickets).catch(() => {});
-  }, [user, isClient, location.pathname]);
+  }, [user, isAdmin, location.pathname]);
 
   // Cerrar el drawer al cambiar de ruta.
   useEffect(() => {
@@ -367,13 +370,17 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
                 <Link to="/solicitudes" className="ms-cmd ms-cmd-primary" style={cmdPrimary}>[ SOLICITUDES ]</Link>
                 <button type="button" onClick={handleLogout} className="ms-cmd ms-cmd-danger" style={cmdGhost}>[ SALIR ]</button>
               </div>
-            ) : (
+            ) : isAdmin ? (
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <Link to="/dashboard" className="ms-cmd ms-cmd-primary" style={cmdPrimary}>[ PANEL ]</Link>
                 <Link to="/dashboard/tickets" className="ms-cmd ms-cmd-ghost" style={{ ...cmdGhost, position: "relative" }}>
-                  [ SOPORTE ]
+                  [ TICKETS ]
                   {ticketBadge({ position: "absolute", top: "-4px", right: "-4px", display: "flex" })}
                 </Link>
+                <button type="button" onClick={handleLogout} className="ms-cmd ms-cmd-danger" style={cmdGhost}>[ SALIR ]</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <button type="button" onClick={handleLogout} className="ms-cmd ms-cmd-danger" style={cmdGhost}>[ SALIR ]</button>
               </div>
             )}
@@ -449,7 +456,7 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
                       [ SALIR ]
                     </button>
                   </>
-                ) : (
+                ) : isAdmin ? (
                   <>
                     <Link to="/dashboard" className="ms-mobile-link" style={{ ...mobileLink, color: "var(--primary)" }} onClick={() => setMobileOpen(false)}>
                       [ PANEL ]
@@ -460,13 +467,17 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
                       style={{ ...mobileLink, color: "var(--text2)", position: "relative" }}
                       onClick={() => setMobileOpen(false)}
                     >
-                      [ SOPORTE ]
+                      [ TICKETS ]
                       {ticketBadge({ display: "inline-flex" })}
                     </Link>
                     <button type="button" onClick={handleLogout} className="ms-mobile-link" style={{ ...mobileLink, color: "var(--text2)" }}>
                       [ SALIR ]
                     </button>
                   </>
+                ) : (
+                  <button type="button" onClick={handleLogout} className="ms-mobile-link" style={{ ...mobileLink, color: "var(--text2)" }}>
+                    [ SALIR ]
+                  </button>
                 )}
               </MobileNavDrawer>
             </Suspense>

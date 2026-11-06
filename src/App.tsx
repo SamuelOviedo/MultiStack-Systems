@@ -44,8 +44,8 @@ const PageLoader = () => (
   </div>
 );
 
-// Resumen y lista de proyectos: indicador ligero (solo texto) en vez del logotipo mientras llegan el armazón y la página.
-const SHELL_PATHS = new Set(["/dashboard", "/dashboard/proyectos"]);
+// Pantallas del panel con armazón: indicador ligero (solo texto) en vez del logotipo mientras llegan el armazón y la página.
+const SHELL_PATHS = new Set(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"]);
 const RouteFallback = () => {
   const { pathname } = useLocation();
   const path = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
@@ -101,7 +101,9 @@ const App = () => (
                 path="/dashboard/tickets"
                 element={
                   <ProtectedRoute allowedTypes={[0]}>
-                    <TicketsGlobal />
+                    <AdminShell>
+                      <TicketsGlobal />
+                    </AdminShell>
                   </ProtectedRoute>
                 }
               />
