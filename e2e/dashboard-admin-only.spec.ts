@@ -38,12 +38,19 @@ const fromPanel = (mock: Mock) =>
   mock.dataQueries.filter((q) => q.from.startsWith("/dashboard")).map((q) => `${q.query} (desde ${q.from})`);
 
 /**
- * Simula Supabase para `role`. `profileDelayMs` retrasa la respuesta del rol: es la ventana en la que hay sesión
- * pero `userType` aún es null.
+ * Simula Supabase. `role` es la cuenta por defecto; si la petición de acceso trae el correo de otra cuenta de USERS,
+ * se entrega esa. `profileDelayMs` retrasa la respuesta del rol (la ventana en la que hay sesión pero `userType` aún
+ * es null), para todas las cuentas o solo para `delayedRoles`.
  */
-async function mockSupabase(context: BrowserContext, baseURL: string, role: Role, profileDelayMs = 0): Promise<Mock> {
+async function mockSupabase(
+  context: BrowserContext,
+  baseURL: string,
+  role: Role,
+  profileDelayMs = 0,
+  delayedRoles?: readonly Role[],
+): Promise<Mock> {
   const origin = new URL(baseURL).origin;
-  const user = USERS[role];
+  const roles = [0, 1, 2] as const;
   const mock: Mock = { dataQueries: [] };
 
   await context.route("**/*", async (route: Route) => {
@@ -55,31 +62,45 @@ async function mockSupabase(context: BrowserContext, baseURL: string, role: Role
     const json = (body: unknown, extra: Record<string, string> = {}) =>
       route.fulfill({ status: 200, headers: { ...CORS, "content-type": "application/json", ...extra }, body: JSON.stringify(body) });
 
+    const authUser = (user: { id: string; email: string }) => ({
+      id: user.id,
+      aud: "authenticated",
+      role: "authenticated",
+      email: user.email,
+      email_confirmed_at: "2026-01-01T00:00:00Z",
+      app_metadata: {},
+      user_metadata: {},
+      created_at: "2026-01-01T00:00:00Z",
+    });
+
     if (url.pathname.endsWith("/auth/v1/token")) {
+      const email = (request.postDataJSON() as { email?: string } | null)?.email;
+      const user = USERS[roles.find((r) => USERS[r].email === email) ?? role];
       return json({
         access_token: fakeJwt(user.id),
         refresh_token: "refresco-de-prueba",
         token_type: "bearer",
         expires_in: 3600,
         expires_at: Math.floor(Date.now() / 1000) + 3600,
-        user: {
-          id: user.id,
-          aud: "authenticated",
-          role: "authenticated",
-          email: user.email,
-          email_confirmed_at: "2026-01-01T00:00:00Z",
-          app_metadata: {},
-          user_metadata: {},
-          created_at: "2026-01-01T00:00:00Z",
-        },
+        user: authUser(user),
       });
+    }
+    // Usuario de un enlace de acceso: se deduce del `sub` del token que manda el cliente.
+    if (url.pathname.endsWith("/auth/v1/user")) {
+      const sub = (request.headers()["authorization"] ?? "").split(".")[1];
+      const id = sub ? (JSON.parse(Buffer.from(sub, "base64url").toString()) as { sub?: string }).sub : undefined;
+      return json(authUser(USERS[roles.find((r) => USERS[r].id === id) ?? role]));
     }
     if (url.pathname.includes("/auth/v1/")) return json({});
     if (url.pathname.includes("/functions/v1/")) return json({});
     if (url.pathname.includes("/rest/v1/")) {
       if (url.pathname.endsWith("/rest/v1/profiles")) {
-        if (profileDelayMs) await new Promise((resolve) => setTimeout(resolve, profileDelayMs));
-        return json({ user_type: role }, { "content-type": "application/vnd.pgrst.object+json" });
+        const id = url.searchParams.get("id")?.replace(/^eq\./, "");
+        const answered = roles.find((r) => USERS[r].id === id) ?? role;
+        if (profileDelayMs && (!delayedRoles || delayedRoles.includes(answered))) {
+          await new Promise((resolve) => setTimeout(resolve, profileDelayMs));
+        }
+        return json({ user_type: answered }, { "content-type": "application/vnd.pgrst.object+json" });
       }
       const from = new URL(request.frame().url()).pathname;
       mock.dataQueries.push({ query: `${request.method()} ${url.pathname.replace(/^.*\/rest\/v1\//, "")}`, from });
@@ -205,6 +226,57 @@ test.describe("Dashboard is administrator-only (UI)", () => {
           await expect.poll(() => new URL(page.url()).pathname, { timeout: 15000 }).toBe(destination);
           expect(await panelSeen(page)).toEqual([]);
         }
+      });
+    }
+  }
+
+  // Cambio de cuenta con el panel del administrador abierto: otra pestaña del mismo navegador inicia sesión con otra
+  // cuenta y supabase-js avisa a ésta (SIGNED_IN de otro usuario, sin SIGNED_OUT). El rol del administrador no debe
+  // quedar emparejado con la sesión nueva mientras llega el rol nuevo.
+  for (const path of PANEL_PATHS) {
+    for (const next of [1, 2] as const) {
+      test(`admin on ${path}, then role ${next} signs in from another tab while its role is resolving`, async ({ page, context, baseURL }) => {
+        const mock = await mockSupabase(context, baseURL!, 0, 2500, [next]);
+        await watchForAdminContent(page);
+        await signIn(page, 0);
+        await page.goto(path);
+        await expect(panelReady(page, path)).toBeVisible({ timeout: 15000 });
+        await page.waitForTimeout(500); // que terminen las lecturas del administrador
+        mock.dataQueries.length = 0;
+
+        // Otra pestaña abre un enlace de acceso de la otra cuenta (confirmación / enlace mágico, flujo implícito): el
+        // formulario de /login no está disponible con una sesión abierta, y esta es la vía real de un cambio de cuenta.
+        const other = await context.newPage();
+        const link = `/#access_token=${fakeJwt(USERS[next].id)}&refresh_token=r&expires_in=3600&token_type=bearer&type=magiclink`;
+        await other.goto(link);
+
+        // La pestaña del administrador se entera por supabase-js: el panel se desmonta y queda el cargador de marca.
+        await expect(panelReady(page, path)).toHaveCount(0, { timeout: 5000 });
+        await page.evaluate(() => ((window as unknown as { __panelSeen: string[] }).__panelSeen = []));
+        const sampled: string[] = [];
+        const deadline = Date.now() + 1500;
+        while (Date.now() < deadline) {
+          sampled.push(
+            await page.evaluate(() => {
+              const sidebar = document.querySelector("#admin-sidebar") ? "panel" : "";
+              const content = document.querySelector("#contenido") ? "panel" : "";
+              const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "$ tickets") ? "panel" : "";
+              const logo = document.querySelector('img[alt="MultiStack Systems Logo"]') ? "logo" : "";
+              return [sidebar, content, tickets, logo].filter(Boolean).join("+") || "vacío";
+            }),
+          );
+          await page.waitForTimeout(100);
+        }
+        expect(sampled.filter((s) => s.includes("panel"))).toEqual([]);
+        expect(sampled).toContain("logo");
+        expect(await panelSeen(page)).toEqual([]);
+        expect(fromPanel(mock)).toEqual([]);
+
+        // El rol nuevo llega: la pestaña termina en el destino de esa cuenta, sin haber vuelto a ver el panel.
+        const destination = next === 1 ? "/" : "/solicitudes";
+        await expect.poll(() => new URL(page.url()).pathname, { timeout: 15000 }).toBe(destination);
+        expect(await panelSeen(page)).toEqual([]);
+        expect(fromPanel(mock)).toEqual([]);
       });
     }
   }
