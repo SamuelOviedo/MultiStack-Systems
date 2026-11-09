@@ -43,6 +43,38 @@ Inventario de las skills instaladas en `.claude/skills/`, revisadas el 2026-10-1
 | `l99` | Tú / sesión principal | Solo manual | Propia de MultiStack | — |
 | `godmode` | Tú / sesión principal | Solo manual | Propia de MultiStack | — |
 | `tarea` | Sesión principal | Bajo demanda y manual; entrada de toda tarea de desarrollo | Propia de MultiStack | — |
+| Spec Kit (8 skills `speckit-*`) | Tú | Solo manual; planificación previa a `/tarea` (ver «Spec Kit») | github/spec-kit v1.3.2 (55264c2) | MIT |
+
+## Spec Kit: planificación antes de `/tarea`
+
+Instalado el 2026-11-09 con la integración `claude` y las opciones `--no-model-invocation --events false`. Sirve para escribir la especificación, el plan y la lista de tareas de una funcionalidad antes de implementarla. No implementa: la implementación sigue entrando por `/tarea`.
+
+- **Solo las invocas tú.** Las ocho llevan `disable-model-invocation: true`: ni la sesión principal ni los subagentes pueden llamarlas.
+- **Reglas:** `.specify/memory/constitution.md` resume para Spec Kit las reglas de `CLAUDE.md`. Si se contradicen, manda `CLAUDE.md`.
+- **Dónde escribe:** en `specs/NNN-nombre/` y en `.specify/feature.json` (estado local, ignorado por git). No crea ramas, no hace commits y no toca `src/` ni `supabase/`.
+
+| Comando | Cuándo | Qué produce |
+| --- | --- | --- |
+| `/speckit-specify <descripción>` | Al empezar una funcionalidad | `specs/NNN-nombre/spec.md` y su checklist de calidad |
+| `/speckit-clarify` | Si la spec tiene huecos | Hasta 5 preguntas; las respuestas quedan en `spec.md` |
+| `/speckit-plan <indicaciones técnicas>` | Con la spec aprobada | `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` y el control de constitución |
+| `/speckit-checklist <enfoque>` | Opcional | Un checklist de requisitos en `checklists/` |
+| `/speckit-tasks` | Con el plan aprobado | `tasks.md`; no ejecuta ninguna tarea |
+| `/speckit-analyze` | Antes de implementar | Informe de consistencia entre spec, plan y tareas; no modifica archivos |
+| `/speckit-converge` | Después de implementar con `/tarea` | Compara el código con la spec y agrega a `tasks.md` lo que falte; no toca código |
+| `/speckit-constitution` | Solo para enmendar la constitución | Reescribe `.specify/memory/constitution.md`; el texto lo apruebas tú antes |
+
+**Flujo:** `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-analyze` → revisas y apruebas → `/tarea` con la carpeta de la spec como insumo → `/bitacora`.
+
+**No se instaló, a propósito:** `speckit-implement` y el workflow «Full SDD Cycle», porque implementan sin pasar por `/tarea`. Tampoco hay extensiones (git, hooks) ni eventos en `.claude/settings.json`. Donde una skill sugiera `/speckit-implement`, usa `/tarea`.
+
+**Antes de commitear una spec:** revisa que no tenga rutas absolutas de tu máquina, datos personales ni contenido de la documentación privada.
+
+**Actualizar Spec Kit:** es una instalación gestionada. Sus archivos se comparan por hash con `.specify/integrations/*.manifest.json`, así que no los edites ni reemplaces a mano (`.gitattributes` los mantiene en LF por la misma razón).
+
+1. En una rama `chore/`, ejecuta el CLI fijado a un commit revisado: `uvx --from "git+https://github.com/github/spec-kit.git@<commit>" specify integration upgrade claude`. Sin `--force` actualiza las skills y deja como están los scripts y las plantillas de `.specify/`; refrescarlos exige `--force`, que es una decisión aparte.
+2. La actualización vuelve a crear `speckit-implement`: borra `.claude/skills/speckit-implement/` y su línea en `.specify/integrations/claude.manifest.json`. Si reaparece el workflow, quítalo con `specify workflow remove speckit`.
+3. Comprueba con el mismo CLI que `specify integration status` dice `OK`, revisa el diff y confirma que las ocho siguen con `disable-model-invocation: true`.
 
 ## Qué hacen en tu máquina (revisado)
 
@@ -53,6 +85,7 @@ Inventario de las skills instaladas en `.claude/skills/`, revisadas el 2026-10-1
 - **AccessLint** ejecuta `npx @accesslint/cli@latest` y `npx @accesslint/chrome@latest`, y abre un Chrome controlado.
 - **El agente qa** levanta el MCP `chrome-devtools-mcp@latest` solo mientras corre.
 - **`skill-creator`** trae scripts de Python para evaluar skills; solo corren si lo pides.
+- **Spec Kit** ejecuta scripts de bash de `.specify/scripts/bash/` cuando usas una skill `speckit-*`. Solo leen y escriben dentro de `specs/` y `.specify/`; no usan red ni git.
 - **`ui-ux-pro-max`** corre `scripts/search.py` con Python 3 sobre archivos CSV locales; no usa red. MultiStack le hizo tres ajustes respecto al original:
   - Cambió `${CLAUDE_PLUGIN_ROOT}` por `${CLAUDE_SKILL_DIR}`, porque la variable original solo funciona dentro de un plugin.
   - Restringió su descripción a productos nuevos sin marca.
