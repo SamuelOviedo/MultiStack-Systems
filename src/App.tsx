@@ -44,8 +44,8 @@ const PageLoader = () => (
   </div>
 );
 
-// Resumen y lista de proyectos: indicador ligero (solo texto) en vez del logotipo mientras llegan el armazón y la página.
-const SHELL_PATHS = new Set(["/dashboard", "/dashboard/proyectos"]);
+// Pantallas del panel con armazón: indicador ligero (solo texto) en vez del logotipo mientras llegan el armazón y la página.
+const SHELL_PATHS = new Set(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"]);
 const RouteFallback = () => {
   const { pathname } = useLocation();
   const path = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
@@ -72,7 +72,7 @@ const App = () => (
               <Route
                 path="/dashboard"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedTypes={[0]}>
                     <AdminShell>
                       <Dashboard />
                     </AdminShell>
@@ -82,7 +82,7 @@ const App = () => (
               <Route
                 path="/dashboard/proyectos"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedTypes={[0]}>
                     <AdminShell>
                       <ProjectsList />
                     </AdminShell>
@@ -92,16 +92,20 @@ const App = () => (
               <Route
                 path="/dashboard/project/:id"
                 element={
-                  <ProtectedRoute>
-                    <ProjectDetail />
+                  <ProtectedRoute allowedTypes={[0]}>
+                    <AdminShell>
+                      <ProjectDetail />
+                    </AdminShell>
                   </ProtectedRoute>
                 }
               />
               <Route
                 path="/dashboard/tickets"
                 element={
-                  <ProtectedRoute>
-                    <TicketsGlobal />
+                  <ProtectedRoute allowedTypes={[0]}>
+                    <AdminShell>
+                      <TicketsGlobal />
+                    </AdminShell>
                   </ProtectedRoute>
                 }
               />

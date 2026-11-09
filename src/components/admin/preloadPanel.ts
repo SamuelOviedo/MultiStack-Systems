@@ -8,6 +8,7 @@
 const FIRST_PAGE: Readonly<Record<string, () => Promise<unknown>>> = {
   "/dashboard": () => import("@/pages/dashboard/Dashboard"),
   "/dashboard/proyectos": () => import("@/pages/dashboard/ProjectsList"),
+  "/dashboard/tickets": () => import("@/pages/dashboard/TicketsGlobal"),
 };
 
 export function preloadPanelForPath(pathname: string): void {

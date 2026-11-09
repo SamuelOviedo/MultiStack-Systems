@@ -176,16 +176,16 @@ describe("visibilidad por rol (solo presentación)", () => {
     expect(nav.getAllByRole("link")).toHaveLength(3);
   });
 
-  it("el colaborador solo ve Inicio, Gestión comercial y Soporte con sus 3 entradas, y ninguna sección «Próximamente»", () => {
+  it("el colaborador no ve ninguna entrada ni sección «Próximamente» (el panel es solo del administrador)", () => {
     authState.userType = 1;
     renderShell();
     const nav = within(screen.getByRole("navigation", { name: "Principal" }));
-    expect(nav.getByRole("list", { name: "Gestión comercial" })).toBeInTheDocument();
-    expect(nav.queryByText("Finanzas")).toBeNull();
-    expect(nav.queryByText("Administración")).toBeNull();
-    expect(nav.queryByText("Clientes")).toBeNull();
+    expect(nav.queryAllByRole("link")).toHaveLength(0);
+    expect(nav.queryAllByRole("listitem")).toHaveLength(0);
+    for (const text of ["Resumen", "Proyectos", "Tickets", "Inicio", "Gestión comercial", "Soporte", "Finanzas", "Administración", "Clientes"]) {
+      expect(nav.queryByText(text), text).toBeNull();
+    }
     expect(nav.queryByRole("button", { name: /Próximamente/ })).toBeNull();
-    expect(nav.getAllByRole("listitem")).toHaveLength(3);
   });
 
   it("con el rol sin resolver no aparece nada exclusivo del administrador (ni la sección «Próximamente»)", () => {
@@ -642,12 +642,13 @@ describe("migas de pan: una sola línea en móvil", () => {
   /** Entradas que NO llevan `hidden` sin prefijo: las que se ven por debajo de 768 px. */
   const onNarrow = () => items().filter((li) => !/(^|\s)hidden(\s|$)/.test(li.className));
 
-  it("en dos niveles (Soporte / Tickets) solo queda la miga actual, sin cortar", () => {
+  it("en dos niveles (Panel / Tickets) solo queda la miga actual, sin cortar", () => {
     renderShell("/dashboard/tickets");
     expect(onNarrow().map((li) => li.textContent)).toEqual(["Tickets"]);
     expect(within(onNarrow()[0] as HTMLElement).getByText("Tickets")).toHaveAttribute("aria-current", "page");
-    // El grupo y el separador se ven desde 768 px.
-    expect(items().map((li) => li.textContent).filter(Boolean)).toEqual(["Soporte", "Tickets"]);
+    // «Panel» (enlace al Resumen) y el separador se ven desde 768 px.
+    expect(items().map((li) => li.textContent).filter(Boolean)).toEqual(["Panel", "Tickets"]);
+    expect(within(crumbs()).getByRole("link", { name: "Panel" })).toHaveAttribute("href", "/dashboard");
   });
 
   it("en el detalle (tres niveles) queda un enlace corto «‹ Proyectos» al padre, no «Det…» a medias", () => {

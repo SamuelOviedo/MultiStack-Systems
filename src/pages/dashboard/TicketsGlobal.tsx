@@ -1,268 +1,303 @@
-import { useEffect, useState } from "react";
-import Navbar from "@/components/common/Navbar";
-import { getAllTickets } from "@/lib/tickets";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { FolderKanban, Search, TicketCheck } from "lucide-react";
+
+import { EmptyState } from "@/components/admin/EmptyState";
+import { KpiTile } from "@/components/admin/KpiTile";
+import { PageHeader } from "@/components/admin/PageHeader";
+import { loadErrorMessage, withLoggedCode } from "@/components/dashboard/dashboard-home/loadErrors";
+import { TicketCards } from "@/components/dashboard/tickets/TicketCards";
+import { TicketFilterBar } from "@/components/dashboard/tickets/TicketFilterBar";
+import { TicketTable } from "@/components/dashboard/tickets/TicketTable";
 import TicketDrawer from "@/components/dashboard/tickets/TicketDrawer";
 import {
-  TICKET_TYPE_LABELS, TICKET_STATUS_CONFIG, TICKET_PRIORITY_CONFIG,
-  type Ticket, type TicketStatus, type TicketType, type TicketPriority,
-} from "@/types/tickets";
-import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+  applyFilters, countOpen, countUrgentOpen, distinctAssignees, distinctProjects, hasActiveFilters, NO_FILTERS,
+  sortTickets, type ListTicket, type SortKey, type SortDir, type TicketFilters,
+} from "@/components/dashboard/tickets/ticketList";
+import { useNarrowViewport } from "@/components/dashboard/tickets/useNarrowViewport";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/useAuth";
+import { getAllTickets } from "@/lib/tickets";
+import type { Ticket } from "@/types/tickets";
 
-type SortKey = "updated_at" | "created_at" | "priority";
-type SortDir = "asc" | "desc";
+type LoadState = "loading" | "ready" | "error";
 
-const PRIORITY_ORDER: Record<string, number> = { urgente: 4, alta: 3, media: 2, baja: 1 };
+const countLabel = (n: number): string => (n === 1 ? "1 ticket" : `${n} tickets`);
 
-const ALL = "__all__";
-
+/**
+ * Soporte · Tickets (`/dashboard/tickets`). El administrador ve todos los tickets; el colaborador, solo los que
+ * tiene asignados (la consulta lo pide de forma explícita y RLS lo vuelve a exigir). Búsqueda, filtros y orden se
+ * aplican en el navegador sobre lo ya cargado: no hay consultas nuevas.
+ */
 export default function TicketsGlobal() {
-  const { toast } = useToast();
   const { user, userType } = useAuth();
   const isCollaborator = userType === 1;
-  const [tickets, setTickets] = useState<(Ticket & { nombre_proyecto: string; message_count: number })[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Ticket | null>(null);
+  const narrow = useNarrowViewport();
+  // /dashboard/tickets?ticket=<id> abre el cajón de ese ticket (enlace directo y recarga). Solo se abre si el id está
+  // entre los tickets que esta sesión ya pudo cargar; si no, se ignora y se quita de la dirección.
+  // Se lee con useLocation y se escribe con navigate (ya en la entrada): useSearchParams añade código al chunk inicial.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const ticketParam = new URLSearchParams(location.search).get("ticket");
+  const setTicketParam = useCallback(
+    (id: string | null) => {
+      const next = new URLSearchParams(location.search);
+      if (id) next.set("ticket", id);
+      else next.delete("ticket");
+      const search = next.toString();
+      navigate({ pathname: location.pathname, search: search ? `?${search}` : "", hash: location.hash }, { replace: true });
+    },
+    [navigate, location.pathname, location.search, location.hash],
+  );
+
+  const [tickets, setTickets] = useState<ListTicket[]>([]);
+  const [state, setState] = useState<LoadState>("loading");
+  const [error, setError] = useState<unknown>(null);
+  const [selected, setSelected] = useState<ListTicket | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [tableScrolls, setTableScrolls] = useState(false);
 
-  const [filterStatus, setFilterStatus] = useState<TicketStatus | typeof ALL>(ALL);
-  const [filterType, setFilterType] = useState<TicketType | typeof ALL>(ALL);
-  const [filterPriority, setFilterPriority] = useState<TicketPriority | typeof ALL>(ALL);
-  const [filterProject, setFilterProject] = useState<string>(ALL);
-  const [filterAssignee, setFilterAssignee] = useState<string>(ALL);
-
+  const [filters, setFilters] = useState<TicketFilters>(NO_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("updated_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const load = async () => {
-    try {
-      // Collaborators: explicit assigned_to filter (RLS enforces the same
-      // boundary — this makes the intent visible and survives policy edits)
-      const data = await getAllTickets(
-        isCollaborator && user ? { assignedTo: user.id } : undefined,
-      );
-      setTickets(data);
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Re-run once auth resolves — userType arrives async after mount
+  // Una respuesta tardía de una petición anterior no pisa a la más reciente ni llega tras desmontar.
+  const latest = useRef(0);
+  const alive = useRef(true);
   useEffect(() => {
-    if (userType !== null) load();
-  }, [userType, user?.id]);
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
-  const projects = Array.from(new Set(tickets.map(t => t.nombre_proyecto))).filter(Boolean).sort();
-  const assignees = Array.from(new Set(tickets.map(t => t.assignee_email).filter(Boolean) as string[])).sort();
-
-  const UNASSIGNED = "__none__";
-
-  const filtered = tickets.filter(t =>
-    (filterStatus === ALL || t.status === filterStatus) &&
-    (filterType === ALL || t.type === filterType) &&
-    (filterPriority === ALL || t.priority === filterPriority) &&
-    (filterProject === ALL || t.nombre_proyecto === filterProject) &&
-    (filterAssignee === ALL ||
-      (filterAssignee === UNASSIGNED ? !t.assigned_to : t.assignee_email === filterAssignee))
-  ).sort((a, b) => {
-    let cmp = 0;
-    if (sortKey === "priority") {
-      cmp = (PRIORITY_ORDER[a.priority] ?? 0) - (PRIORITY_ORDER[b.priority] ?? 0);
-    } else {
-      cmp = new Date(a[sortKey]).getTime() - new Date(b[sortKey]).getTime();
+  const userId = user?.id;
+  const load = useCallback(async () => {
+    const mine = ++latest.current;
+    setState((s) => (s === "error" ? "loading" : s));
+    try {
+      // Colaborador: filtro explícito por responsable (RLS exige lo mismo; así la intención se ve en el código
+      // y sobrevive a un cambio de políticas).
+      const data = await withLoggedCode("tickets", () =>
+        getAllTickets(isCollaborator && userId ? { assignedTo: userId } : undefined),
+      );
+      if (!alive.current || mine !== latest.current) return;
+      setTickets(data);
+      setState("ready");
+    } catch (e) {
+      if (!alive.current || mine !== latest.current) return;
+      setError(e);
+      setState("error");
     }
-    return sortDir === "asc" ? cmp : -cmp;
-  });
+  }, [isCollaborator, userId]);
 
-  const openCount = tickets.filter(t => ["abierto", "en_revision", "en_progreso"].includes(t.status)).length;
+  // Se vuelve a pedir cuando el rol se resuelve (`userType` llega después de montar) o cambia la sesión.
+  useEffect(() => {
+    if (userType === null) return;
+    setTickets([]);
+    setState("loading");
+    void load();
+  }, [userType, userId, load]);
+
+  const patchFilters = (patch: Partial<TicketFilters>) => setFilters((f) => ({ ...f, ...patch }));
+  const clearFilters = () => setFilters(NO_FILTERS);
 
   const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("desc"); }
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+  const chooseSortKey = (key: SortKey) => {
+    setSortKey(key);
+    setSortDir("desc");
   };
 
-  const SortIcon = ({ k }: { k: SortKey }) => {
-    if (sortKey !== k) return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
-    return sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />;
+  const projects = useMemo(() => distinctProjects(tickets), [tickets]);
+  const assignees = useMemo(() => distinctAssignees(tickets), [tickets]);
+  const visible = useMemo(
+    () => sortTickets(applyFilters(tickets, filters), sortKey, sortDir),
+    [tickets, filters, sortKey, sortDir],
+  );
+  const filtering = hasActiveFilters(filters);
+
+  const loading = state === "loading";
+  const ready = state === "ready";
+  const now = new Date();
+
+  const open = (t: ListTicket) => {
+    setSelected(t);
+    setDrawerOpen(true);
+    setTicketParam(t.id);
+  };
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setTicketParam(null);
   };
 
-  const selectClass = "bg-background border border-border rounded px-2 py-1 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary";
+  useEffect(() => {
+    if (state !== "ready" || !ticketParam) return;
+    const found = tickets.find((t) => t.id === ticketParam);
+    if (!found) {
+      setTicketParam(null);
+      return;
+    }
+    setSelected((s) => (s?.id === found.id ? s : found));
+    setDrawerOpen(true);
+  }, [state, ticketParam, tickets, setTicketParam]);
+
+  let body;
+  if (loading) {
+    body = (
+      <div role="status" aria-busy="true" className="space-y-3 p-4">
+        <span className="sr-only">Cargando tickets…</span>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
+      </div>
+    );
+  } else if (state === "error") {
+    body = (
+      <div role="alert" className="flex flex-wrap items-center gap-3 p-4 text-sm">
+        <p>{loadErrorMessage(error, "los tickets")}</p>
+        <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  } else if (tickets.length === 0) {
+    body = (
+      <div className="p-4">
+        <EmptyState
+          icon={TicketCheck}
+          title="Aún no hay tickets"
+          description={
+            isCollaborator
+              ? "Cuando te asignen un ticket aparecerá aquí."
+              : "Las solicitudes de los clientes y los tickets de cada proyecto aparecerán aquí."
+          }
+          action={
+            <Button asChild variant="outline" size="sm">
+              <Link to="/dashboard/proyectos">
+                <FolderKanban aria-hidden="true" />
+                Ver proyectos
+              </Link>
+            </Button>
+          }
+        />
+      </div>
+    );
+  } else if (visible.length === 0) {
+    body = (
+      <div className="p-4">
+        <EmptyState
+          icon={Search}
+          title="Ningún ticket coincide"
+          description="Prueba con otra palabra o quita los filtros."
+          action={
+            <Button type="button" variant="outline" size="sm" onClick={clearFilters}>
+              Quitar filtros
+            </Button>
+          }
+        />
+      </div>
+    );
+  } else if (narrow) {
+    body = <TicketCards tickets={visible} now={now} onOpen={open} />;
+  } else {
+    body = (
+      <TicketTable
+        tickets={visible}
+        now={now}
+        onOpen={open}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={toggleSort}
+        selectedId={drawerOpen ? (selected?.id ?? null) : null}
+        onScrollableChange={setTableScrolls}
+      />
+    );
+  }
+
+  const total = tickets.length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="pt-24 px-6 pb-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-lg text-foreground">
-            <span className="text-primary">$</span> tickets
-          </h1>
-          <p className="text-xs text-muted-foreground font-mono mt-0.5">
-            {openCount} abiertos · {tickets.length} total
-          </p>
-        </div>
+    <div className="container mx-auto max-w-7xl space-y-5 px-4 pb-10 sm:px-6">
+      <PageHeader
+        title="Tickets"
+        description={
+          isCollaborator
+            ? "Los tickets que tienes asignados, con su estado y su prioridad."
+            : "Solicitudes y tareas de todos los proyectos, con su estado y su prioridad."
+        }
+      />
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <KpiTile
+          label="Abiertos"
+          value={ready ? countOpen(tickets) : null}
+          loading={loading}
+          hint="Recibidos, en revisión o en progreso"
+        />
+        <KpiTile label="Urgentes abiertos" value={ready ? countUrgentOpen(tickets) : null} loading={loading} />
+        <KpiTile
+          label="Total de tickets"
+          value={ready ? total : null}
+          loading={loading}
+          className="col-span-2 sm:col-span-1"
+        />
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[10px] text-muted-foreground">estado:</span>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className={selectClass}>
-            <option value={ALL}>todos</option>
-            {Object.entries(TICKET_STATUS_CONFIG).map(([v, c]) => (
-              <option key={v} value={v}>{c.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[10px] text-muted-foreground">tipo:</span>
-          <select value={filterType} onChange={e => setFilterType(e.target.value as any)} className={selectClass}>
-            <option value={ALL}>todos</option>
-            {Object.entries(TICKET_TYPE_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[10px] text-muted-foreground">prioridad:</span>
-          <select value={filterPriority} onChange={e => setFilterPriority(e.target.value as any)} className={selectClass}>
-            <option value={ALL}>todas</option>
-            {Object.entries(TICKET_PRIORITY_CONFIG).map(([v, c]) => (
-              <option key={v} value={v}>{c.label}</option>
-            ))}
-          </select>
-        </div>
-        {projects.length > 0 && (
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono text-[10px] text-muted-foreground">proyecto:</span>
-            <select value={filterProject} onChange={e => setFilterProject(e.target.value)} className={selectClass}>
-              <option value={ALL}>todos</option>
-              {projects.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
+      <section aria-labelledby="tickets-lista" className="overflow-hidden rounded-lg border bg-card shadow-card">
+        <h2 id="tickets-lista" className="sr-only">
+          Lista de tickets
+        </h2>
+        {ready && total > 0 && (
+          <>
+            <TicketFilterBar
+              filters={filters}
+              onChange={patchFilters}
+              onClear={clearFilters}
+              hasActiveFilters={filtering}
+              projects={projects}
+              assignees={assignees}
+              showAssignee={!isCollaborator}
+              narrow={narrow}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSortKey={chooseSortKey}
+              onToggleDir={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+            />
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-2 text-sm text-muted-foreground">
+              <p aria-live="polite">{filtering ? `Mostrando ${visible.length} de ${countLabel(total)}` : countLabel(total)}</p>
+              {/* Solo cuando la tabla es más ancha que su región (la mide ella misma): si cabe entera, no se avisa. */}
+              {!narrow && visible.length > 0 && tableScrolls && (
+                <p className="shrink-0 text-xs">Desliza la tabla para ver más columnas</p>
+              )}
+            </div>
+          </>
         )}
-        {/* Assignee filter — admins only; collaborators already see only theirs */}
-        {!isCollaborator && (
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono text-[10px] text-muted-foreground">asignado:</span>
-            <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className={selectClass}>
-              <option value={ALL}>todos</option>
-              <option value={UNASSIGNED}>sin asignar</option>
-              {assignees.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-border bg-card/50">
-              <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">proyecto</th>
-              <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">título</th>
-              <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">tipo</th>
-              <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">estado</th>
-              <th className="text-left px-4 py-2.5 font-mono text-[10px] text-muted-foreground">asignado</th>
-              <th className="px-4 py-2.5 font-mono text-[10px] text-muted-foreground">
-                <button onClick={() => toggleSort("priority")} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  prioridad <SortIcon k="priority" />
-                </button>
-              </th>
-              <th className="px-4 py-2.5 font-mono text-[10px] text-muted-foreground">
-                <button onClick={() => toggleSort("created_at")} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  creado <SortIcon k="created_at" />
-                </button>
-              </th>
-              <th className="px-4 py-2.5 font-mono text-[10px] text-muted-foreground">
-                <button onClick={() => toggleSort("updated_at")} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  actividad <SortIcon k="updated_at" />
-                </button>
-              </th>
-              <th className="px-4 py-2.5 font-mono text-[10px] text-muted-foreground text-right">msg</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground font-mono text-xs">
-                  cargando...
-                </td>
-              </tr>
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground font-mono text-xs">
-                  sin tickets.
-                </td>
-              </tr>
-            ) : filtered.map(t => {
-              const statusCfg = TICKET_STATUS_CONFIG[t.status];
-              const priorityCfg = TICKET_PRIORITY_CONFIG[t.priority];
-              return (
-                <tr
-                  key={t.id}
-                  onClick={() => { setSelected(t); setDrawerOpen(true); }}
-                  className="border-b border-border/50 hover:bg-card/60 cursor-pointer transition-colors"
-                >
-                  <td className="px-4 py-2.5 font-mono text-muted-foreground truncate max-w-[120px]">
-                    {t.nombre_proyecto || "—"}
-                  </td>
-                  <td className="px-4 py-2.5 font-display text-foreground max-w-[200px] truncate">
-                    {t.title}
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-muted-foreground whitespace-nowrap">
-                    {TICKET_TYPE_LABELS[t.type]}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span className={`font-mono text-[10px] px-2 py-0.5 rounded border ${statusCfg.color}`}>
-                      {statusCfg.label}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-muted-foreground text-[10px] truncate max-w-[140px]">
-                    {t.assignee_email ?? "—"}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span className={`font-mono text-[10px] px-2 py-0.5 rounded border ${priorityCfg.color} ${priorityCfg.pulse ? "animate-pulse" : ""}`}>
-                      {priorityCfg.label}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-muted-foreground text-[10px] whitespace-nowrap">
-                    {new Date(t.created_at).toLocaleDateString("es-HN", { month: "short", day: "numeric" })}
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-muted-foreground text-[10px] whitespace-nowrap">
-                    {new Date(t.updated_at).toLocaleDateString("es-HN", { month: "short", day: "numeric" })}
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-muted-foreground text-[10px] text-right">
-                    {t.message_count}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+        {body}
+      </section>
 
       <TicketDrawer
         ticket={selected}
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        onUpdated={(u) => {
-          // Optimistic: splice the patched ticket into the list + selection so
-          // the table reflects new state instantly, no refetch. Falls back to a
-          // full reload when no patch is supplied (e.g. after conversion).
+        onClose={closeDrawer}
+        onUpdated={(u?: Ticket) => {
+          // Optimista: se inserta el ticket modificado en la lista y en la selección para que la tabla refleje el
+          // cambio al instante, sin volver a pedir datos. Sin parche (p. ej. tras convertir en proyecto) se
+          // recarga todo.
           if (u) {
-            setTickets(ts => ts.map(t => (t.id === u.id ? { ...t, ...u } : t)));
-            setSelected(s => (s && s.id === u.id ? { ...s, ...u } : s));
+            setTickets((ts) => ts.map((t) => (t.id === u.id ? { ...t, ...u } : t)));
+            setSelected((s) => (s && s.id === u.id ? { ...s, ...u } : s));
           } else {
-            load();
+            void load();
           }
         }}
       />
-      </div>
     </div>
   );
 }

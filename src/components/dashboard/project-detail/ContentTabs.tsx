@@ -1,27 +1,40 @@
-import { useState } from "react";
-import {
-  Terminal, Globe, Server, Database, Plus, Trash2,
-  Ticket as TicketIcon, Link2,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import MaintenanceSection from "@/components/dashboard/project-detail/MaintenanceSection";
-import TicketDrawer from "@/components/dashboard/tickets/TicketDrawer";
+import { useRef, useState } from "react";
+import { AlertTriangle, CalendarClock, Database, Globe, Link2, Plus, Server, Ticket as TicketIcon, Trash2 } from "lucide-react";
+
+import { EmptyState } from "@/components/admin/EmptyState";
+import { Panel } from "@/components/admin/Panel";
+import { StatusBadge } from "@/components/admin/StatusBadge";
+import { actionErrorMessage } from "@/components/dashboard/dashboard-home/loadErrors";
+import { isUrgentRenewal, renewalWhen, RENEWAL_WINDOW_DAYS } from "@/components/dashboard/dashboard-home/projectMetrics";
 import ClientAccessSection from "@/components/dashboard/project-detail/ClientAccessSection";
+import MaintenanceSection from "@/components/dashboard/project-detail/MaintenanceSection";
 import SubTicketForm from "@/components/dashboard/project-detail/SubTicketForm";
+import TicketDrawer from "@/components/dashboard/tickets/TicketDrawer";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { daysUntil } from "@/lib/projects";
+import { cn } from "@/lib/utils";
 import { SERVICE_TYPE_LABELS, type ProjectService, type ProjectMaintenance } from "@/types/projects";
 import {
-  TICKET_TYPE_LABELS, TICKET_STATUS_CONFIG, TICKET_PRIORITY_CONFIG,
-  type Ticket, type ClientAccessToken,
+  TICKET_TYPE_LABELS, TICKET_STATUS_CONFIG,
+  type Ticket, type TicketStatus, type ClientAccessToken,
 } from "@/types/tickets";
+import { formatDateOnly, formatInstantDay, formatMoney } from "./format";
 
-const SERVICE_ICON: Record<string, React.ReactNode> = {
-  domain:   <Globe className="h-3.5 w-3.5" />,
-  hosting:  <Server className="h-3.5 w-3.5" />,
-  database: <Database className="h-3.5 w-3.5" />,
-  cdn:      <Globe className="h-3.5 w-3.5" />,
-  other:    <Server className="h-3.5 w-3.5" />,
+const SERVICE_ICON: Record<string, typeof Globe> = {
+  domain: Globe,
+  hosting: Server,
+  database: Database,
+  cdn: Globe,
+  other: Server,
 };
 
 export interface ContentTabsProps {
@@ -32,8 +45,56 @@ export interface ContentTabsProps {
   projectId: string;
   showMaintenance: boolean;
   onRefresh: () => void;
-  onDeleteService: (id: string) => void;
+  /** Puede ser asíncrona: si falla, se avisa con un mensaje claro. */
+  onDeleteService: (id: string) => void | Promise<void>;
   onShowServiceForm: () => void;
+}
+
+const TAB =
+  "gap-1.5 data-[state=active]:shadow-sm";
+
+function Count({ children, label }: { children: number; label: string }) {
+  return (
+    <>
+      <span aria-hidden="true" className="tabular rounded-full bg-muted-foreground/15 px-1.5 text-xs font-medium leading-5">
+        {children}
+      </span>
+      <span className="sr-only"> ({children} {label})</span>
+    </>
+  );
+}
+
+/** Cuándo vence un servicio: insignia con texto (Vencida / Urgente / Próxima) y la fecha; lejos, solo la fecha. */
+function Renewal({ date }: { date: string }) {
+  const days = daysUntil(date);
+  // Fecha que no se puede leer (`daysUntil` da NaN): sin insignia de plazo ni texto relativo; se enseña el valor tal
+  // cual llegó, sin reinterpretarlo.
+  if (!Number.isFinite(days)) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        Fecha no válida: <span className="tabular break-all">{date}</span>
+      </span>
+    );
+  }
+  const overdue = days < 0;
+  const urgent = isUrgentRenewal(days);
+  const near = days <= RENEWAL_WINDOW_DAYS;
+  const when = overdue ? `hace ${-days} ${-days === 1 ? "día" : "días"}` : renewalWhen(days);
+  return (
+    <div className="flex flex-col items-start gap-1">
+      {near && (
+        <StatusBadge
+          kind="custom"
+          tone={urgent || overdue ? "destructive" : "warning"}
+          label={overdue ? "Vencida" : urgent ? "Urgente" : "Próxima"}
+          icon={urgent || overdue ? AlertTriangle : CalendarClock}
+        />
+      )}
+      <span className="text-xs text-muted-foreground">
+        <span className="tabular">{when}</span> · {formatDateOnly(date)}
+      </span>
+    </div>
+  );
 }
 
 /** Tabbed body of the project detail page: services, tickets, and client access. */
@@ -41,180 +102,242 @@ export default function ContentTabs({
   services, tickets, tokens, maintenance, projectId,
   showMaintenance, onRefresh, onDeleteService, onShowServiceForm,
 }: ContentTabsProps) {
+  const { toast } = useToast();
   const [ticketFilter, setTicketFilter] = useState<string>("all");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ProjectService | null>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  const filterId = "project-tickets-filter";
 
   const openCount = tickets.filter(t => ["abierto", "en_revision", "en_progreso"].includes(t.status)).length;
   const filteredTickets = ticketFilter === "all" ? tickets : tickets.filter(t => t.status === ticketFilter);
 
+  const askDelete = (s: ProjectService) => {
+    setDeleteTarget(s);
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    const target = deleteTarget;
+    if (!target) return;
+    try {
+      await onDeleteService(target.id);
+    } catch (error) {
+      toast({
+        title: "No se pudo eliminar el servicio",
+        description: actionErrorMessage(error, "eliminar servicio"),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const addButton = (
+    <Button ref={addRef} type="button" variant="outline" size="sm" onClick={onShowServiceForm}>
+      <Plus aria-hidden="true" />
+      Agregar servicio
+    </Button>
+  );
+
   return (
     <>
       <Tabs defaultValue="servicios" className="w-full">
-        <TabsList className="bg-card border border-border w-full justify-start h-auto p-1 gap-1 rounded-lg">
-          <TabsTrigger value="servicios"
-            className="font-display text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border-primary/30 border border-transparent rounded-md px-4 py-2 transition-all">
-            <Server className="h-3 w-3 mr-1.5" />
-            Servicios
-            {services.length > 0 && (
-              <span className="ml-1.5 bg-primary/10 text-primary font-mono text-[10px] px-1.5 py-0.5 rounded-full">
-                {services.length}
-              </span>
-            )}
+        <TabsList className="h-auto max-w-full justify-start gap-1 overflow-x-auto">
+          <TabsTrigger value="servicios" className={TAB}>
+            <Server aria-hidden="true" className="size-3.5" />
+            Servicios{" "}
+            {services.length > 0 && <Count label="en total">{services.length}</Count>}
           </TabsTrigger>
-
-          <TabsTrigger value="tickets"
-            className="font-display text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border-primary/30 border border-transparent rounded-md px-4 py-2 transition-all">
-            <TicketIcon className="h-3 w-3 mr-1.5" />
-            Tickets
-            {openCount > 0 && (
-              <span className="ml-1.5 bg-accent/20 text-accent font-mono text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">
-                {openCount}
-              </span>
-            )}
+          <TabsTrigger value="tickets" className={TAB}>
+            <TicketIcon aria-hidden="true" className="size-3.5" />
+            Tickets{" "}
+            {openCount > 0 && <Count label="abiertos">{openCount}</Count>}
           </TabsTrigger>
-
-          <TabsTrigger value="acceso"
-            className="font-display text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border-primary/30 border border-transparent rounded-md px-4 py-2 transition-all">
-            <Link2 className="h-3 w-3 mr-1.5" />
-            Acceso
-            {tokens.length > 0 && (
-              <span className="ml-1.5 bg-primary/10 text-primary font-mono text-[10px] px-1.5 py-0.5 rounded-full">
-                {tokens.length}
-              </span>
-            )}
+          <TabsTrigger value="acceso" className={TAB}>
+            <Link2 aria-hidden="true" className="size-3.5" />
+            Acceso{" "}
+            {tokens.length > 0 && <Count label="enlaces">{tokens.length}</Count>}
           </TabsTrigger>
         </TabsList>
 
-        {/* ── Tab: Servicios ── */}
+        {/* ── Pestaña Servicios ── */}
         <TabsContent value="servicios" className="mt-4 space-y-4">
-          <div className="rounded-lg border border-border bg-card">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Terminal className="h-3.5 w-3.5 text-primary" />
-                <h2 className="font-display text-xs text-muted-foreground">$ servicios externos</h2>
+          <Panel
+            title="Servicios externos"
+            description="Dominio, hosting, base de datos y otros servicios contratados para este proyecto."
+            actions={addButton}
+            flush
+            isEmpty={services.length === 0}
+            empty={
+              <div className="p-5 pt-0">
+                <EmptyState
+                  icon={Server}
+                  title="Aún no hay servicios registrados"
+                  description="Agrega el dominio, el hosting o la base de datos para seguir sus renovaciones."
+                />
               </div>
-              <Button onClick={onShowServiceForm} variant="outline" size="sm"
-                className="font-mono text-[10px] border-primary/30 text-primary hover:bg-primary/10">
-                <Plus className="h-3 w-3 mr-1" />Agregar
-              </Button>
-            </div>
-            <div className="p-5">
-              {services.length === 0 ? (
-                <div className="text-center py-10 border border-dashed border-border rounded-lg">
-                  <Server className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-xs text-muted-foreground font-mono">Sin servicios registrados</p>
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">Agrega dominios, hosting, bases de datos...</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {services.map(s => {
-                    const days = s.renewal_date ? daysUntil(s.renewal_date) : null;
-                    return (
-                      <div key={s.id}
-                        className="flex items-center justify-between rounded-md border border-border px-4 py-3 hover:border-primary/20 transition-colors group">
-                        <div className="flex items-center gap-3">
-                          <span className="text-muted-foreground group-hover:text-primary transition-colors">
-                            {SERVICE_ICON[s.service_type]}
-                          </span>
-                          <div>
-                            <p className="font-display text-xs text-foreground">{s.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{s.provider} · {SERVICE_TYPE_LABELS[s.service_type]}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {days !== null && (
-                            <span className={`font-mono text-[10px] ${days <= 7 ? "text-destructive font-medium" : days <= 30 ? "text-warning" : "text-muted-foreground"}`}>
-                              {days}d
+            }
+          >
+            <Table containerProps={{ tabIndex: 0, role: "region", "aria-label": "Servicios del proyecto" }}>
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col" className="sticky left-0 bg-subtle">Servicio</TableHead>
+                  <TableHead scope="col" className="hidden sm:table-cell">Tipo</TableHead>
+                  <TableHead scope="col" className="hidden sm:table-cell">Proveedor</TableHead>
+                  <TableHead scope="col">Renovación</TableHead>
+                  <TableHead scope="col" className="hidden sm:table-cell">Costo anual</TableHead>
+                  <TableHead scope="col" className="w-12"><span className="sr-only">Acciones</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {services.map(s => {
+                  const Icon = SERVICE_ICON[s.service_type] ?? Server;
+                  // Solo el costo anual, como siempre. El mensual se captura en el formulario pero esta lista no lo muestra.
+                  const yearly = s.cost_yearly ? formatMoney(s.cost_yearly, s.currency) : null;
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell className="sticky left-0 bg-card font-medium">
+                        <span className="flex min-w-36 items-center gap-2">
+                          <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0">
+                            <span className="block break-words">{s.name}</span>
+                            {/* En pantallas angostas el tipo y el proveedor bajan al nombre (las columnas se ocultan). */}
+                            <span className="block text-xs font-normal text-muted-foreground sm:hidden">
+                              {s.provider} · {SERVICE_TYPE_LABELS[s.service_type]}
                             </span>
-                          )}
-                          {s.cost_yearly && (
-                            <span className="font-mono text-[10px] text-primary">{s.cost_yearly} {s.currency}/año</span>
-                          )}
-                          <button onClick={() => onDeleteService(s.id)}
-                            className="text-muted-foreground hover:text-red-400 transition-colors p-1">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                          </span>
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden whitespace-nowrap sm:table-cell">{SERVICE_TYPE_LABELS[s.service_type]}</TableCell>
+                      <TableCell className="hidden whitespace-nowrap sm:table-cell">{s.provider}</TableCell>
+                      <TableCell className="sm:whitespace-nowrap">
+                        {s.renewal_date ? <Renewal date={s.renewal_date} /> : <span className="text-muted-foreground">—<span className="sr-only">Sin renovación registrada</span></span>}
+                        {/* En pantallas angostas el costo baja a la renovación (la columna se oculta). */}
+                        {yearly && (
+                          <span className="tabular mt-1 block text-xs text-muted-foreground sm:hidden">{yearly}/año</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="tabular hidden whitespace-nowrap sm:table-cell">
+                        {yearly ? (
+                          `${yearly}/año`
+                        ) : (
+                          <span className="text-muted-foreground">—<span className="sr-only">Sin costo anual registrado</span></span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 text-muted-foreground hover:text-destructive"
+                          aria-label={`Eliminar ${s.name}`}
+                          onClick={() => askDelete(s)}
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Panel>
 
-            {showMaintenance && (
-              <div className="border-t border-border p-5">
-                <MaintenanceSection projectId={projectId} records={maintenance} onRefresh={onRefresh} />
-              </div>
-            )}
-          </div>
+          {showMaintenance && (
+            <MaintenanceSection projectId={projectId} records={maintenance} onRefresh={onRefresh} />
+          )}
         </TabsContent>
 
-        {/* ── Tab: Tickets ── */}
+        {/* ── Pestaña Tickets ── */}
         <TabsContent value="tickets" className="mt-4">
-          <div className="rounded-lg border border-border bg-card">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <Panel
+            title="Tickets del proyecto"
+            description={tickets.length === 0 ? undefined : `${openCount} ${openCount === 1 ? "abierto" : "abiertos"} de ${tickets.length}.`}
+            actions={
               <div className="flex items-center gap-2">
-                <Terminal className="h-3.5 w-3.5 text-primary" />
-                <h2 className="font-display text-xs text-muted-foreground">$ tickets del proyecto</h2>
+                <Label htmlFor={filterId} className="text-muted-foreground">Estado</Label>
+                <Select value={ticketFilter} onValueChange={setTicketFilter}>
+                  <SelectTrigger id={filterId} className="h-9 w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {Object.entries(TICKET_STATUS_CONFIG).map(([v, c]) => (
+                      <SelectItem key={v} value={v}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <select value={ticketFilter} onChange={e => setTicketFilter(e.target.value)}
-                className="bg-background border border-border rounded px-2 py-1 font-mono text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="all">Todos</option>
-                {Object.entries(TICKET_STATUS_CONFIG).map(([v, c]) => (
-                  <option key={v} value={v}>{c.label}</option>
+            }
+          >
+            <SubTicketForm projectId={projectId} onCreated={onRefresh} />
+            {filteredTickets.length === 0 ? (
+              <EmptyState
+                icon={TicketIcon}
+                title={tickets.length === 0 ? "Este proyecto no tiene tickets" : "Ningún ticket con este estado"}
+                description={tickets.length === 0 ? "Crea uno con «Nuevo ticket» para dar seguimiento a una tarea." : "Elige otro estado para ver el resto."}
+              />
+            ) : (
+              <ul className="divide-y rounded-md border">
+                {filteredTickets.map(t => (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTicket(t)}
+                      className="flex w-full flex-col gap-2 px-4 py-3 text-left transition-colors duration-150 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-reduce:transition-none sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    >
+                      <span className="min-w-0 space-y-0.5">
+                        <span className="block break-words text-sm font-medium">{t.title}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {TICKET_TYPE_LABELS[t.type]} · <time dateTime={t.created_at}>{formatInstantDay(t.created_at)}</time>
+                          {t.message_count > 0 && ` · ${t.message_count} ${t.message_count === 1 ? "mensaje" : "mensajes"}`}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 flex-wrap items-center gap-2">
+                        <StatusBadge kind="priority" value={t.priority} />
+                        <StatusBadge kind="ticket" value={t.status as TicketStatus} />
+                      </span>
+                    </button>
+                  </li>
                 ))}
-              </select>
-            </div>
-            <div className="p-5">
-              <SubTicketForm projectId={projectId} onCreated={onRefresh} />
-              {filteredTickets.length === 0 ? (
-                <div className="text-center py-10 border border-dashed border-border rounded-lg">
-                  <TicketIcon className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-xs text-muted-foreground font-mono">Sin tickets</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredTickets.map(t => {
-                    const sc = TICKET_STATUS_CONFIG[t.status];
-                    const pc = TICKET_PRIORITY_CONFIG[t.priority];
-                    return (
-                      <button key={t.id} onClick={() => setSelectedTicket(t)}
-                        className="w-full flex items-center gap-3 rounded-lg border border-border bg-card/50 px-4 py-3 hover:border-primary/30 transition-colors text-left">
-                        <TicketIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-display text-xs text-foreground truncate">{t.title}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {TICKET_TYPE_LABELS[t.type]} · {new Date(t.created_at).toLocaleDateString("es-HN")}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded border ${pc.color} ${pc.pulse ? "animate-pulse" : ""}`}>
-                            {pc.label}
-                          </span>
-                          <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded border ${sc.color}`}>
-                            {sc.label}
-                          </span>
-                          {t.message_count > 0 && (
-                            <span className="text-[10px] text-muted-foreground font-mono">{t.message_count}msg</span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+              </ul>
+            )}
+          </Panel>
         </TabsContent>
 
-        {/* ── Tab: Acceso ── */}
+        {/* ── Pestaña Acceso ── */}
         <TabsContent value="acceso" className="mt-4">
-          <div className="rounded-lg border border-border bg-card p-6">
-            <ClientAccessSection projectId={projectId} tokens={tokens} onRefresh={onRefresh} />
-          </div>
+          <ClientAccessSection projectId={projectId} tokens={tokens} onRefresh={onRefresh} />
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent
+          onCloseAutoFocus={(e) => {
+            // La fila ya no existe: el foco pasa al botón «Agregar servicio» de la misma sección.
+            e.preventDefault();
+            addRef.current?.focus();
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar el servicio «{deleteTarget?.name}»?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se quitará de este proyecto
+              {deleteTarget ? ` (${deleteTarget.provider} · ${SERVICE_TYPE_LABELS[deleteTarget.service_type]})` : ""} junto con su
+              fecha de renovación. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className={cn("bg-destructive text-destructive-foreground hover:bg-destructive/90")}
+              onClick={() => void confirmDelete()}
+            >
+              Eliminar servicio
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <TicketDrawer
         ticket={selectedTicket}

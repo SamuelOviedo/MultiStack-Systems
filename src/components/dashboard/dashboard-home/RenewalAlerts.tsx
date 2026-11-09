@@ -40,10 +40,20 @@ function RenewalAlerts({ renewals }: { renewals: readonly Renewal[] }) {
                 <p className="break-words text-xs text-muted-foreground">{r.nombre_proyecto}</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <StatusBadge kind="custom" label={PLAZO_ETIQUETA[nivel]} tone={spec.tone} icon={spec.icon} strong={spec.strong} />
-                <span className="text-xs text-muted-foreground">
-                  <span className="tabular">{renewalWhen(days)}</span> · {formatCalendarDay(r.renewal_date)}
-                </span>
+                {Number.isFinite(days) ? (
+                  <>
+                    <StatusBadge kind="custom" label={PLAZO_ETIQUETA[nivel]} tone={spec.tone} icon={spec.icon} strong={spec.strong} />
+                    <span className="text-xs text-muted-foreground">
+                      <span className="tabular">{renewalWhen(days)}</span> · {formatCalendarDay(r.renewal_date)}
+                    </span>
+                  </>
+                ) : (
+                  // Fecha que no se puede leer (`daysUntil` da NaN): sin insignia de plazo ni texto relativo; se enseña
+                  // el valor tal cual llegó, sin reinterpretarlo.
+                  <span className="text-xs text-muted-foreground">
+                    Fecha no válida: <span className="tabular break-all">{r.renewal_date}</span>
+                  </span>
+                )}
               </div>
             </li>
           );
