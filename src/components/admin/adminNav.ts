@@ -18,7 +18,8 @@ import {
  *
  * Es SOLO presentación: qué entradas se dibujan según el rol. La autorización
  * real sigue en `ProtectedRoute` (`allowedTypes` de cada ruta) y en RLS; ocultar
- * una entrada aquí no protege nada.
+ * una entrada aquí no protege nada. El panel es solo del administrador: todas
+ * las entradas llevan `roles: [0]` y el colaborador (1) no ve ninguna.
  *
  * - `funcional`: la pantalla existe hoy con datos reales.
  * - `proximamente`: aún sin ruta. Se dibuja como texto atenuado, no es un
@@ -47,6 +48,11 @@ export interface NavItem {
    */
   readonly match?: { readonly exact?: readonly string[]; readonly prefix?: readonly string[] };
   readonly badge?: NavBadgeKey;
+  /**
+   * Primera miga en lugar del nombre del grupo: un enlace al inicio del panel (`Panel / Tickets`). Solo cambia lo que
+   * dicen las migas; el menú lateral sigue agrupado por `NavGroup.label`.
+   */
+  readonly breadcrumbRoot?: { readonly label: string; readonly href: string };
 }
 
 export interface NavGroup {
@@ -55,7 +61,6 @@ export interface NavGroup {
   readonly items: readonly NavItem[];
 }
 
-const ADMIN_Y_COLABORADOR = [0, 1] as const satisfies readonly NavRole[];
 const SOLO_ADMIN = [0] as const satisfies readonly NavRole[];
 
 /** Menú completo: los módulos con pantalla y los que aún no la tienen (`proximamente`). */
@@ -71,7 +76,7 @@ export function buildAdminNavGroups(): readonly NavGroup[] {
           icon: LayoutDashboard,
           status: "funcional",
           href: "/dashboard",
-          roles: ADMIN_Y_COLABORADOR,
+          roles: SOLO_ADMIN,
           match: { exact: ["/dashboard"] },
         },
       ],
@@ -86,7 +91,7 @@ export function buildAdminNavGroups(): readonly NavGroup[] {
           icon: FolderKanban,
           status: "funcional",
           href: "/dashboard/proyectos",
-          roles: ADMIN_Y_COLABORADOR,
+          roles: SOLO_ADMIN,
           // El detalle de un proyecto (`/dashboard/project/:id`) también pertenece a esta entrada.
           match: { exact: ["/dashboard/proyectos"], prefix: ["/dashboard/project/"] },
         },
@@ -132,9 +137,10 @@ export function buildAdminNavGroups(): readonly NavGroup[] {
           icon: LifeBuoy,
           status: "funcional",
           href: "/dashboard/tickets",
-          roles: ADMIN_Y_COLABORADOR,
+          roles: SOLO_ADMIN,
           match: { exact: ["/dashboard/tickets"] },
           badge: "openTickets",
+          breadcrumbRoot: { label: "Panel", href: "/dashboard" },
         },
       ],
     },
@@ -216,7 +222,7 @@ const SHORT_LABELS: Readonly<Record<string, string>> = {
   servicios: "Servicios",
 };
 
-/** Migas simples a partir de la configuración: Grupo / Entrada (/ Detalle). */
+/** Migas simples a partir de la configuración: Grupo (o `breadcrumbRoot`) / Entrada (/ Detalle). */
 export function breadcrumbsFor(pathname: string, groups: readonly NavGroup[] = ADMIN_NAV_GROUPS): Crumb[] {
   for (const group of groups) {
     for (const item of group.items) {
@@ -224,9 +230,10 @@ export function breadcrumbsFor(pathname: string, groups: readonly NavGroup[] = A
       const short = SHORT_LABELS[item.id];
       const shortLabel = short ? { shortLabel: short } : {};
       const isDetail = trimSlash(pathname) !== trimSlash(item.href ?? "");
+      const root: Crumb = item.breadcrumbRoot ?? { label: group.label };
       return isDetail
-        ? [{ label: group.label }, { label: item.label, ...shortLabel, href: item.href }, { label: "Detalle" }]
-        : [{ label: group.label }, { label: item.label, ...shortLabel }];
+        ? [root, { label: item.label, ...shortLabel, href: item.href }, { label: "Detalle" }]
+        : [root, { label: item.label, ...shortLabel }];
     }
   }
   return [];

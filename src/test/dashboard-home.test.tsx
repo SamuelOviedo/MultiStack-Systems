@@ -446,7 +446,9 @@ describe("Resumen · Centro de Operaciones y Finanzas (próximamente)", () => {
     signIn(1);
     renderResumen();
     await screen.findByRole("heading", { level: 1, name: "Resumen" }, WAIT);
-    await screen.findByRole("region", { name: "Accesos rápidos" }, WAIT);
+    // El panel ya no se ofrece al colaborador (menú vacío, sin «Accesos rápidos»); la sección tampoco aparece.
+    await waitFor(() => expect(libs.getProjects).toHaveBeenCalled(), WAIT);
+    expect(screen.queryByRole("region", { name: "Accesos rápidos" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Centro de Operaciones y Finanzas" })).toBeNull();
   });
 });

@@ -1,7 +1,12 @@
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Pinned on purpose: an unpinned "@2" is resolved when the function is DEPLOYED, so production could run a different
+// supabase-js than the one the behaviour matrix was run against — and the limit check reads the shape of its errors
+// (code / status, see classifyStoreError). Same version as send-notification and the frontend. Move it deliberately,
+// together with the behaviour matrix.
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.110.5";
 import { sendEmail, FROM_DEV, FROM_VERIFIED } from "../_shared/resend.ts";
 import { edgeFunctionsKey } from "../_shared/keys.ts";
 import { createContactHandler, type ContactStore } from "./handler.ts";
+import { exactCount, STORE_TIMEOUT_MS, storeError } from "./limiter.ts";
 
 // Request handling and abuse rules: see handler.ts. This file only wires the
 // runtime (secrets, supabase-js, Resend) into it.
@@ -36,7 +41,7 @@ const RATE_SALT = Deno.env.get("CONTACT_RATE_SALT") ?? "";
 
 // RESEND_DEST (optional): override delivery address.
 // In sandbox mode Resend only delivers to the account owner — set this to
-// isaaccoviedo@gmail.com for testing, remove once domain is verified.
+// the account owner address for testing, remove once domain is verified.
 const DEST = Deno.env.get("RESEND_DEST") ?? "samuel.oviedo@multistacksystems.com";
 
 // ── Data store (supabase-js, edge_functions secret key) ───────────────────────
@@ -46,28 +51,39 @@ type Db = SupabaseClient<any>;
 
 const since = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
+/**
+ * Every operation is cancelled by its own deadline (the handler also stops WAITING at the same time). Without it a hung
+ * database leaves the requests running in the background, and supabase-js re-sends HEAD/GET up to three times with back-off
+ * on network errors and 503/520 — an outage would feed itself. `.retry(false)` + an abort signal make one attempt, bounded.
+ * One signal per operation: `recordAndCount` is a POST and a HEAD under the same deadline.
+ */
+const deadline = (ms = STORE_TIMEOUT_MS) => AbortSignal.timeout(ms);
+
 function supabaseStore(db: Db): ContactStore {
   return {
     async recordAndCount(bucket) {
-      const ins = await db.from("contact_rate_events").insert({ bucket });
-      if (ins.error) throw ins.error;
+      const signal = deadline();
+      const ins = await db.from("contact_rate_events").insert({ bucket }).abortSignal(signal);
+      if (ins.error) throw storeError(ins.error, ins.status);
       const r = await db.from("contact_rate_events").select("id", { count: "exact", head: true })
-        .eq("bucket", bucket).gte("created_at", since(60));
-      if (r.error) throw r.error;
-      return r.count ?? 0;
+        .eq("bucket", bucket).gte("created_at", since(60)).retry(false).abortSignal(signal);
+      if (r.error) throw storeError(r.error, r.status);
+      return exactCount(r);
     },
     async record(bucket) {
-      await db.from("contact_rate_events").insert({ bucket });
+      const ins = await db.from("contact_rate_events").insert({ bucket }).abortSignal(deadline());
+      if (ins.error) throw storeError(ins.error, ins.status);
     },
     async purge() {
-      await db.from("contact_rate_events").delete().lt("created_at", since(24 * 60));
+      const r = await db.from("contact_rate_events").delete().lt("created_at", since(24 * 60)).retry(false).abortSignal(deadline());
+      if (r.error) throw storeError(r.error, r.status);
     },
     async countLeads(minutes) {
       const r = await db.from("tickets").select("id", { count: "exact", head: true })
         .eq("type", "consulta").is("project_id", null).is("client_id", null)
-        .gte("created_at", since(minutes));
-      if (r.error) throw r.error;
-      return r.count ?? 0;
+        .gte("created_at", since(minutes)).retry(false).abortSignal(deadline());
+      if (r.error) throw storeError(r.error, r.status);
+      return exactCount(r);
     },
     async insertLead(lead) {
       // tickets has no phone column: it leads the description so the team sees it.
@@ -80,7 +96,7 @@ function supabaseStore(db: Db): ContactStore {
         status:       "abierto",
         title:        `Mensaje web de ${lead.name}`,
         description:  lead.phone ? `Teléfono: ${lead.phone}\n\n${lead.message}` : lead.message,
-      });
+      }).abortSignal(deadline(STORE_TIMEOUT_MS * 2));
       return error ? error.message : null;
     },
   };

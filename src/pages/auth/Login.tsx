@@ -9,6 +9,7 @@ import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { postLoginTarget } from "@/lib/roleRoutes";
 import AuthBrandPanel from "@/components/auth/AuthBrandPanel";
 import Logo from "@/components/common/Logo";
 
@@ -62,19 +63,9 @@ const Login = () => {
     // Clean up any stored service intent from landing CTA
     sessionStorage.removeItem("postLoginIntent");
 
-    // Honour ?redirect= param (safe: must start with /)
-    const params = new URLSearchParams(location.search);
-    const redirectTo = params.get("redirect");
-    if (redirectTo?.startsWith("/") && (userType === 0 || userType === 1)) {
-      navigate(redirectTo, { replace: true });
-      return;
-    }
-
-    if (userType === 0 || userType === 1) {
-      navigate("/dashboard", { replace: true });
-    } else {
-      navigate("/solicitudes", { replace: true });
-    }
+    // ?redirect= is honoured only for an internal path that this role can open; otherwise the role's home.
+    const redirectTo = new URLSearchParams(location.search).get("redirect");
+    navigate(postLoginTarget(userType, redirectTo), { replace: true });
   }, [user, userType, authLoading, recoveryPending, navigate, location.search]);
 
   const handleLogin = async (e: React.FormEvent) => {

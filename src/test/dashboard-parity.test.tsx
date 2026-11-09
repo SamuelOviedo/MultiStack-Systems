@@ -188,23 +188,23 @@ function routeBlocks(): Record<string, string> {
   return out;
 }
 
-describe("rutas y roles: ProtectedRoute y allowedTypes no cambian", () => {
+describe("rutas y roles: el panel es solo del administrador (allowedTypes [0]); /solicitudes sigue en [2]", () => {
   const blocks = routeBlocks();
 
-  it("las 4 rutas del panel usan ProtectedRoute sin allowedTypes (por defecto [0, 1]); /solicitudes sigue en [2]", () => {
-    expect(protectedRouteSource).toContain("allowedTypes = [0, 1]");
+  it("las 4 rutas del panel usan ProtectedRoute con allowedTypes={[0]} explícito (sin valor por defecto); /solicitudes sigue en [2]", () => {
+    expect(protectedRouteSource).not.toMatch(/allowedTypes\s*=\s*\[/);
     for (const path of ["/dashboard", "/dashboard/proyectos", "/dashboard/project/:id", "/dashboard/tickets"]) {
       const open = blocks[path]?.match(/<ProtectedRoute([^>]*)>/);
       expect(open, path).not.toBeNull();
-      expect(open![1].trim(), `${path}: sin allowedTypes`).toBe("");
+      expect(open![1].trim(), `${path}: solo administrador`).toBe("allowedTypes={[0]}");
     }
     expect(blocks["/solicitudes"]).toMatch(/<ProtectedRoute allowedTypes=\{\[2\]\}>/);
     expect(blocks["/solicitudes"]).not.toContain("AdminShell");
   });
 
-  it("solo /dashboard y /dashboard/proyectos usan el shell; el resto de rutas privadas y públicas queda como estaba", () => {
+  it("las 4 rutas del panel usan el shell; el resto de rutas privadas y las públicas quedan como estaban", () => {
     const conShell = Object.entries(blocks).filter(([, b]) => b.includes("<AdminShell>")).map(([p]) => p);
-    expect(conShell.sort()).toEqual(["/dashboard", "/dashboard/proyectos"]);
+    expect(conShell.sort()).toEqual(["/dashboard", "/dashboard/project/:id", "/dashboard/proyectos", "/dashboard/tickets"]);
     const protegidas = Object.entries(blocks).filter(([, b]) => b.includes("<ProtectedRoute")).map(([p]) => p);
     expect(protegidas.sort()).toEqual(["/dashboard", "/dashboard/project/:id", "/dashboard/proyectos", "/dashboard/tickets", "/solicitudes"]);
     // Portal de clientes, acceso y recuperación: públicos y sin shell.
@@ -270,16 +270,17 @@ describe("inicio anterior → Resumen (/dashboard): lo que ofrecía sigue ahí",
     expect(libs.getTeamMembers).toHaveBeenCalled();
   });
 
-  it("colaborador: ve proyectos y renovaciones, no consulta ni ve las solicitudes y su menú es de 3 entradas", async () => {
+  it("colaborador: ya no entra al Resumen, va a la landing y no se consulta nada del panel", async () => {
     signIn(1);
     goTo("/dashboard");
-    const main = await screen.findByRole("main", {}, WAIT);
-    await within(main).findAllByText("Tienda Demo", {}, WAIT);
+    expect(await screen.findByRole("heading", { name: "Landing (simulada)" }, WAIT)).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+    expect(screen.queryByRole("main")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Principal" })).toBeNull();
+    expect(libs.getProjects).not.toHaveBeenCalled();
     expect(libs.getProjectRequests).not.toHaveBeenCalled();
-    expect(within(main).queryByText(/Solicitudes de proyecto pendientes/)).toBeNull();
-    expect(within(main).getByRole("button", { name: "Nuevo proyecto" })).toBeInTheDocument();
-    const nav = within(screen.getByRole("navigation", { name: "Principal" }));
-    expect(nav.getAllByRole("link")).toHaveLength(3);
+    expect(libs.getUpcomingRenewals).not.toHaveBeenCalled();
+    expect(libs.getOpenTicketsCount).not.toHaveBeenCalled();
   });
 
   it("si falla la carga se dice en español y se puede reintentar (antes era un aviso suelto)", async () => {
@@ -374,11 +375,13 @@ describe("la lista completa vive en /dashboard/proyectos", () => {
     expect((await within(main2).findAllByRole("link", { name: /Creado el/ }, WAIT)).length).toBe(PROJECTS.length);
   });
 
-  it("colaborador: la lista es la misma y no consulta solicitudes", async () => {
+  it("colaborador: tampoco entra a la lista, va a la landing y no se consulta nada", async () => {
     signIn(1);
     goTo("/dashboard/proyectos");
-    const main = await screen.findByRole("main", {}, WAIT);
-    expect((await within(main).findAllByRole("link", { name: /Creado el/ }, WAIT)).length).toBe(PROJECTS.length);
+    expect(await screen.findByRole("heading", { name: "Landing (simulada)" }, WAIT)).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+    expect(screen.queryByRole("main")).toBeNull();
+    expect(libs.getProjects).not.toHaveBeenCalled();
     expect(libs.getProjectRequests).not.toHaveBeenCalled();
   });
 });
@@ -407,24 +410,26 @@ describe("lo que daba la barra superior anterior (Panel, Soporte, Salir, tema, s
 });
 
 describe("enlaces y destinos antiguos siguen llevando a páginas válidas", () => {
-  it("el detalle de un proyecto abre desde una tarjeta, conserva su barra anterior y su «Dashboard» vuelve a /dashboard", async () => {
+  it("el detalle de un proyecto abre desde una tarjeta, ahora dentro del shell, y su «Volver al resumen» vuelve a /dashboard", async () => {
     signIn(0);
     goTo("/dashboard/proyectos");
     const main = await screen.findByRole("main", {}, WAIT);
     fireEvent.click((await within(main).findAllByRole("link", { name: /Tienda Demo/ }, WAIT))[0]);
     await waitFor(() => expect(window.location.pathname).toBe("/dashboard/project/p1"), WAIT);
     expect(await screen.findByRole("heading", { name: "Tienda Demo" }, WAIT)).toBeInTheDocument();
-    // Hasta su propio rediseño el detalle conserva la barra superior anterior (sin el menú lateral).
-    expect(screen.getByRole("link", { name: /\[ PANEL \]/ })).toHaveAttribute("href", "/dashboard");
-    expect(screen.getByRole("link", { name: /\[ SOPORTE \]/ })).toHaveAttribute("href", "/dashboard/tickets");
-    expect(screen.getByRole("link", { name: /Dashboard/ })).toHaveAttribute("href", "/dashboard");
+    // El detalle usa el shell: menú lateral con «Proyectos» marcado y sin la barra superior anterior.
+    expect(screen.queryByRole("link", { name: /\[ PANEL \]/ })).toBeNull();
+    expect(screen.getByRole("link", { name: "Proyectos", current: "page" })).toHaveAttribute("href", "/dashboard/proyectos");
+    expect(screen.getByRole("link", { name: "Volver al resumen" })).toHaveAttribute("href", "/dashboard");
   });
 
-  it("Tickets sigue en /dashboard/tickets con sus datos y la barra anterior; un error de carga del detalle vuelve a /dashboard", async () => {
+  it("Tickets sigue en /dashboard/tickets con sus datos, ahora dentro del shell y sin la barra anterior; un error de carga del detalle vuelve a /dashboard", async () => {
     signIn(0);
     goTo("/dashboard/tickets");
     expect(await screen.findByText("Botón de pago roto", {}, WAIT)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /\[ PANEL \]/ })).toHaveAttribute("href", "/dashboard");
+    expect(screen.queryByRole("link", { name: /\[ PANEL \]/ })).toBeNull();
+    const nav = within(screen.getByRole("navigation", { name: "Principal" }));
+    expect(nav.getByRole("link", { name: /Tickets/, current: "page" })).toHaveAttribute("href", "/dashboard/tickets");
 
     cleanup();
     window.history.pushState({}, "", "/");
@@ -463,11 +468,11 @@ describe("los modales viajan aparte: no pesan en la primera carga de la pantalla
 });
 
 describe("visita directa al panel: el armazón y su primera página se piden a la vez", () => {
-  it("App lo dispara con la ruta actual y solo conoce las dos pantallas que usan el armazón desde la primera carga", async () => {
+  it("App lo dispara con la ruta actual y solo conoce las pantallas que usan el armazón desde la primera carga", async () => {
     expect(appSource).toContain("preloadPanelForPath(window.location.pathname)");
     expect(preloadSource).toContain('"/dashboard": () =>');
     expect(preloadSource).toContain('"/dashboard/proyectos": () =>');
-    expect(preloadSource).not.toContain("/dashboard/tickets");
+    expect(preloadSource).toContain('"/dashboard/tickets": () =>');
     expect(preloadSource).not.toContain("/dashboard/project/");
     const { preloadPanelForPath } = await import("@/components/admin/preloadPanel");
     for (const path of ["/", "/login", "/dashboard/tickets", "/client/abc", "/dashboard/", "/dashboard/proyectos"]) {
@@ -477,8 +482,8 @@ describe("visita directa al panel: el armazón y su primera página se piden a l
 });
 
 describe("indicador de carga ligero del Resumen y la lista", () => {
-  it("App usa el indicador de solo texto únicamente en /dashboard y /dashboard/proyectos; las demás rutas conservan el de siempre", () => {
-    expect(appSource).toContain('new Set(["/dashboard", "/dashboard/proyectos"])');
+  it("App usa el indicador de solo texto únicamente en las pantallas con armazón; las demás rutas conservan el de siempre", () => {
+    expect(appSource).toContain('new Set(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"])');
     expect(appSource).toContain("<Suspense fallback={<RouteFallback />}>");
     expect(appSource).toContain("<PageLoader />");
   });

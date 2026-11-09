@@ -115,11 +115,11 @@ describe("código de producción del Resumen · voz y mensajes", () => {
 });
 
 describe("rutas y permisos del Resumen y la lista de proyectos", () => {
-  it("auth y ProtectedRoute siguen con su valor por defecto [0, 1] y App no pasa allowedTypes a las rutas del panel", () => {
-    expect(protectedRouteSource).toContain("allowedTypes = [0, 1]");
+  it("ProtectedRoute ya no tiene valor por defecto y App declara allowedTypes={[0]} en las 4 rutas del panel", () => {
+    expect(protectedRouteSource).not.toMatch(/allowedTypes\s*=\s*\[/);
     const panel = appSource.split("<Route").filter((c) => /path="\/dashboard/.test(c));
     expect(panel.length).toBe(4);
-    for (const route of panel) expect(route).not.toMatch(/allowedTypes/);
+    for (const route of panel) expect(route).toContain("<ProtectedRoute allowedTypes={[0]}>");
   });
 
   it("la ruta nueva está definida una sola vez y las URL anteriores siguen existiendo", () => {

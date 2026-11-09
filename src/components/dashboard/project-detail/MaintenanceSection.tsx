@@ -1,14 +1,24 @@
-import { useState } from "react";
-import { upsertMaintenance, formatMonth, firstDayOfMonth } from "@/lib/projects";
-import { useToast } from "@/hooks/use-toast";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useId, useRef, useState, type ReactNode } from "react";
+import { CheckCircle2, CircleDot, Clock, Plus, Wrench } from "lucide-react";
+
+import { EmptyState } from "@/components/admin/EmptyState";
+import { Panel } from "@/components/admin/Panel";
+import { StatusBadge } from "@/components/admin/StatusBadge";
+import { actionErrorMessage } from "@/components/dashboard/dashboard-home/loadErrors";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Clock, Loader2, Plus } from "lucide-react";
-import type { ProjectMaintenance } from "@/types/projects";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { upsertMaintenance, firstDayOfMonth } from "@/lib/projects";
+import type { MaintenanceStatus, ProjectMaintenance } from "@/types/projects";
+import Field from "./Field";
+import { formatMonthLabel } from "./format";
+import { FORM_SHEET_CLASS, OVERLAY_MOTION, useReturnFocus } from "./panelBehavior";
 
 interface Props {
   projectId: string;
@@ -16,13 +26,20 @@ interface Props {
   onRefresh: () => void;
 }
 
-const STATUS_ICON: Record<string, React.ReactNode> = {
-  completado: <CheckCircle2 className="h-3.5 w-3.5 text-primary" />,
-  en_proceso: <Loader2 className="h-3.5 w-3.5 text-accent animate-spin" />,
-  pendiente:  <Clock className="h-3.5 w-3.5 text-muted-foreground" />,
+const STATUS_BADGE: Record<MaintenanceStatus, { label: string; tone: "success" | "info" | "neutral"; icon: typeof Clock }> = {
+  completado: { label: "Completado", tone: "success", icon: CheckCircle2 },
+  en_proceso: { label: "En proceso", tone: "info", icon: CircleDot },
+  pendiente: { label: "Pendiente", tone: "neutral", icon: Clock },
 };
 
-const STATUS_LABEL = { completado: "Completado", en_proceso: "En proceso", pendiente: "Pendiente" };
+const STATUS_OPTIONS: { value: MaintenanceStatus; label: string }[] = [
+  { value: "pendiente", label: "Pendiente" },
+  { value: "en_proceso", label: "En proceso" },
+  { value: "completado", label: "Completado" },
+];
+
+/** El registro mensual no guarda la moneda del importe: el rótulo lo dice en vez de suponer una. */
+const AMOUNT_LABEL = "Importe cobrado (moneda no registrada)";
 
 interface FormState {
   month: string;
@@ -32,6 +49,8 @@ interface FormState {
   billed: boolean;
   billed_amount: string;
 }
+
+const tasksText = (n: number): ReactNode => `${n} ${n === 1 ? "tarea" : "tareas"}`;
 
 export default function MaintenanceSection({ projectId, records, onRefresh }: Props) {
   const { toast } = useToast();
@@ -46,6 +65,9 @@ export default function MaintenanceSection({ projectId, records, onRefresh }: Pr
     billed: false,
     billed_amount: "",
   });
+  const billedId = useId();
+  const registerRef = useRef<HTMLButtonElement>(null);
+  const focus = useReturnFocus(() => registerRef.current);
 
   const openNew = () => {
     setEditing(null);
@@ -70,7 +92,7 @@ export default function MaintenanceSection({ projectId, records, onRefresh }: Pr
     setLoading(true);
     try {
       await upsertMaintenance(projectId, form.month, {
-        status: form.status as any,
+        status: form.status as MaintenanceStatus,
         tasks_done: form.tasks ? form.tasks.split("\n").map(t => t.trim()).filter(Boolean) : [],
         notes: form.notes || null,
         billed: form.billed,
@@ -79,125 +101,169 @@ export default function MaintenanceSection({ projectId, records, onRefresh }: Pr
       toast({ title: "Mantenimiento guardado" });
       onRefresh();
       setOpen(false);
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } catch (e) {
+      toast({ title: "No se pudo guardar el mantenimiento", description: actionErrorMessage(e, "guardar mantenimiento"), variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-display text-xs text-muted-foreground">$ registro de mantenimiento</h3>
-        <Button onClick={openNew} size="sm" variant="outline"
-          className="font-mono text-[10px] border-primary/30 text-primary hover:bg-primary/10">
-          <Plus className="h-3 w-3" />
-          Registrar mes
-        </Button>
-      </div>
-
-      {records.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
-          Sin registros de mantenimiento todavía.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {records.map(r => (
-            <button
-              key={r.id}
-              onClick={() => openEdit(r)}
-              className="w-full flex items-center justify-between rounded-lg border border-border bg-card/50 px-4 py-3 hover:border-primary/30 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3">
-                {STATUS_ICON[r.status]}
-                <div>
-                  <p className="font-display text-xs text-foreground capitalize">{formatMonth(r.month)}</p>
-                  {r.tasks_done?.length ? (
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{r.tasks_done.length} tarea(s)</p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="text-right">
-                {r.billed && r.billed_amount != null && (
-                  <p className="font-display text-xs text-primary">{r.billed_amount} {/* currency not stored per record */}</p>
-                )}
-                <p className="font-mono text-[10px] text-muted-foreground">{STATUS_LABEL[r.status]}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+    <>
+      <Panel
+        title="Mantenimiento mensual"
+        description="Un registro por mes con las tareas hechas y el importe cobrado."
+        flush
+        actions={
+          <Button ref={registerRef} type="button" variant="outline" size="sm" onClick={openNew}>
+            <Plus aria-hidden="true" />
+            Registrar mes
+          </Button>
+        }
+        isEmpty={records.length === 0}
+        empty={
+          <div className="p-5 pt-0">
+            <EmptyState
+              icon={Wrench}
+              title="Sin registros de mantenimiento todavía"
+              description="Registra el primer mes para llevar el historial de tareas y cobros."
+            />
+          </div>
+        }
+      >
+        <Table containerProps={{ tabIndex: 0, role: "region", "aria-label": "Registros de mantenimiento" }}>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Mes</TableHead>
+              <TableHead scope="col" className="hidden sm:table-cell">Estado</TableHead>
+              <TableHead scope="col" className="hidden sm:table-cell">Tareas</TableHead>
+              <TableHead scope="col" className="min-w-28 whitespace-normal text-right">{AMOUNT_LABEL}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {records.map(r => {
+              const badge = STATUS_BADGE[r.status] ?? STATUS_BADGE.pendiente;
+              return (
+                <TableRow key={r.id}>
+                  <TableCell className="whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(r)}
+                      className="rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {formatMonthLabel(r.month)}
+                      <span className="sr-only"> (editar registro)</span>
+                    </button>
+                    {/* En pantallas angostas la cuenta de tareas baja al mes (la columna se oculta). */}
+                    {r.tasks_done?.length ? (
+                      <span className="block text-xs font-normal text-muted-foreground sm:hidden">{tasksText(r.tasks_done.length)}</span>
+                    ) : null}
+                    {/* En pantallas angostas el estado baja al mes (la columna se oculta). */}
+                    <span className="mt-1 block sm:hidden">
+                      <StatusBadge kind="custom" tone={badge.tone} label={badge.label} icon={badge.icon} />
+                    </span>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    <StatusBadge kind="custom" tone={badge.tone} label={badge.label} icon={badge.icon} />
+                  </TableCell>
+                  <TableCell className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">
+                    {r.tasks_done?.length ? tasksText(r.tasks_done.length) : "—"}
+                  </TableCell>
+                  <TableCell className="tabular text-right">
+                    {r.billed && r.billed_amount != null ? r.billed_amount : <span className="text-muted-foreground">—<span className="sr-only">Sin importe cobrado</span></span>}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Panel>
 
       <Sheet open={open} onOpenChange={v => !v && setOpen(false)}>
-        <SheetContent className="bg-card border-border w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader className="mb-6">
-            <SheetTitle className="font-display text-sm text-foreground">
-              <span className="text-primary">$ </span>
-              {editing ? `Editar — ${formatMonth(editing.month)}` : "Nuevo registro de mantenimiento"}
-            </SheetTitle>
+        <SheetContent
+          closeLabel="Cerrar"
+          overlayClassName={OVERLAY_MOTION}
+          className={FORM_SHEET_CLASS}
+          onOpenAutoFocus={focus.onOpenAutoFocus}
+          onCloseAutoFocus={focus.onCloseAutoFocus}
+        >
+          <SheetHeader className="shrink-0 space-y-1 border-b px-6 pb-4 pt-6 pr-12 text-left">
+            <SheetTitle>{editing ? `Editar ${formatMonthLabel(editing.month)}` : "Registrar mes de mantenimiento"}</SheetTitle>
+            <SheetDescription>Hay un registro por mes: si ya existe uno para el mes elegido, se actualiza.</SheetDescription>
           </SheetHeader>
 
-          <div className="space-y-4">
-            <div>
-              <label className="font-display text-xs text-muted-foreground mb-1.5 block">mes:</label>
-              <Input type="month" value={form.month.slice(0, 7)}
-                onChange={e => setForm(f => ({ ...f, month: `${e.target.value}-01` }))}
-                className="bg-background border-border font-mono text-sm" />
-            </div>
+          <form
+            noValidate
+            className="flex min-h-0 flex-1 flex-col"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!loading) void handleSave();
+            }}
+          >
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+              <Field label="Mes">
+                {(c) => (
+                  <Input {...c} type="month" value={form.month.slice(0, 7)}
+                    onChange={e => setForm(f => ({ ...f, month: `${e.target.value}-01` }))} />
+                )}
+              </Field>
 
-            <div>
-              <label className="font-display text-xs text-muted-foreground mb-1.5 block">estado:</label>
-              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                className="w-full rounded-md border border-border bg-background font-mono text-sm text-foreground px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="pendiente">Pendiente</option>
-                <option value="en_proceso">En proceso</option>
-                <option value="completado">Completado</option>
-              </select>
-            </div>
+              <Field label="Estado">
+                {(c) => (
+                  <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+                    <SelectTrigger id={c.id}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
 
-            <div>
-              <label className="font-display text-xs text-muted-foreground mb-1.5 block">
-                tareas_realizadas <span className="text-[10px]">(una por línea)</span>:
-              </label>
-              <Textarea value={form.tasks} onChange={e => setForm(f => ({ ...f, tasks: e.target.value }))}
-                placeholder={"Actualización de plugins\nBackup realizado\nMonitoreo de uptime"}
-                className="bg-background border-border font-mono text-sm resize-none" rows={4} />
-            </div>
+              <Field label="Tareas realizadas" hint="Escribe una tarea por línea.">
+                {(c) => (
+                  <Textarea {...c} rows={4} className="resize-none" value={form.tasks}
+                    placeholder={"Actualización de plugins\nCopia de seguridad\nMonitoreo de disponibilidad"}
+                    onChange={e => setForm(f => ({ ...f, tasks: e.target.value }))} />
+                )}
+              </Field>
 
-            <div>
-              <label className="font-display text-xs text-muted-foreground mb-1.5 block">notas:</label>
-              <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                className="bg-background border-border font-mono text-sm resize-none" rows={2} />
-            </div>
+              <Field label="Notas">
+                {(c) => (
+                  <Textarea {...c} rows={2} className="resize-none" value={form.notes}
+                    onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+                )}
+              </Field>
 
-            <div className="border-t border-border pt-3 space-y-3">
-              <div className="flex items-center gap-2">
-                <Checkbox id="billed" checked={form.billed} onCheckedChange={v => setForm(f => ({ ...f, billed: !!v }))} />
-                <Label htmlFor="billed" className="text-xs text-foreground cursor-pointer">Cobrado al cliente</Label>
-              </div>
-              {form.billed && (
-                <div>
-                  <label className="font-display text-xs text-muted-foreground mb-1.5 block">monto_cobrado:</label>
-                  <Input type="number" value={form.billed_amount}
-                    onChange={e => setForm(f => ({ ...f, billed_amount: e.target.value }))}
-                    placeholder="500.00" className="bg-background border-border font-mono text-sm" />
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox id={billedId} checked={form.billed} onCheckedChange={v => setForm(f => ({ ...f, billed: !!v }))} />
+                  <Label htmlFor={billedId} className="cursor-pointer">Cobrado al cliente</Label>
                 </div>
-              )}
+                {form.billed && (
+                  <Field label={AMOUNT_LABEL} hint="Solo el número: el sistema no registra la moneda de este importe.">
+                    {(c) => (
+                      <Input {...c} type="number" inputMode="decimal" step="0.01" min="0" value={form.billed_amount}
+                        placeholder="0.00"
+                        onChange={e => setForm(f => ({ ...f, billed_amount: e.target.value }))} />
+                    )}
+                  </Field>
+                )}
+              </div>
             </div>
 
-            <div className="flex gap-2 pt-2 border-t border-border">
-              <Button onClick={handleSave} disabled={loading} size="sm"
-                className="font-display text-xs bg-primary text-primary-foreground hover:bg-primary/90">
-                {loading ? "Guardando..." : "[ GUARDAR ]"}
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)} className="font-display text-xs">
+            <div className="flex shrink-0 justify-end gap-2 border-t px-6 py-4">
+              <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>
+              <Button type="submit" size="sm" disabled={loading}>
+                {loading ? "Guardando…" : "Guardar registro"}
+              </Button>
             </div>
-          </div>
+          </form>
         </SheetContent>
       </Sheet>
-    </div>
+    </>
   );
 }

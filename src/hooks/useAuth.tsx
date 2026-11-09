@@ -78,6 +78,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let active = true;
+    // Who the current `userType` belongs to, and a counter that invalidates in-flight profile lookups.
+    let currentUserId: string | null = null;
+    let latestRequest = 0;
+
+    /**
+     * Synchronously mirrors the incoming session. When the user changes (sign-in as someone else without
+     * signing out, or sign-out) the previous role is dropped IMMEDIATELY and any profile lookup still in
+     * flight is invalidated, so the old account's role is never paired with the new account's session.
+     * A refresh/update of the SAME user keeps the role (no flicker).
+     */
+    const syncIdentity = (nextSession: Session | null) => {
+      const nextUser = nextSession?.user ?? null;
+      setSession(nextSession);
+      setUser(nextUser);
+      const nextId = nextUser?.id ?? null;
+      if (nextId !== currentUserId) {
+        currentUserId = nextId;
+        latestRequest++;
+        setUserType(null);
+      }
+    };
 
     /**
      * Single funnel for both the initial session and every later auth event.
@@ -86,15 +107,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
      */
     const applySession = async (nextSession: Session | null) => {
       if (!active) return;
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
+      syncIdentity(nextSession);
+      const nextUser = nextSession?.user ?? null;
 
-      if (nextSession?.user) {
-        const type = await fetchUserType(nextSession.user.id);
-        if (!active) return;
+      if (nextUser) {
+        const request = ++latestRequest;
+        const type = await fetchUserType(nextUser.id);
+        // A newer session event (another account, sign-out) superseded this lookup: its answer is stale.
+        if (!active || request !== latestRequest) return;
         setUserType(type);
-      } else {
-        setUserType(null);
       }
       if (active) setLoading(false);
     };
@@ -127,6 +148,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         clearRecoveryPending();
         setRecoveryPending(false);
       }
+
+      // Invalidate the previous account's role right away (state only, no query): waiting for the deferred
+      // lookup below would leave the old role paired with the new session for a while.
+      syncIdentity(nextSession);
 
       // Defer DB work out of the callback: querying inside the onAuthStateChange
       // callback can deadlock the Supabase auth lock.

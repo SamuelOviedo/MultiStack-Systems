@@ -10,6 +10,7 @@ import {
   authErrorCode, describeAuthError, INVALID_LINK_CODES, PASSWORD_RULES, updatePassword, validateNewPassword,
 } from "@/lib/auth";
 import { clearAuthLinkError, peekAuthLinkError } from "@/lib/authRedirect";
+import { roleHome } from "@/lib/roleRoutes";
 
 const INPUT =
   "h-[42px] bg-background/60 border-border text-foreground text-sm font-sans rounded-md pr-10 focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-0";
@@ -63,8 +64,7 @@ const UpdatePassword = () => {
     }
   };
 
-  const goToApp = () =>
-    navigate(userType === 0 || userType === 1 ? "/dashboard" : "/solicitudes", { replace: true });
+  const goToApp = () => navigate(roleHome(userType), { replace: true });
 
   let invalid: InvalidReason | null = null;
   if (!done) {
