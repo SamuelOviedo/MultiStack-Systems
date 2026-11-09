@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crédito MultiStack Systems: demo</title>
+<!-- 1. Enlaza los estilos del crédito (o pega su contenido en el CSS del sitio). -->
+<link rel="stylesheet" href="credito.css">
+<style>
+/* Solo de esta demo: un sitio neutro con un pie oscuro y otro claro. Nada de esto forma parte del crédito. */
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:#1c1c1b;font:400 13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;letter-spacing:.01em}
+.intro{max-width:1100px;margin:0 auto;padding:56px 24px 48px}
+.intro h1{margin:0 0 8px;font-size:20px;font-weight:600;letter-spacing:0}
+.intro p{margin:0;max-width:62ch;color:#5a5853}
+.foot{padding:56px 24px 28px}
+.foot__in{max-width:1100px;margin:0 auto}
+.foot__top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:24px;padding-bottom:48px}
+.foot__brand{margin:0;font-size:15px;font-weight:600;letter-spacing:0}
+.foot__nav{display:flex;flex-wrap:wrap;gap:8px 28px}
+.foot__nav a{color:inherit;text-decoration:none}
+.foot__nav a:hover{text-decoration:underline;text-underline-offset:4px}
+.foot__bar{padding-top:20px;border-top:1px solid}
+.foot__bar p{margin:0}
+.foot--dark{background:#0c0c0d;color:#d4d3cf}
+.foot--dark .foot__bar{border-color:#2b2b2c}
+.foot--light{background:#f4f3ef;color:#4a4843}
+.foot--light .foot__bar{border-color:#d9d7d0}
+@media (max-width:560px){.foot{padding-top:40px}.foot__top{padding-bottom:32px}}
+</style>
+</head>
+<body>
+<header class="intro">
+<h1>Crédito de pie de página</h1>
+<p>El mismo bloque sobre un pie oscuro y otro claro. Pasa el puntero o enfoca con el teclado para ver el estado activo.</p>
+</header>
+
+<footer class="foot foot--dark">
+<div class="foot__in">
+<div class="foot__top">
+<p class="foot__brand">Acme Studio</p>
+<nav class="foot__nav" aria-label="Pie"><a href="#">Servicios</a><a href="#">Proyectos</a><a href="#">Contacto</a></nav>
+</div>
+<div class="foot__bar">
+<p>© 2026 Acme Studio. Todos los derechos reservados.</p>
+<!-- ===== CRÉDITO MULTISTACK: INICIO (copia hasta FIN) =====
+     2. Cambia acme por el slug del cliente en utm_source.
+     3. Variantes opcionales: data-tone="dark" (texto claro) o "light" (texto oscuro); sin data-tone hereda el color del pie.
+        data-align="start|center|end" lo pone en su propia línea; sin data-align queda en línea donde lo coloques.
+     Un solo crédito por página: los ids ms-credit-m y ms-credit-g son fijos. -->
+<a class="ms-credit" href="https://www.multistacksystems.com/?utm_source=acme&amp;utm_medium=referral&amp;utm_campaign=credito-footer" target="_blank" rel="noopener nofollow"
+   aria-label="Desarrollado por MultiStack Systems (se abre en una pestaña nueva)" data-align="start">Desarrollado por<svg viewBox="0 0 888.5 703.2" aria-hidden="true" focusable="false"><defs><linearGradient id="ms-credit-g" x2="1" y2="1"><stop/><stop offset="1"/></linearGradient><path id="ms-credit-m" d="m719.3 361.3-200.2-86.9.1-.1L718.5 64.6zM158.7 5.9Q171.6.2 185.1.2c16.4 0 32.6 6.3 44.8 18.2l269.8 263c9 8.8 9.8 23 1.8 32.7l-85.3 103.7c-8.8 10.6-24.6 11.8-34.9 2.6L0 77.5zm523.6-1.5Q688.8 0 695.7 0c11.8 0 22.8 9.3 22.8 22.8v200l-305 205.5c-7.9 5.3-18.4 4.6-25.5-1.7L261 312.2zM0 162.1c0-10 8.2-16.6 16.7-16.6 4 0 8.1 1.4 11.4 4.7l171.2 165.1v387.9L0 509.7v-68.1z"/></defs><use href="#ms-credit-m"/><use href="#ms-credit-m" fill="url(#ms-credit-g)"/><path d="M719.3 497.1v46L550.7 608v-45.6L666 520.3l-115.3-42.5v-45.9z"/><path class="ms-credit__cursor" d="M888.5 625.6H723.2v-38.3h165.3z"/></svg><b>MultiStack Systems</b><svg viewBox="0 0 8 8" aria-hidden="true" focusable="false"><path d="M1 7 7 1M2.5 1H7v4.5"/></svg></a>
+<!-- ===== CRÉDITO MULTISTACK: FIN ===== -->
+</div>
+</div>
+</footer>
+
+<footer class="foot foot--light">
+<div class="foot__in">
+<div class="foot__top">
+<p class="foot__brand">Acme Studio</p>
+<nav class="foot__nav" aria-label="Pie"><a href="#">Servicios</a><a href="#">Proyectos</a><a href="#">Contacto</a></nav>
+</div>
+<div class="foot__bar">
+<p>© 2026 Acme Studio. Todos los derechos reservados.</p>
+<!-- Mismo bloque con tono claro y alineado al final. Los ids llevan el sufijo -2 solo porque esta demo tiene dos créditos. -->
+<a class="ms-credit" href="https://www.multistacksystems.com/?utm_source=acme&amp;utm_medium=referral&amp;utm_campaign=credito-footer" target="_blank" rel="noopener nofollow"
+   aria-label="Desarrollado por MultiStack Systems (se abre en una pestaña nueva)" data-tone="light" data-align="end">Desarrollado por<svg viewBox="0 0 888.5 703.2" aria-hidden="true" focusable="false"><defs><linearGradient id="ms-credit-g-2" x2="1" y2="1"><stop/><stop offset="1"/></linearGradient><path id="ms-credit-m-2" d="m719.3 361.3-200.2-86.9.1-.1L718.5 64.6zM158.7 5.9Q171.6.2 185.1.2c16.4 0 32.6 6.3 44.8 18.2l269.8 263c9 8.8 9.8 23 1.8 32.7l-85.3 103.7c-8.8 10.6-24.6 11.8-34.9 2.6L0 77.5zm523.6-1.5Q688.8 0 695.7 0c11.8 0 22.8 9.3 22.8 22.8v200l-305 205.5c-7.9 5.3-18.4 4.6-25.5-1.7L261 312.2zM0 162.1c0-10 8.2-16.6 16.7-16.6 4 0 8.1 1.4 11.4 4.7l171.2 165.1v387.9L0 509.7v-68.1z"/></defs><use href="#ms-credit-m-2"/><use href="#ms-credit-m-2" fill="url(#ms-credit-g-2)"/><path d="M719.3 497.1v46L550.7 608v-45.6L666 520.3l-115.3-42.5v-45.9z"/><path class="ms-credit__cursor" d="M888.5 625.6H723.2v-38.3h165.3z"/></svg><b>MultiStack Systems</b><svg viewBox="0 0 8 8" aria-hidden="true" focusable="false"><path d="M1 7 7 1M2.5 1H7v4.5"/></svg></a>
+</div>
+</div>
+</footer>
+</body>
+</html>
