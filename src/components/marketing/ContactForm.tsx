@@ -56,6 +56,9 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
   const [submitted, setSubmitted] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "rate-limited" | "unavailable" | "invalid">("idle");
   const nameRef = useRef<HTMLInputElement>(null);
+  // Cerrojo síncrono del envío: `status` es el estado ya pintado, así que dos eventos submit antes de que React repinte
+  // verían los dos "idle". El ref se activa en el mismo instante en que se decide enviar.
+  const sendingRef = useRef(false);
 
   // Prefill desde un CTA de servicio: reemplaza el mensaje y deja el foco en el
   // primer campo (nombre) sin interrumpir el scroll suave del llamador.
@@ -75,7 +78,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (status === "loading") return;
+    if (status === "loading" || sendingRef.current) return;
     setSubmitted(true);
     if (Object.keys(errors).length > 0) {
       // Lleva el foco al primer campo con error (en orden visual).
@@ -94,6 +97,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       setStatus("error");
       return;
     }
+    sendingRef.current = true;
     setStatus("loading");
     try {
       await sendContactMessage(form);
@@ -111,6 +115,8 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
               ? "invalid"
               : "error",
       );
+    } finally {
+      sendingRef.current = false;
     }
   };
 
@@ -226,7 +232,6 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
         onChange={update("message")}
         placeholder="Cuéntanos qué necesitas construir…"
         rows={3}
-        maxLength={CONTACT_LIMITS.messageMax}
         disabled={status === "loading"}
         required
         aria-invalid={!!shown.message}
@@ -264,22 +269,22 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       )}
       {status === "error" && (
         <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
-          No se pudo enviar. Intenta de nuevo.
+          No pudimos enviar tu mensaje. Inténtalo de nuevo.
         </div>
       )}
       {status === "rate-limited" && (
         <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
-          Recibimos demasiados mensajes. Intenta de nuevo más tarde.
+          Has alcanzado el límite de envíos. Inténtalo de nuevo más tarde.
         </div>
       )}
       {status === "unavailable" && (
         <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
-          El formulario no está disponible por ahora. Inténtalo más tarde.
+          El formulario no está disponible temporalmente. Inténtalo de nuevo más tarde.
         </div>
       )}
       {status === "invalid" && (
         <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
-          No pudimos aceptar el contenido. Revisa el nombre, el contacto y el mensaje, y quita lo que hayas pegado.
+          No pudimos procesar tu mensaje. Revisa los datos ingresados e inténtalo de nuevo.
         </div>
       )}
     </form>

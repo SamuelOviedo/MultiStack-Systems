@@ -91,6 +91,9 @@ export function isValidPhone(phone: string): boolean {
   return value.length <= CONTACT_LIMITS.phoneMax && PHONE_CHARS_RE.test(value) && digits >= 7 && digits <= 15;
 }
 
+// One text for every field: the person does not need to know which kind of invisible character it was.
+const UNSAFE_TEXT_MESSAGE = 'El campo contiene caracteres invisibles no permitidos. Revisa el texto ingresado.';
+
 export type ContactField = keyof ContactPayload | 'contact';
 
 /**
@@ -105,21 +108,21 @@ export function validateContact(form: ContactPayload): Partial<Record<ContactFie
   const message = form.message.trim();
 
   // Hidden or control characters win over any other error of the same field: they are what to fix first.
-  if (hasUnsafeText(form.name)) errors.name = 'Hay caracteres invisibles no permitidos en el nombre. Revisa lo que pegaste.';
+  if (hasUnsafeText(form.name)) errors.name = UNSAFE_TEXT_MESSAGE;
   else if (name.length < CONTACT_LIMITS.nameMin) errors.name = 'Escribe tu nombre completo.';
   else if (name.length > CONTACT_LIMITS.nameMax) errors.name = 'El nombre es demasiado largo.';
 
-  if (hasUnsafeText(form.phone ?? '')) errors.phone = 'Hay caracteres invisibles no permitidos en el teléfono. Revisa lo que pegaste.';
+  if (hasUnsafeText(form.phone ?? '')) errors.phone = UNSAFE_TEXT_MESSAGE;
   else if (phone && !isValidPhone(phone)) errors.phone = 'Revisa el número de teléfono.';
 
-  if (hasUnsafeText(form.email ?? '')) errors.email = 'Hay caracteres invisibles no permitidos en el correo. Revisa lo que pegaste.';
+  if (hasUnsafeText(form.email ?? '')) errors.email = UNSAFE_TEXT_MESSAGE;
   else if (email && !isValidEmail(email)) errors.email = 'Revisa el correo electrónico.';
 
   if (!phone && !email) errors.contact = 'Déjanos un teléfono o un correo para responderte.';
 
-  if (hasUnsafeText(form.message)) errors.message = 'Hay caracteres invisibles no permitidos en el mensaje. Revisa lo que pegaste.';
+  if (hasUnsafeText(form.message)) errors.message = UNSAFE_TEXT_MESSAGE;
   else if (message.length < CONTACT_LIMITS.messageMin) errors.message = 'Cuéntanos un poco más.';
-  else if (message.length > CONTACT_LIMITS.messageMax) errors.message = 'El mensaje es demasiado largo.';
+  else if (message.length > CONTACT_LIMITS.messageMax) errors.message = 'El mensaje supera el límite permitido. Resúmelo e inténtalo de nuevo.';
   return errors;
 }
 
