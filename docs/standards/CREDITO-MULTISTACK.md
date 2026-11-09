@@ -213,7 +213,7 @@ De los trazos del archivo maestro editable de la marca (privado), sin trazar nin
 
 - **Probado solo en Chromium.** Firefox y Safari están pendientes.
 - **A 14 px en pantallas 1× el `>_` apenas se resuelve** (el `_` mide unos 3,3 × 0,8 px) y el parpadeo es discreto.
-- **Peso:** unos 1,45 KB en gzip. En Next, unos 4,1 KB en crudo, porque el marcado viaja también en el payload RSC.
+- **Peso:** el componente solo (marcado y estilos) ocupa unos 1,45 KB en gzip. Medido en un sitio Next real, con sus reglas de ubicación, añadió unos 2,5 KB en gzip y unos 5,9 KB en crudo entre HTML y CSS. En crudo pesa más porque el marcado viaja dos veces: en el HTML y en el payload RSC.
 - **Área de toque:** los 44 px se garantizan con la unidad `lh`; en navegadores que no la soportan dependen del interlineado heredado (sección 8).
 - **Anillo de foco en táctil:** rodea el área de toque de 44 px, no solo el texto. Con un teclado conectado a un dispositivo táctil, el anillo puede rozar la línea de texto vecina si el crédito va pegado al copyright.
 - **Idioma:** los textos están en español y no hay prop para cambiarlos. En un sitio en otro idioma hay que traducir a la vez «Desarrollado por» y el `aria-label`.
