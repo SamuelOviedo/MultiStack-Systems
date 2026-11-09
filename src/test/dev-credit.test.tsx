@@ -39,8 +39,10 @@ describe("DevCredit · enlace", () => {
 describe("DevCredit · accesibilidad", () => {
   it("el texto visible es solo la marca y abre el nombre accesible", () => {
     render(<DevCredit clientSlug="acme" />);
-    expect(link()).toHaveTextContent(/^Desarrollado por\s*MultiStack Systems$/);
-    expect(NAME.startsWith("Desarrollado por MultiStack Systems")).toBe(true);
+    // textContent, no toHaveTextContent: el espacio entre «por» y la marca tiene que existir en el DOM
+    // (es lo que se copia, lo que lee el modo lectura y el texto ancla del enlace).
+    expect(link().textContent).toBe("Desarrollado por MultiStack Systems");
+    expect(link().getAttribute("aria-label")?.startsWith(link().textContent ?? "")).toBe(true);
   });
 
   it("isotipo y flecha quedan ocultos a los lectores de pantalla y fuera del orden de foco", () => {

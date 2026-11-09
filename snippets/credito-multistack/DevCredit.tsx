@@ -26,7 +26,7 @@ export function DevCredit({ clientSlug, align, tone = 'auto', className }: DevCr
       data-align={align}
       data-tone={tone === 'auto' ? undefined : tone}
     >
-      Desarrollado por
+      Desarrollado por{' '}
       <svg viewBox="0 0 888.5 703.2" aria-hidden="true" focusable="false">
         <defs>
           <linearGradient id="ms-credit-g" x2="1" y2="1">
