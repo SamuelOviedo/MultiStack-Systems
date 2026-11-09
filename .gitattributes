@@ -1,2 +1,6 @@
 # Byte-exact e-mail snapshots (vitest toMatchFileSnapshot) must not get CRLF on Windows checkouts
 supabase/functions/_shared/email/__snapshots__/*.html text eol=lf
+
+# Spec Kit hash-tracks its managed files (.specify/integrations/*.manifest.json): a CRLF checkout would mark them all as modified
+.specify/** text eol=lf
+.claude/skills/speckit-*/** text eol=lf
