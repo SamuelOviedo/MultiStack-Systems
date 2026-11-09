@@ -80,7 +80,9 @@ const PHONE_CHARS_RE = /^\+?[\d\s().-]+$/;
 
 export function isValidEmail(email: string): boolean {
   const value = email.trim();
-  return value.length <= CONTACT_LIMITS.emailMax && EMAIL_RE.test(value);
+  // The length is measured on the lower-cased value: it is the one normalizeContact sends and the function measures
+  // (U+0130 lower-cases to two code units).
+  return value.toLowerCase().length <= CONTACT_LIMITS.emailMax && EMAIL_RE.test(value);
 }
 
 export function isValidPhone(phone: string): boolean {
