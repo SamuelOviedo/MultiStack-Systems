@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { CONTACT_LIMITS, sendContactMessage, validateContact, type ContactPayload } from "@/lib/contact";
+import {
+  CONTACT_LIMITS,
+  ContactInvalidError,
+  ContactRateLimitError,
+  ContactUnavailableError,
+  sendContactMessage,
+  validateContact,
+  type ContactPayload,
+} from "@/lib/contact";
 import { trackContactConversion } from "@/lib/analytics";
 
 const MONO = "'JetBrains Mono', monospace";
@@ -31,6 +39,12 @@ export interface ContactPrefill {
 
 const EMPTY_FORM: ContactPayload = { name: "", phone: "", email: "", message: "" };
 
+// Honeypot (S4): off-screen and out of the tab order; people never see it. The server contract is the JSON key
+// `website` (ContactPayload.website, lead.ts HONEYPOT_FIELD): the form is controlled state, so the attributes of the DOM
+// input are free. They are chosen so that autofill (browser, password managers, form-filling extensions) finds no
+// "website / URL / company" to complete: neutral id, name and label, autocomplete off and the vendors' ignore flags.
+const honeypotStyle: CSSProperties = { position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" };
+
 /**
  * Formulario de contacto MultiStack (vía lib/contact → Edge Function).
  * Nombre y mensaje obligatorios; teléfono y correo opcionales, pero se pide al
@@ -40,8 +54,11 @@ const EMPTY_FORM: ContactPayload = { name: "", phone: "", email: "", message: ""
 const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; prefill?: ContactPrefill }) => {
   const [form, setForm] = useState<ContactPayload>(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "rate-limited" | "unavailable" | "invalid">("idle");
   const nameRef = useRef<HTMLInputElement>(null);
+  // Cerrojo síncrono del envío: `status` es el estado ya pintado, así que dos eventos submit antes de que React repinte
+  // verían los dos "idle". El ref se activa en el mismo instante en que se decide enviar.
+  const sendingRef = useRef(false);
 
   // Prefill desde un CTA de servicio: reemplaza el mensaje y deja el foco en el
   // primer campo (nombre) sin interrumpir el scroll suave del llamador.
@@ -61,7 +78,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (status === "loading") return;
+    if (status === "loading" || sendingRef.current) return;
     setSubmitted(true);
     if (Object.keys(errors).length > 0) {
       // Lleva el foco al primer campo con error (en orden visual).
@@ -71,6 +88,16 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       if (first) document.getElementById(id(first))?.focus();
       return;
     }
+    // Honeypot lleno: el servidor lo descarta en silencio con un 200 idéntico al de un envío real, así que enviarlo haría
+    // perder en silencio una solicitud legítima cuyo autocompletado lo llenó. No se envía, no se simula un éxito: se
+    // vacía el campo y se avisa; el siguiente clic envía el formulario completo. Un bot que escribe directo al servidor
+    // no pasa por aquí, y el servidor sigue descartándolo igual.
+    if (form.website?.trim()) {
+      setForm((f) => ({ ...f, website: "" }));
+      setStatus("error");
+      return;
+    }
+    sendingRef.current = true;
     setStatus("loading");
     try {
       await sendContactMessage(form);
@@ -78,8 +105,18 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       setStatus("success");
       setForm(EMPTY_FORM);
       setSubmitted(false);
-    } catch {
-      setStatus("error");
+    } catch (err) {
+      setStatus(
+        err instanceof ContactRateLimitError
+          ? "rate-limited"
+          : err instanceof ContactUnavailableError
+            ? "unavailable"
+            : err instanceof ContactInvalidError
+              ? "invalid"
+              : "error",
+      );
+    } finally {
+      sendingRef.current = false;
     }
   };
 
@@ -91,6 +128,22 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
 
   return (
     <form onSubmit={handleSubmit} noValidate className="ms-contact-form" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div aria-hidden="true" style={honeypotStyle}>
+        <label htmlFor={id("hp")}>Dejar este campo vacío</label>
+        <input
+          id={id("hp")}
+          name="ms_hp"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          data-bwignore="true"
+          data-form-type="other"
+          value={form.website ?? ""}
+          onChange={update("website")}
+        />
+      </div>
       <label htmlFor={id("name")} style={labelStyle}>
         Nombre completo
       </label>
@@ -129,6 +182,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
             disabled={status === "loading"}
             autoComplete="tel"
             inputMode="tel"
+            maxLength={CONTACT_LIMITS.phoneMax}
             aria-invalid={!!shown.phone || contactInvalid}
             aria-describedby={describedBy("phone")}
             style={{ ...fieldStyle, ...(shown.phone || contactInvalid ? invalidStyle : {}) }}
@@ -151,6 +205,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
             placeholder="tu@email.com"
             disabled={status === "loading"}
             autoComplete="email"
+            maxLength={CONTACT_LIMITS.emailMax}
             aria-invalid={!!shown.email || contactInvalid}
             aria-describedby={describedBy("email")}
             style={{ ...fieldStyle, ...(shown.email || contactInvalid ? invalidStyle : {}) }}
@@ -214,7 +269,22 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       )}
       {status === "error" && (
         <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
-          No se pudo enviar. Intenta de nuevo.
+          No pudimos enviar tu mensaje. Inténtalo de nuevo.
+        </div>
+      )}
+      {status === "rate-limited" && (
+        <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
+          Has alcanzado el límite de envíos. Inténtalo de nuevo más tarde.
+        </div>
+      )}
+      {status === "unavailable" && (
+        <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
+          El formulario no está disponible temporalmente. Inténtalo de nuevo más tarde.
+        </div>
+      )}
+      {status === "invalid" && (
+        <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
+          No pudimos procesar tu mensaje. Revisa los datos ingresados e inténtalo de nuevo.
         </div>
       )}
     </form>

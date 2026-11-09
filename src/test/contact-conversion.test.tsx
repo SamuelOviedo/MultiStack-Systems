@@ -140,7 +140,7 @@ const submitButton = (): HTMLElement => screen.getByRole("button", { name: /Envi
 
 const findSuccess = (): Promise<HTMLElement> => screen.findByText(/¡Mensaje enviado!/);
 
-const SEND_ERROR = "No se pudo enviar. Intenta de nuevo.";
+const SEND_ERROR = "No pudimos enviar tu mensaje. Inténtalo de nuevo.";
 
 describe.each(CONTAINERS)("conversión «Contacto enviado» en $label", (container) => {
   const PAGE_LOCATION = `${ORIGIN}${container.path}`;
@@ -361,9 +361,9 @@ describe.each(CONTAINERS)("conversión «Contacto enviado» en $label", (contain
     ["una sesión de Supabase guardada", () => localStorage.setItem("sb-abc-auth-token", "PRUEBA")],
     ["credenciales de auth en el hash de la URL", () => setUrl(`${container.path}#access_token=PRUEBA&type=recovery`)],
     ["un código de auth en la query de la URL", () => setUrl(`${container.path}?code=PRUEBA`)],
-    ["un click-id inválido (gclid con @ y espacio) en la query de la URL", () => setUrl(`${container.path}?gclid=PRUEBA%40example.com%20SUCIO`)],
+    ["un click-id inválido (gclid con @ y espacio) en la query de la URL", () => setUrl(`${container.path}?gclid=PRUEBA%40example.test%20SUCIO`)],
     ["un click-id inválido de 600 caracteres en la query de la URL", () => setUrl(`${container.path}?gclid=${"G".repeat(600)}`)],
-    ["un click-id inválido en el hash de la URL", () => setUrl(`${container.path}#gclid=PRUEBA%40example.com%20SUCIO`)],
+    ["un click-id inválido en el hash de la URL", () => setUrl(`${container.path}#gclid=PRUEBA%40example.test%20SUCIO`)],
   ])("con %s el envío funciona y no hay conversión", async (_case, arrange) => {
     await mount(container);
     const entriesBefore = layerEntries().length;
@@ -403,6 +403,26 @@ describe.each(CONTAINERS)("conversión «Contacto enviado» en $label", (contain
     expect(await findSuccess()).toBeInTheDocument();
     expect(conversions()).toHaveLength(0);
     expect(eventsOf("page_view")).toHaveLength(1);
+  });
+
+  it("honeypot lleno (autocompletado): no se envía ni se mide, se vacía y avisa; el reintento envía sin él y mide una vez", async () => {
+    await mount(container);
+    send.mockResolvedValue(undefined);
+    fillForm();
+    const trap = document.querySelector<HTMLInputElement>('input[name="ms_hp"]') as HTMLInputElement;
+    fireEvent.change(trap, { target: { value: "http://autofill.example.test" } });
+    fireEvent.click(submitButton());
+    expect(await screen.findByText(SEND_ERROR)).toBeInTheDocument();
+    expect(screen.queryByText(/¡Mensaje enviado!/)).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+    expect(conversions()).toHaveLength(0);
+    expect(trap.value).toBe("");
+
+    fireEvent.click(submitButton());
+    expect(await findSuccess()).toBeInTheDocument();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ ...VISITOR, website: "" }); // vacío: normalizeContact lo omite del cuerpo
+    expect(conversions()).toHaveLength(1);
   });
 
   it("con el script de gtag.js aún cargando (sin load) el envío funciona, sin conversión y sin crear gtag ni dataLayer", async () => {
