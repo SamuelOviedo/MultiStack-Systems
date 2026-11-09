@@ -67,6 +67,16 @@ En la barra inferior del footer, junto al copyright.
 
 Cuidado con las barras que reparten con `justify-content: space-between` o con grid: añadir un hijo, o ensanchar el primero, mueve a los demás. Ancla entonces el crédito al copyright fuera del flujo (así el copyright conserva su ancho) o bájalo a su propia línea sin ensanchar a ningún hermano. La técnica depende del footer; el criterio no.
 
+**Texto agrandado.** Decide «al lado o debajo» con una medida que siga el tamaño real del texto. Un punto de corte en px de ventana no sirve: con tamaño mínimo de fuente o con zoom solo de texto el crédito crece y se monta sobre lo que tenga al lado. Tampoco sirve `em`: con tamaño mínimo de fuente el texto se dibuja más grande y `em` no cambia (medido en Chromium y en Firefox). `ch` sí sigue al texto en los dos casos. El patrón es una container query sobre la barra, medida en `ch`:
+
+```css
+.pie__barra { container-type: inline-size; }
+/* Por defecto, el crédito va en su propia línea. Al lado, solo si la barra mide N ch o más. */
+@container (min-width: 156ch) { .pie__credito { /* al lado del copyright */ } }
+```
+
+N se mide en cada sitio: el ancho de la barra, en `ch`, desde el que el crédito cabe al lado con aire. Así, con el texto agrandado el crédito baja a su propia línea en vez de solaparse. Donde no hay container queries se queda en su propia línea, que es el caso seguro.
+
 Revisa también los selectores del cliente que alcanzan a cualquier enlace del pie (`footer a`, un `a::after` con subrayado, colores de hover, `position`): neutralízalos solo para el crédito, sin cambiarlos para los demás enlaces.
 
 ## 5. Diseño
@@ -75,7 +85,7 @@ Revisa también los selectores del cliente que alcanzan a cualquier enlace del p
 
 - Tipografía heredada (`font: inherit`) y tamaño igual al del copyright: el componente no fija tamaño, toma el del contenedor.
 - Color del texto del contenedor (o el de `tone`) con **opacidad 0,7** sobre todo el enlace. «MultiStack Systems» en peso 600.
-- Isotipo monocromo (`currentColor`) de **14 px** de alto; el ancho sale de su proporción (888,5 × 703,2). Ajuste óptico de 0,165 em hacia abajo para alinearlo con el texto.
+- Isotipo monocromo (`currentColor`) de **14 px** de alto; el ancho sale de su proporción (888,5 × 703,2). Ajuste óptico de 0,165 em hacia abajo para alinearlo con el texto. Un margen superior negativo evita que agrande la línea: el crédito mide lo mismo que una línea de texto.
 - Flecha ↗ de 0,6 em, trazo de 1,4 en `currentColor`. Separación entre piezas de 0,45 em; el enlace no se parte (`white-space: nowrap`).
 - Sin animación, badge, fondo, borde ni sombra.
 
@@ -124,7 +134,7 @@ Las políticas de spam de Google incluyen entre sus ejemplos de spam de enlaces 
 - **Nombre accesible:** `aria-label="Desarrollado por MultiStack Systems (se abre en una pestaña nueva)"`. Empieza por el texto visible y avisa de la pestaña nueva.
 - **SVG ocultos:** isotipo y flecha llevan `aria-hidden="true"` y `focusable="false"`, sin `<title>`.
 - **Foco visible:** en `:focus-visible` hay un contorno de 2 px, separado 3 px, con esquinas de 2 px y del color del texto (`currentColor`), a opacidad 1. No uses `outline: none`.
-- **Área de toque:** con `(pointer: coarse)` el enlace mide al menos 44 px de alto sin cambiar el tamaño del texto: el padding vertical es el mayor entre 13 px por lado y lo que falte para llegar a 44 px según el interlineado heredado (unidad `lh`). En navegadores sin `lh` se quedan los 13 px fijos, que no llegan a 44 si la línea heredada mide menos de 18 px. Ese padding añade alto en táctil: si el crédito va en su propia línea bajo el copyright, el sitio decide si lo compensa para mantener el ritmo, sin que el área de toque tape otro enlace ni texto que la gente pueda tocar. Comprueba el alto real.
+- **Área de toque:** con `(pointer: coarse)` el enlace mide al menos 44 px de alto sin cambiar el tamaño del texto. El área crece **solo hacia abajo** (`padding-bottom: max(26px, 44px - 1lh)`), para no tapar la línea de arriba: si el crédito va bajo el copyright, tocar el copyright no debe abrir el enlace. Ese padding añade alto en táctil; el sitio puede recuperar parte con un margen inferior negativo, siempre que el área de toque no llegue a otro enlace. Si debajo hay otro enlace y arriba hay sitio libre, redirige el padding con CSS del sitio. En navegadores sin la unidad `lh` quedan 26 px fijos, que no llegan a 44 si la línea heredada mide menos de 18 px. Compruébalo con `document.elementFromPoint` en varios puntos del copyright: el toque tiene que caer en el copyright, no en el enlace.
 - **Movimiento:** `prefers-reduced-motion` según la sección 5.
 - **Contraste:**
 
@@ -211,11 +221,11 @@ De los trazos del archivo maestro editable de la marca (privado), sin trazar nin
 
 ## 13. Límites conocidos
 
-- **Probado solo en Chromium.** Firefox y Safari están pendientes.
+- **Navegadores:** probado con Playwright en Chromium, Firefox y WebKit (el motor de Safari), sobre un sitio real: 29 anchos de 260 a 1920 px, puntero fino y táctil, tamaño mínimo de fuente de 16 px y zoom solo de texto al 150 % y al 200 %. No se ha probado en un Safari real ni en dispositivos. En WebKit no se pudieron activar el tamaño mínimo de fuente ni el zoom solo de texto.
 - **A 14 px en pantallas 1× el `>_` apenas se resuelve** (el `_` mide unos 3,3 × 0,8 px) y el parpadeo es discreto.
 - **Peso:** el componente solo (marcado y estilos) ocupa unos 1,45 KB en gzip. Medido en un sitio Next real, con sus reglas de ubicación, añadió unos 2,5 KB en gzip y unos 5,9 KB en crudo entre HTML y CSS. En crudo pesa más porque el marcado viaja dos veces: en el HTML y en el payload RSC.
 - **Área de toque:** los 44 px se garantizan con la unidad `lh`; en navegadores que no la soportan dependen del interlineado heredado (sección 8).
-- **Anillo de foco en táctil:** rodea el área de toque de 44 px, no solo el texto. Con un teclado conectado a un dispositivo táctil, el anillo puede rozar la línea de texto vecina si el crédito va pegado al copyright.
+- **Anillo de foco en táctil:** rodea el área de toque (el texto y el espacio de debajo), no solo el texto. Solo se ve con un teclado conectado a un dispositivo táctil.
 - **Idioma:** los textos están en español y no hay prop para cambiarlos. En un sitio en otro idioma hay que traducir a la vez «Desarrollado por» y el `aria-label`.
 - **Peso 600:** si la fuente del cliente no lo incluye, el navegador usará el más cercano disponible para «MultiStack Systems».
 
@@ -230,5 +240,6 @@ De los trazos del archivo maestro editable de la marca (privado), sin trazar nin
 - [ ] Teclado: Tab llega al crédito, el foco se ve y Enter abre el enlace correcto en pestaña nueva.
 - [ ] `prefers-reduced-motion: reduce`: solo cambia el color; sin desplazamiento, crecimiento ni parpadeo.
 - [ ] Se ve bien en 375, 768 y 1440 px; en móvil va en su propia línea.
-- [ ] En táctil el alto del enlace es de 44 px o más.
+- [ ] En táctil el alto del enlace es de 44 px o más, y tocar el copyright no abre el enlace.
+- [ ] Con tamaño mínimo de fuente de 16 px y con zoom solo de texto, el crédito no se monta sobre ningún otro elemento en ningún ancho.
 - [ ] Sin dependencias nuevas; tipos y build del sitio en verde.

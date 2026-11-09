@@ -9,7 +9,8 @@ white-space:nowrap;opacity:var(--ms-credit-opacity,.7)}
 .ms-credit[data-align=center]{margin-inline:auto}
 .ms-credit[data-align=end]{margin-inline-start:auto}
 .ms-credit>svg{flex:none}
-.ms-credit>svg:first-of-type{font-size:var(--ms-credit-mark,14px);height:1em;width:1.2635em;transform:translateY(.165em);fill:currentColor}
+/* El margen negativo evita que el isotipo, más alto que el texto, agrande la línea: el crédito mide lo mismo que una línea de texto. */
+.ms-credit>svg:first-of-type{font-size:var(--ms-credit-mark,14px);height:1em;width:1.2635em;margin-top:-.3em;transform:translateY(.165em);fill:currentColor}
 .ms-credit>svg:last-of-type{width:.6em;height:.6em;fill:none;stroke:currentColor;stroke-width:1.4}
 .ms-credit b{font-weight:600;line-height:1.2;padding-bottom:.12em;margin-bottom:-.12em;
 background:linear-gradient(currentColor,currentColor) 0 100%/calc(100%*var(--ms-credit-s)) 1px no-repeat}
@@ -21,8 +22,9 @@ background:linear-gradient(currentColor,currentColor) 0 100%/calc(100%*var(--ms-
 /* Estado activo: --ms-credit-s pasa a 1 y las piezas internas reaccionan. */
 .ms-credit:focus-visible{outline:2px solid;outline-offset:3px;border-radius:2px;opacity:1;--ms-credit-s:1}
 @media (hover:hover) and (pointer:fine){.ms-credit:hover{opacity:1;--ms-credit-s:1}}
-/* Táctil: al menos 44px de alto sea cual sea el interlineado del sitio (13px es el valor para navegadores sin la unidad lh). */
-@media (pointer:coarse){.ms-credit{padding-block:13px;padding-block:max(13px,(44px - 1lh)/2)}}
+/* Táctil: al menos 44px de alto para tocar. El área crece solo hacia abajo, para no tapar la línea de arriba (el copyright).
+   26px es el valor para navegadores sin la unidad lh. */
+@media (pointer:coarse){.ms-credit{padding-bottom:26px;padding-bottom:max(26px,44px - 1lh)}}
 /* Con reduce quedan solo el color y la opacidad; el subrayado aparece de golpe. */
 @media (prefers-reduced-motion:reduce){.ms-credit b{transition:none}}
 @media (prefers-reduced-motion:no-preference){
