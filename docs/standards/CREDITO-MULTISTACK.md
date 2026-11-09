@@ -124,7 +124,7 @@ Las políticas de spam de Google incluyen entre sus ejemplos de spam de enlaces 
 - **Nombre accesible:** `aria-label="Desarrollado por MultiStack Systems (se abre en una pestaña nueva)"`. Empieza por el texto visible y avisa de la pestaña nueva.
 - **SVG ocultos:** isotipo y flecha llevan `aria-hidden="true"` y `focusable="false"`, sin `<title>`.
 - **Foco visible:** en `:focus-visible` hay un contorno de 2 px, separado 3 px, con esquinas de 2 px y del color del texto (`currentColor`), a opacidad 1. No uses `outline: none`.
-- **Área de toque:** con `(pointer: coarse)` el enlace mide al menos 44 px de alto sin cambiar el tamaño del texto: el padding vertical es el mayor entre 13 px por lado y lo que falte para llegar a 44 px según el interlineado heredado (unidad `lh`). En navegadores sin `lh` se quedan los 13 px fijos, que con interlineados por debajo de 1,4 no llegan a 44. Comprueba el alto real y que no se solape con otro enlace.
+- **Área de toque:** con `(pointer: coarse)` el enlace mide al menos 44 px de alto sin cambiar el tamaño del texto: el padding vertical es el mayor entre 13 px por lado y lo que falte para llegar a 44 px según el interlineado heredado (unidad `lh`). En navegadores sin `lh` se quedan los 13 px fijos, que no llegan a 44 si la línea heredada mide menos de 18 px. Ese padding añade alto en táctil: si el crédito va en su propia línea bajo el copyright, el sitio decide si lo compensa para mantener el ritmo, sin que el área de toque tape otro enlace ni texto que la gente pueda tocar. Comprueba el alto real.
 - **Movimiento:** `prefers-reduced-motion` según la sección 5.
 - **Contraste:**
 
