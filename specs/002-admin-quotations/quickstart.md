@@ -37,7 +37,7 @@ Cada escenario enlaza con los criterios de éxito (CE) y los requisitos (RF) de 
 | F1-1 | Iniciar sesión como **administrador** y abrir el menú | «Cotizaciones» aparece en «Gestión comercial»; al abrirla se ve la lista vacía con un estado vacío claro | RF-056 |
 | F1-2 | Como administrador, abrir las tres URLs directamente | `/dashboard/cotizaciones` → lista; `/dashboard/cotizaciones/catalogo` → catálogo (no un detalle); `/dashboard/cotizaciones/<uuid inexistente>` y `/dashboard/cotizaciones/xyz` → «Cotización no encontrada» sin texto técnico; la entrada del menú queda marcada como página actual en las tres | RF-057, RF-059, RF-060, CE-014 |
 | F1-3 | Repetir F1-2 como **colaborador**, **cliente** y **sin sesión** | Rechazo o redirección igual que el resto de `/dashboard`; el menú del colaborador no muestra la entrada | RF-002, RF-058, CE-003, CE-014 |
-| F1-4 | `supabase test db` | Todas las pruebas de `cotizaciones_fundacion` en verde: `anon` sin privilegios; cliente y colaborador con 0 filas; el administrador no puede escribir `estado` ni al actualizar ni al insertar; un alta directa nace siempre en borrador, con versión 1 y la auditoría de la sesión; el trigger rechaza toda transición no permitida; los eventos son inmutables; un usuario sin perfil falla; las funciones tienen `search_path` fijo y no son ejecutables por `anon`. Ninguna prueba usa número, fechas de emisión, líneas ni aceptaciones | S1, S2, S3 (prospecto), S4 (eventos), S10, S14, S15, S17 |
+| F1-4 | `supabase test db` | Todas las pruebas de `cotizaciones_fundacion` en verde: `anon` sin privilegios; cliente y colaborador con 0 filas; el administrador no puede escribir `estado` ni al actualizar ni al insertar; un alta directa nace siempre en borrador, con versión 1 y la auditoría de la sesión; el trigger rechaza toda transición no permitida; los eventos son inmutables; un usuario sin perfil falla; las funciones tienen `search_path` fijo y no son ejecutables por `anon`; fuera de borrador, toda columna que no esté en la lista blanca queda congelada; ningún evento guarda datos del prospecto. Ninguna prueba usa número, fechas de emisión, líneas ni aceptaciones | S1, S2, S3 (prospecto), S4 (eventos), S10, S14, S15, S17, S22, S24 |
 | F1-5 | `npm test` | Pruebas de menú y rutas actualizadas (4 funcionales, 12 entradas, migas de las tres rutas) en verde | `contracts/rutas-y-navegacion.md` §3 |
 
 ### F2 — Catálogo de servicios
@@ -64,12 +64,12 @@ Cada escenario enlaza con los criterios de éxito (CE) y los requisitos (RF) de 
 | F3-6 | Servicio mensual con tramos 1–3, 4–6, 7–∞; luego un hueco, un solape y dos abiertos | El primero es válido y se muestra como tabla sin total de vigencia; los demás dan `TRAMOS_INVALIDOS` | RF-076, V-17, V-18 |
 | F3-7 | Servicio anual sin condiciones de pago anual | `RECURRENTE_ANUAL_SIN_CONDICIONES` | RF-074, CE-020 |
 | F3-8 | Cambiar el precio de un elemento del catálogo usado en un borrador y reabrir el borrador | Se señala la diferencia y no se puede dar por listo hasta elegir «actualizar» o «conservar» | RF-108, CE-032 |
-| F3-9 | Abrir la vista previa | Muestra «Borrador», datos del prospecto, bloques único/recurrente, plan de pagos, el aviso **«Los importes no incluyen impuestos»** junto a los totales y el total rotulado sin impuestos; sin «Válida hasta»; no envía nada | RF-021, RF-030 a RF-032, CE-026 |
+| F3-9 | Abrir la vista previa de un borrador con líneas de catálogo, una línea manual, un servicio mensual con tramos y uno anual | Muestra «Borrador», datos del prospecto, bloques único/recurrente, plan de pagos, el aviso **«Los importes no incluyen impuestos»** junto a los totales y el total rotulado sin impuestos; las líneas manuales se distinguen de las del catálogo; cada servicio recurrente muestra su periodicidad, fecha de inicio, tarifa o tabla de tramos, condiciones de renovación y, si es anual, sus condiciones de pago; la cuota mensual indica que se factura por adelantado; sin «Válida hasta»; no envía nada | RF-008, RF-020, RF-021, RF-030 a RF-032, RF-079, CE-026 |
 | F3-10 | Buscar en todo el módulo cualquier campo, columna o texto de impuesto/descuento | No existe ninguno | RF-022, CE-027 |
-| F3-11 | Editar el mismo borrador desde dos sesiones | La segunda guardada recibe el aviso de conflicto y no sobrescribe | R-17 |
+| F3-11 | Editar el mismo borrador desde dos sesiones: el título; el precio unitario y la cantidad de **la misma línea**; la tarifa de un tramo; el importe de un hito; y borrar en una sesión una línea que la otra cambió | En cada caso la segunda guardada recibe el aviso de conflicto de edición en español, no sobrescribe y, al recargar, ve el valor de la primera; la línea cambiada por la otra sesión no se borra | R-17, S18 |
 | F3-12 | `npm test` (vectores V-01 a V-36) y `supabase test db` (mismos vectores) | Mismos resultados en TypeScript y SQL | R-19, CE-002 |
 | F3-13 | Poner cantidad 3 a un módulo de `250.00`; probar cantidad `0`, `1.5` y `10000`; servicio mensual con cantidad 5 y tramos; ajuste del primer período de `40.00` | Importe `750.00` y total actualizado; las tres cantidades se rechazan; cada tramo muestra precio por unidad e importe por período; el ajuste sigue en `40.00` | RF-115 a RF-117, CE-036, CE-037, V-22 a V-27 |
-| F3-14 | Paquete que incluye un módulo: añadir el módulo con cantidad 3; después añadir una línea marcada como unidades adicionales | El módulo figura como incluido y no suma; solo la línea explícita se cobra | RF-119, CE-037, V-28 |
+| F3-14 | Paquete que incluye un módulo: añadir el módulo con cantidad 3; después añadir una línea marcada como unidades adicionales | El módulo figura como incluido y no suma; solo la línea explícita se cobra; el paquete no se puede borrar mientras tenga el módulo incluido, y el módulo no pasa a cobrarse por su cuenta | RF-119, CE-037, V-28 |
 | F3-15 | Superar un límite: importe de línea, total de la cotización, línea 101 y tramo 13 | Cada intento se rechaza con un mensaje claro, no queda guardado y no se calcula anticipo en porcentaje | RF-121, CE-038, V-31 a V-35 |
 | F3-16 | Total único sin anticipo definido ni hitos, sin condiciones de pago | `cotizacion_validar` devuelve `PAGO_UNICO_SIN_CONDICIONES` | RF-110, CE-031, V-36 |
 | F3-17 | Editar dos líneas seguidas y luego el título; intentar escribir por la API un importe de línea o un total | No aparece el aviso de conflicto; la pantalla muestra los totales de la base tras cada guardado; la escritura directa falla con error de permiso | DA-05, DA-06, S16, S18 |
@@ -79,17 +79,19 @@ Cada escenario enlaza con los criterios de éxito (CE) y los requisitos (RF) de 
 | # | Escenario | Resultado esperado | CE / RF |
 | --- | --- | --- | --- |
 | F4-1 | Emitir un borrador completo | Recibe `COT-AAAA-NNNN` con el año de Honduras; fecha de emisión y «Válida hasta» (+14 días) iguales en lista, detalle y vista previa; ya no es editable | RF-023, RF-062, RF-080, CE-004 |
-| F4-2 | Intentar emitir con bloqueos (sin líneas, sin contacto, hitos que no cuadran…) | No se emite; la interfaz lista qué falta en español | RF-095, CE-025 |
+| F4-2 | Intentar emitir con bloqueos (sin líneas, hitos que no cuadran…) y, en particular, sin nombre del prospecto y sin correo ni teléfono; después con nombre y un solo medio de contacto | Con bloqueos no se emite y la interfaz lista qué falta en español; con nombre y un medio de contacto se emite | RF-042, RF-095, CE-025, CE-033 |
 | F4-3 | Vectores de fecha D-01 a D-08 con instantes fijos | `valida_hasta`, vencida/no vencida y año de numeración como en el contrato | CE-015, CE-022 |
 | F4-4 | Emitir con el contador del año en 9 999 | Siguiente número `COT-AAAA-10000` | CE-034 |
 | F4-5 | Crear una revisión, cambiar un precio unitario o una cantidad y emitirla | `…-R1` con 15 días propios; la original queda «sustituida», intacta y sin poder aceptarse | CE-023, CE-035 |
 | F4-6 | Crear una segunda revisión en borrador de la misma cotización | No se permite | CE-029 |
-| F4-7 | Duplicar una cotización vencida con cambios de catálogo | Borrador con la comparación por precio unitario y las cantidades del origen; manuales sin revisar bloquean la emisión; elemento retirado bloquea; el origen no cambia | CE-024, V-29 |
-| F4-8 | Rechazar y cancelar con y sin motivo; reintentar una transición no permitida | Sin motivo se rechaza; Rechazada y Cancelada no tienen salida | CE-017 |
+| F4-7 | Duplicar una cotización vencida con cambios de catálogo | Borrador con la comparación por precio unitario y las cantidades del origen; manuales sin revisar bloquean la emisión; elemento retirado bloquea; si el total cambió, pide confirmar el anticipo antes de emitir, y vuelve a pedirlo si el total cambia otra vez; el origen no cambia | CE-024, CE-025, RF-093, V-29 |
+| F4-8 | Rechazar y cancelar con y sin motivo, incluido **cancelar un borrador que nunca se emitió**; reintentar una transición no permitida | Sin motivo se rechaza; el borrador queda «Cancelada» sin número ni «Válida hasta» y no consume secuencia; Rechazada y Cancelada no tienen salida | CE-017, RF-005, RF-028 |
 | F4-9 | Archivar y desarchivar | El estado, los datos y el historial no cambian; la lista oculta archivadas por defecto | RF-071 |
 | F4-10 | Ver el historial de una cotización | Eventos con quién, cuándo y por qué; no se pueden editar ni borrar | RF-029, S4 |
 | F4-11 | Intentar borrar un borrador desde la interfaz | No hay acción de borrado; se cancela con motivo | CE-030 |
 | F4-12 | `supabase test db` tras añadir la restricción de forma de las filas emitidas | La prueba de transiciones de F1 sigue en verde con sus datos de ejemplo actualizados (número, familia y fechas) y sin aserciones relajadas | S2 |
+| F4-13 | Emitir una cotización con elementos del catálogo; después cambiar el precio de un elemento, retirar otro y crear un borrador nuevo | La emitida conserva sus precios, importes y totales; el borrador nuevo usa el precio vigente y no admite el elemento retirado | RF-046, RF-050, CE-007, S25 |
+| F4-14 | Revisar la lista, el detalle y la vista previa en cada situación (borrador, emitida vigente, vencida, sustituida, rechazada, cancelada) | No existe ninguna acción ni texto que inicie trabajo ni que cree o vincule un proyecto | RF-026, CE-005 |
 
 En F4 no se prueba ninguna regla que dependa del historial de aceptación: no existe hasta F5a.
 
@@ -103,7 +105,7 @@ En F4 no se prueba ninguna regla que dependa del historial de aceptación: no ex
 | F5a-3 | Revertir la aceptación sin motivo y con motivo | Sin motivo se rechaza; con motivo vuelve a «Emitida», queda registro inmutable y la aceptación original sigue | CE-016 |
 | F5a-4 | Revertir una aceptación cuya vigencia ya terminó | Queda «Emitida · Vencida» y no se puede aceptar de nuevo | RF-067 |
 | F5a-5 | Cancelar por el flujo ordinario una cotización con historial de aceptación, también tras revertirla | No se ofrece y la BD lo rechaza (`COT:HISTORIAL_ACEPTACION`); solo existe la cancelación correctiva con justificación y confirmación, que no se sustituye por el rechazo | CE-028, RF-104, RF-105, S11 |
-| F5a-6 | Leer la evidencia como colaborador, cliente y anónimo (API y enlace directo) | Denegado | CE-012 |
+| F5a-6 | Leer la evidencia como colaborador, cliente y anónimo (API y enlace directo) | Denegado | CE-012, CE-033 |
 | F5a-7 | Pegar un enlace `http://` o con esquema no permitido | Rechazado; solo `https` validado | R-13 |
 | F5a-8 | Intentar revisar una Emitida que volvió de una aceptación revertida | No se ofrece y la BD lo rechaza (`COT:NO_REVISABLE`); se puede duplicar. Solo cambia si el propietario aprueba DA-10 | RF-083, S21 |
 
@@ -120,7 +122,7 @@ En F4 no se prueba ninguna regla que dependa del historial de aceptación: no ex
 
 ## 3. Pasos del Propietario (producción)
 
-No los ejecuta quien implementa. Para cada fase con base de datos:
+No los ejecuta quien implementa. Las migraciones se aplican **en orden de fase** (F1, F2, F3, F4, F5a) y cada una necesita la **autorización expresa y separada** del propietario: la de una fase no cubre la siguiente, no se aplica una migración si la de la fase anterior no está aplicada y verificada, y nunca se agrupan dos fases en una misma aplicación. Para cada fase con base de datos:
 
 1. Revisar la migración y su prueba pgTAP en el PR.
 2. Aplicar la migración **antes** de publicar el frontend de esa fase (el merge a `main` no despliega migraciones; si el frontend llegara antes, las pantallas del administrador fallarían al consultar tablas inexistentes).

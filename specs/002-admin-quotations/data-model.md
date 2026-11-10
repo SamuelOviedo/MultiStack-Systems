@@ -143,11 +143,18 @@ Se crea en la **primera emisión** de una cotización original. Las revisiones e
 | `sustituida_at`, `sustituida_por_id` | timestamptz, uuid FK | atributo, no estado (RF-086). Se escribe al emitir la revisión que la sustituye |
 | `cerrada_at`, `cerrada_por`, `cerrada_motivo` | | para `rechazada`/`cancelada` (RF-069, RF-070); motivo 10–1 000 caracteres |
 | `archivada_at`, `archivada_por` | | atributo de organización (RF-071) |
-| `requiere_confirmar_anticipo` | boolean NOT NULL DEFAULT false | `true` cuando un duplicado o una revisión recalculó o conservó el anticipo con un total único distinto del origen; `cotizacion_emitir` lo rechaza hasta que el administrador lo confirme con `cotizacion_confirmar_anticipo` (RF-093) |
+| `requiere_confirmar_anticipo` | boolean NOT NULL DEFAULT false | `true` cuando un duplicado o una revisión con anticipo definido tiene un total único que cambió sin que el administrador lo haya confirmado (RF-093). **Quién la pone**: `cotizacion_duplicar`, al terminar la copia, si el total quedó distinto del origen (`cotizacion_crear_revision` termina en `false`); y después `cotizacion_recalcular`, cada vez que el `total_unico` que calcula es distinto del guardado (§3.1). **Quién la limpia**: solo `cotizacion_confirmar_anticipo`. `cotizacion_emitir` rechaza la emisión mientras esté en `true`. Un borrador sin origen nunca la tiene |
 
 - `UNIQUE (familia_id, revision)` y el índice único parcial `(familia_id) WHERE estado = 'borrador'` (una revisión en borrador por familia, RF-097).
-- `CHECK` de forma: si `estado <> 'borrador'` entonces `numero`, `familia_id`, `revision`, `emitida_at`, `fecha_emision` y `valida_hasta` no son nulos. Esta restricción **nace en F4**: las pruebas de F1 que mueven una fila de ejemplo por los estados para ejercitar el trigger se actualizan a propósito en F4 para darle número y fechas, sin relajar ninguna aserción.
+- `CHECK` de forma **de las filas emitidas** (una fila está emitida si `emitida_at` no es nulo):
+  - `numero`, `revision`, `emitida_at`, `fecha_emision` y `valida_hasta` son **todos nulos o todos no nulos**; si `emitida_at` no es nulo, `familia_id` tampoco lo es;
+  - `estado IN ('emitida','aceptada_firmada','rechazada')` exige `emitida_at` no nulo; `borrador` exige que sea nulo;
+  - `cancelada` admite las dos formas: una cotización emitida y después cancelada conserva sus datos de emisión, y un **borrador cancelado antes de emitirse** no tiene número, fechas ni revisión, porque nunca los recibió y no consume secuencia (RF-005, RF-028);
+  - el trigger de inmutabilidad completa la regla (`contracts/ciclo-de-vida.md` §5): los datos de emisión solo pasan de nulo a valor en la sentencia que lleva la fila de `borrador` a `emitida`, y ninguna sentencia los devuelve a nulo ni se los da a un borrador ya cancelado.
+
+  Esta restricción **nace en F4**: las pruebas de F1 que mueven una fila de ejemplo por los estados para ejercitar el trigger se actualizan a propósito en F4 para darle número y fechas, sin relajar ninguna aserción.
 - Ninguna de estas columnas es escribible por el navegador (DA-06): las fijan `cotizacion_emitir`, `cotizacion_crear_revision`, `cotizacion_duplicar`, `cotizacion_rechazar`, `cotizacion_cancelar` y `cotizacion_archivar`.
+- **Después de emitir** solo pueden cambiar `sustituida_*`, `cerrada_*` y `archivada_*`, cada una bajo su regla; el resto de la fila queda congelado por el trigger, también para las funciones del módulo. La lista completa está en `contracts/ciclo-de-vida.md` §5.
 - **No hay columna `vencida`.**
 
 **F5a — aceptación y cliente formal**
@@ -174,10 +181,12 @@ Se crea en la **primera emisión** de una cotización original. Las revisiones e
 | `cargo` | text NOT NULL | `IN ('unico','recurrente')` |
 | `periodicidad` | text | `IN ('mensual','anual')` si `cargo='recurrente'`; nulo si `'unico'` (`CHECK`) |
 | `incluida` | boolean NOT NULL DEFAULT true | RF-007: módulo opcional incluido o excluido |
-| `incluida_en_linea_id` | uuid FK → `cotizacion_lineas(id)` | módulo ya contenido en un paquete de la misma cotización: **no suma**, sea cual sea su cantidad (RF-107, RF-119). **Lo asigna la base** al recalcular, a partir de la composición del catálogo; sin privilegio de escritura |
+| `incluida_en_linea_id` | uuid FK → `cotizacion_lineas(id)` | módulo ya contenido en un paquete de la misma cotización: **no suma**, sea cual sea su cantidad (RF-107, RF-119). **Lo asigna la base** al recalcular, a partir de la composición del catálogo; sin privilegio de escritura. **`ON DELETE RESTRICT`**: la línea de un paquete no se puede borrar mientras haya líneas de módulo incluidas que la referencien. El administrador resuelve antes cada una de forma explícita (la borra, la excluye o la marca como `unidades_adicionales`); el sistema nunca convierte en silencio un módulo incluido en una línea facturable |
 | `unidades_adicionales` | boolean NOT NULL DEFAULT false | línea facturable **explícita** de unidades adicionales de un módulo que un paquete presente ya incluye (RF-119). La marca el administrador; con ella la línea cuenta y no se trata como incluida. El sistema nunca la crea |
 | `precio_catalogo_ref` | numeric(14,2) | **precio unitario** del catálogo cuando se añadió/confirmó; base de la deriva (RF-108). Sin privilegio de escritura: lo fijan el alta de la línea (trigger) y `cotizacion_resolver_precio` |
 | `precio_unitario_origen` | numeric(14,2) | **precio unitario** en la cotización de origen (duplicados), para la comparación por unidad (RF-090, RF-118). Sin privilegio de escritura |
+| `linea_origen_id` | uuid FK → `cotizacion_lineas(id)`, ON DELETE RESTRICT | **F4.** Línea de la cotización de origen de la que se copió esta, en una revisión o en un duplicado; nula en un alta directa. Sin privilegio de escritura: solo la envían `cotizacion_crear_revision` y `cotizacion_duplicar`, y no cambia después, tampoco para `postgres`. Con ella el trigger de alta aplica la regla de copia en lugar de la del catálogo, sin exención alguna (`contracts/acceso-y-rls.md` §1.1). **Solo queda guardada cuando la cotización de origen no es un borrador**: sus líneas ya son inmutables y nunca se borran, así que la referencia es un rastro histórico estable y `RESTRICT` no bloquea nada legítimo. Si el origen es un borrador (duplicado de un borrador), el trigger aplica la misma regla de copia y guarda la columna en nulo, para no impedir que ese borrador siga borrando sus líneas; la procedencia queda en `duplicado_de_id` y en `precio_unitario_origen` |
+| `row_version` | integer NOT NULL DEFAULT 1 | **versión de la fila** (§3.1). Sin privilegio de escritura: nace en 1 y un trigger la incrementa cuando cambia una columna que no es derivada. Todo `UPDATE` y todo `DELETE` de la capa de datos va condicionado a la versión leída |
 | `revisada` | boolean NOT NULL DEFAULT true | en duplicados las líneas **manuales** nacen en `false`; `cotizacion_emitir` las exige en `true` (RF-090). El administrador solo puede pasarla a `true` |
 | `fecha_inicio` | date | servicio recurrente (RF-075) |
 | `condiciones_renovacion` | text | ≤ 2 000 (RF-075) |
@@ -199,6 +208,7 @@ Se crea en la **primera emisión** de una cotización original. Las revisiones e
 | `mes_desde` | integer NOT NULL | ≥ 1 |
 | `mes_hasta` | integer | `NULL` = «en adelante»; si no, `≥ mes_desde` |
 | `tarifa` | numeric(14,2) NOT NULL | **precio por unidad y por período**, ≥ 0 y `<= 99999999.99`; la escribe el administrador (RF-116) |
+| `row_version` | integer NOT NULL DEFAULT 1 | versión de la fila (§3.1); sin privilegio de escritura |
 | `UNIQUE (linea_id, mes_desde)` | | |
 
 La contigüidad (empiezan en 1, sin huecos ni solapes, solo el último abierto) la valida `cotizacion_validar` y el trigger de recálculo; un tramo mal formado **impide emitir**, no guardar.
@@ -214,6 +224,7 @@ El importe de cada período es `cantidad × tarifa`, con la cantidad de la líne
 | `orden` | integer NOT NULL | |
 | `descripcion` | text NOT NULL | ≤ 500 |
 | `importe` | numeric(14,2) NOT NULL | **> 0** y `<= 999999999.99` (límite de cotización: un hito puede cubrir casi todo el total) |
+| `row_version` | integer NOT NULL DEFAULT 1 | versión de la fila (§3.1); sin privilegio de escritura |
 
 **Contiene solo los hitos de desarrollo adicionales.** El anticipo positivo es el primer hito *derivado* y no tiene fila aquí (así no puede contarse dos veces). Si existen filas: `anticipo (o 0) + Σ importe = total_unico` exacto.
 
@@ -226,10 +237,41 @@ El importe de cada período es `cantidad × tarifa`, con la cantidad de la líne
 | `tipo` | text NOT NULL | conjunto cerrado que **crece con cada fase** (la migración de cada fase amplía el `CHECK`): F1 `'creada'`; F3 `'precio_resuelto'`; F4 `'emitida','revision_creada','duplicada','sustituida','rechazada','cancelada','archivada','desarchivada'`; F5a `'aceptada','aceptacion_revertida','cancelacion_correctiva'`; F5b `'proyecto_vinculado','proyecto_creado'`. Ninguna fase declara ni prueba tipos de una fase posterior |
 | `actor` | uuid NOT NULL | quién |
 | `ocurrido_at` | timestamptz NOT NULL DEFAULT now() | cuándo |
-| `motivo` | text | por qué; obligatorio en `rechazada`, `cancelada`, `cancelacion_correctiva`, `aceptacion_revertida` (10–1 000) |
-| `detalle` | jsonb NOT NULL DEFAULT '{}' | identificadores, estados anterior/nuevo, importes de control. **Sin correo, teléfono ni nombre del prospecto** |
+| `motivo` | text | por qué; obligatorio en `rechazada`, `cancelada`, `cancelacion_correctiva`, `aceptacion_revertida` (10–1 000) y **nulo en todos los demás tipos** |
+| `detalle` | jsonb NOT NULL DEFAULT '{}' | solo identificadores y códigos de estado o de acción. **Sin correo, teléfono ni nombre del prospecto, y sin importes, números de cotización ni fechas**: esos datos se leen en la fila protegida a la que el evento apunta. Debe cumplir el esquema estricto de su tipo (abajo) |
 
 Solo se **inserta** desde las funciones del módulo (RPC y triggers `SECURITY DEFINER`); `authenticated` no tiene `INSERT`. Un trigger rechaza `UPDATE` y `DELETE` para cualquier rol (inmutable, RF-066). En F1 el único evento es `creada`, que escribe un trigger al insertar la cotización.
+
+**Esquema estricto de `detalle`** *(RF-004; aprobado el 2026-11-09 como lista cerrada, DT-05 de `plan.md`)*. Un trigger `BEFORE INSERT` valida cada evento, para cualquier rol, y rechaza con `COT:DETALLE_INVALIDO` todo lo que no cumpla **todas** estas reglas:
+
+1. `detalle` es un objeto JSON (ni arreglo, ni escalar, ni `null`).
+2. Tiene **exactamente** las claves de su tipo de evento: ninguna de más y ninguna de menos.
+3. Cada valor es una cadena JSON con el formato de su clave (tabla de formatos); no hay objetos ni arreglos anidados, números, booleanos ni `null`.
+4. El texto de `detalle` no supera 256 caracteres.
+5. `motivo` es nulo en los tipos que no lo llevan y tiene de 10 a 1 000 caracteres en los que lo exigen. Es el único texto libre de un evento.
+
+No hay ninguna clave para importes, números de cotización, fechas ni datos de personas: un evento apunta a su cotización con `cotizacion_id` y a otras filas con identificadores, y quien puede leer el evento lee esos datos en la fila protegida por RLS. Cada fase amplía el esquema junto con el `CHECK` de `tipo`, reemitiendo la función con `CREATE OR REPLACE FUNCTION` en su migración.
+
+| Tipo de evento | Claves (todas obligatorias) | Fase |
+| --- | --- | --- |
+| `creada` | ninguna (`{}`) | F1 |
+| `precio_resuelto` | `linea_id`, `accion` | F3 |
+| `emitida` | ninguna (`{}`): número, revisión, fechas y total están en la fila emitida, que ya no cambia | F4 |
+| `revision_creada`, `duplicada` | `origen_id` | F4 |
+| `sustituida` | `sustituida_por_id` | F4 |
+| `rechazada`, `cancelada` | `estado_anterior` | F4 |
+| `archivada`, `desarchivada` | ninguna | F4 |
+| `aceptada` | `aceptacion_id` | F5a |
+| `aceptacion_revertida` | `aceptacion_id`, `reversion_id` | F5a |
+| `cancelacion_correctiva` | `estado_anterior` | F5a |
+
+| Clave | Formato del valor | Longitud |
+| --- | --- | --- |
+| `linea_id`, `origen_id`, `sustituida_por_id`, `aceptacion_id`, `reversion_id` | UUID en forma canónica, en minúsculas (`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`) | 36 exactos |
+| `accion` | `actualizar` o `conservar` | ≤ 10 |
+| `estado_anterior` | uno de los estados de §2.5 que la transición admite: `emitida` en `rechazada`; `borrador` o `emitida` en `cancelada`; `emitida` o `aceptada_firmada` en `cancelacion_correctiva` | ≤ 16 |
+
+`precio_resuelto` no guarda precios: registra qué línea y qué decisión («actualizar» o «conservar»). El precio que queda es el de la línea, y el que vale como registro comercial es el de la cotización emitida, que es inmutable. **Límite conocido y aceptado**: los precios anteriores de un borrador no se conservan de forma independiente en el `detalle` de estos eventos.
 
 ### 2.10 `cotizacion_aceptaciones` — F5a *(RF-041, RF-051, RF-052, RF-053)*
 
@@ -282,12 +324,35 @@ No se modifica `proyectos_clientes`. Ver R-14 de `research.md`.
 | `cotizacion_esta_vencida(valida_hasta date, ahora timestamptz) → boolean` | derivada, pura | F4 |
 | `cotizacion_formatear_numero(anio int, n bigint) → text` | `COT-AAAA-NNNN` sin truncar sobre 9 999 | F4 |
 | `cotizacion_redondear_anticipo(total numeric, porcentaje numeric) → numeric` | R-02, mitad hacia arriba (DA-01) | F3 |
-| `cotizacion_recalcular(id uuid)` | importes de línea, inclusión de módulos, totales derivados y límite del total; la llama un trigger tras cambios en líneas, tramos, hitos o anticipo del borrador | F3 |
+| `cotizacion_recalcular(id uuid)` | importes de línea, inclusión de módulos, totales derivados y límite del total; la llama un trigger tras cambios en líneas, tramos, hitos o anticipo del borrador. F4 la reemite para poner `requiere_confirmar_anticipo` cuando cambia el total de una revisión o de un duplicado | F3 (se amplía en F4) |
 | `cotizacion_validar(id uuid) → jsonb` | lista de bloqueos para emitir (es una de las 14 RPC) | F3 (se amplía en F4) |
 
 Todas con `SET search_path = public, pg_temp`, nombres de objeto cualificados y `STABLE`/`IMMUTABLE` donde corresponda.
 
 **Nombres canónicos**: toda función del módulo se llama `cotizacion_<acción>`. La lista única de las 14 RPC, con su fase, está en `contracts/rpc-cotizaciones.md` §0; `research.md`, este modelo y los demás contratos usan esos nombres. Las funciones de apoyo de esta tabla (salvo `cotizacion_validar`) y las de trigger **no son RPC**: no conceden `EXECUTE` a `anon` ni a `authenticated`.
+
+### 3.1 Recálculo, recursión y versión del borrador
+
+*(DA-05, DA-06; R-17 de `research.md`)*
+
+1. **Qué se deriva dónde.** El `importe` de una línea se calcula en su propio trigger `BEFORE INSERT OR UPDATE`, en la misma fila y sin otra escritura. `cotizacion_recalcular(id)` deriva lo que depende de varias filas —`incluida_en_linea_id`, los cuatro totales, el saldo y el anticipo en porcentaje—, corrige el `importe` de una línea si no coincidiera con su producto, comprueba los límites y termina **siempre** con un único `UPDATE` de la fila de la cotización.
+2. **Quién lo llama.** Los triggers `AFTER INSERT OR UPDATE OR DELETE` de líneas, tramos e hitos, y un trigger `AFTER UPDATE` de `cotizaciones` cuando cambia una entrada del anticipo. `cotizacion_emitir` lo llama además de forma directa antes de congelar.
+3. **Sin recursión, por una condición sobre los datos.** Las escrituras del propio recálculo no vuelven a dispararlo:
+   - el trigger de recálculo de líneas lleva una condición `WHEN` que lo omite cuando lo único que cambió es una columna derivada (`importe`, `incluida_en_linea_id`);
+   - el de `cotizaciones` solo se dispara si cambió `anticipo_modo`, `anticipo_porcentaje` o, en modo monto, `anticipo_monto`; un cambio de los totales o del anticipo calculado no lo dispara;
+   - el recálculo es **convergente**: solo escribe las líneas cuyo valor derivado cambia, así que una segunda pasada no escribe ninguna.
+
+   No se usa ninguna variable de sesión ni `session_replication_role`, y ningún trigger se desactiva: los de validación, límites e inmutabilidad se ejecutan también para las escrituras del recálculo.
+4. **Versión.** El trigger `BEFORE UPDATE` de `cotizaciones` incrementa `row_version` en cada `UPDATE` de la fila. Como el recálculo siempre termina con ese `UPDATE`, toda sentencia que cambia el contenido del borrador sube la versión **al menos en 1**, también cuando no cambia ningún total (por ejemplo, al editar una descripción). El incremento exacto **no es parte del contrato**: un cambio del anticipo la sube dos veces y una sentencia que toca varias líneas, una por línea.
+5. **Marca de confirmación del anticipo** (F4, RF-093). La migración de F4 reemite `cotizacion_recalcular`: en un borrador con `revision_de_id` o `duplicado_de_id` y con `anticipo_modo` definido, pone `requiere_confirmar_anticipo = true` dentro de su único `UPDATE` final cuando el `total_unico` que calcula es distinto del que estaba guardado. No añade ninguna escritura ni vuelve a disparar el recálculo, nunca limpia la marca y no la toca en un borrador sin origen. Las RPC de copia fijan el valor inicial al terminar de copiar: `false` en una revisión y, en un duplicado, `true` solo si el total quedó distinto del origen. La marca es una confirmación adicional para las copias y no sustituye nada: `cotizacion_emitir` recalcula y vuelve a validar siempre el anticipo, los hitos y los totales antes de emitir, también en un borrador original sin origen.
+6. **Concurrencia optimista: qué se garantiza.**
+   - *En la base, para el encabezado y la emisión, de forma atómica*: el `UPDATE` del encabezado lleva `row_version = <versión leída>` y afecta 0 filas si no coincide; las RPC que reciben `p_row_version` (`cotizacion_emitir`) fallan con `COT:CONFLICTO_VERSION`. Nada se emite desde una vista desactualizada.
+   - *En la base, por fila y de forma atómica* (líneas, tramos e hitos): una escritura de una hija es una escritura de tabla y no puede llevar la versión de la cotización, así que cada línea, tramo e hito tiene su propia `row_version`. Nace en 1, el navegador no la escribe y un trigger `BEFORE UPDATE` la incrementa en 1 cuando cambia alguna columna que no es derivada (las escrituras del recálculo sobre `importe` e `incluida_en_linea_id` no la cambian). Todo `UPDATE` y todo `DELETE` de la capa de datos lleva `id = … AND row_version = <versión leída>`: si otro administrador cambió o borró esa fila, la sentencia afecta **0 filas**, porque Postgres vuelve a evaluar la condición sobre la fila ya confirmada. Un precio, una cantidad, una tarifa de tramo o un importe de hito nunca se pisan sin aviso.
+   - *Resultado controlado*: 0 filas afectadas se devuelve como **conflicto de edición**, con el mismo aviso en español que `COT:CONFLICTO_VERSION`; la capa de datos no reintenta, no sobrescribe y recarga la cotización y sus hijas. `cotizacion_resolver_precio` recibe la versión de la línea y falla con `COT:CONFLICTO_VERSION` si no coincide.
+   - *Aviso temprano en la capa de datos*: antes de cada escritura de una hija, incluidas las altas, `src/lib/cotizaciones.ts` comprueba además que la versión de la cotización sigue siendo la que muestra la pantalla. Esa comprobación no es atómica y no es la garantía: sirve para avisar pronto de que otra sesión cambió el borrador.
+   - *Alcance*: la versión de fila protege cada registro; dos cambios simultáneos sobre registros distintos se aplican los dos, la base recalcula los totales y cada sesión los ve al recargar. La versión de la cotización sigue protegiendo la emisión: nadie emite un contenido que no ha visto.
+   - El cliente **nunca calcula la versión siguiente**, ni la de la cotización ni la de una fila: siempre la recarga.
+   - Los triggers de las hijas bloquean la fila de la cotización antes de comprobar que es un borrador, así que una emisión y un cambio de contenido simultáneos se ordenan: uno se completa y el otro falla con `COT:INMUTABLE` o con `COT:CONFLICTO_VERSION`.
 
 ## 4. Seguridad de acceso por tabla (resumen)
 

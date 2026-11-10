@@ -46,7 +46,7 @@
 - [x] Sin datos personales, secretos, rutas absolutas ni contenido de documentación privada.
 - [x] Fuera del alcance respetado: sin pasarelas de pago, pagos en línea, envío de correos, conversión de moneda, firma electrónica, creación automática de proyectos, módulo de clientes, impuestos calculados, descuentos automáticos, cantidades fraccionarias ni cambios de formato en otros módulos. En esta etapa tampoco hay código, cambios de base de datos, ramas de git, commits ni despliegue.
 - [x] La constitución y `CLAUDE.md` siguen siendo la autoridad: ninguna regla de la spec amplía accesos, añade rutas más allá de las tres autorizadas, ni introduce servicios, paquetes ni infraestructura.
-- [x] Coherencia entre artefactos comprobada (spec, plan, investigación, modelo de datos, contratos y guía de validación): toda referencia a `RF-` y `CE-` existe; los vectores V-01 a V-36, M-01 a M-06, D-01 a D-08 y N-01 a N-05 y las pruebas S1 a S21 están definidos donde se citan; los nombres de función son los 14 de la lista canónica; la aritmética de los vectores se recalculó; y ninguna fase prueba lo que crea una fase posterior.
+- [x] Coherencia entre artefactos comprobada (spec, plan, investigación, modelo de datos, contratos y guía de validación): toda referencia a `RF-` y `CE-` existe; los vectores V-01 a V-36, M-01 a M-06, D-01 a D-08 y N-01 a N-05 y las pruebas S1 a S25 están definidos donde se citan; los nombres de función son los 14 de la lista canónica; la aritmética de los vectores se recalculó; y ninguna fase prueba lo que crea una fase posterior.
 
 ## Notas
 

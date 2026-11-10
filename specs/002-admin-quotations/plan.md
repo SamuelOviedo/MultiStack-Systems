@@ -2,9 +2,9 @@
 
 **Identificador de la spec**: `002-admin-quotations` (nombra la carpeta en `specs/`; no es una rama de git) | **Fecha**: 2026-11-09 | **Spec**: `specs/002-admin-quotations/spec.md`
 
-**Estado**: ARQUITECTURA APROBADA PARA GENERAR TAREAS DE F1 A F5a. El propietario aprobó el 2026-11-09 las decisiones DA-01, DA-05, DA-06, DA-07, DA-08, DA-12, DA-13 y DA-14. Quedan puertas de aprobación dentro de F5a (DA-02, DA-09, DA-10, DA-11) y F5b sigue bloqueada (DA-03, DA-04). No se ha escrito código, ni migraciones, ni se ha instalado nada.
+**Estado**: ARQUITECTURA APROBADA Y TAREAS GENERADAS PARA F1 A F5a (`tasks.md`, 147 tareas). El propietario aprobó el 2026-11-09 las decisiones DA-01, DA-05, DA-06, DA-07, DA-08, DA-12, DA-13 y DA-14. Quedan puertas de aprobación dentro de F5a (DA-02, DA-09, DA-10, DA-11) y F5b sigue bloqueada (DA-03, DA-04). El mismo día aprobó, con salvaguardas, seis decisiones técnicas (DT-01 a DT-06, más abajo). No se ha escrito código, ni migraciones, ni se ha instalado nada.
 
-**Artefactos de este plan**: `research.md` (hallazgos y decisiones R-01…R-24) · `data-model.md` · `contracts/` (`calculo-y-validacion.md`, `ciclo-de-vida.md`, `rpc-cotizaciones.md`, `acceso-y-rls.md`, `rutas-y-navegacion.md`) · `quickstart.md`. `tasks.md` **no** existe todavía (lo genera `/speckit-tasks` cuando el propietario apruebe este plan).
+**Artefactos de este plan**: `research.md` (hallazgos y decisiones R-01…R-24) · `data-model.md` · `contracts/` (`calculo-y-validacion.md`, `ciclo-de-vida.md`, `rpc-cotizaciones.md`, `acceso-y-rls.md`, `rutas-y-navegacion.md`) · `quickstart.md`. `tasks.md` ya existe: lo generó `/speckit-tasks` y se corrigió tras dos pasadas de `/speckit-analyze`; es un insumo del plan de `/tarea`, no una orden de ejecución.
 
 ## Resumen
 
@@ -94,7 +94,7 @@ specs/002-admin-quotations/
 │   ├── acceso-y-rls.md
 │   └── rutas-y-navegacion.md
 ├── checklists/requirements.md
-└── tasks.md                        # lo crea /speckit-tasks (NO existe aún)
+└── tasks.md                        # lo crea /speckit-tasks
 ```
 
 ### Código fuente (propuesta; nada de esto existe todavía)
@@ -151,6 +151,8 @@ e2e/              1 spec local nuevo (acceso por rol de las tres rutas)
 
 Cinco fases verticales, **cada una un PR** (un cambio, un propósito; ninguna toca 5 o más archivos no relacionados), con su migración, sus pruebas y su criterio de aceptación. Cada fase deja el sistema desplegable y con valor propio, salvo F1, que entrega el esqueleto seguro. F5 se divide en F5a (aceptación) y F5b (proyecto, bloqueada).
 
+**Migraciones en producción**: las aplica solo el Propietario, **en orden de fase** y cada una con su **autorización expresa y separada**. La autorización de una fase no cubre la siguiente; no se aplica la migración de una fase si la de la anterior no está aplicada y verificada, y nunca se agrupan dos fases en una misma aplicación.
+
 ```text
 F1 ──► F2 ──► F3 ──► F4 ──► F5a ──► F5b (bloqueada por DA-03 / DA-04)
 cimientos  catálogo  borrador+cálculo  emisión+revisiones  aceptación  proyecto
@@ -161,11 +163,11 @@ cimientos  catálogo  borrador+cálculo  emisión+revisiones  aceptación  proye
 - **Entrega independiente**: el módulo existe, está cerrado a todo rol salvo el administrador y su base de datos tiene la máquina de estados y la auditoría. *Valor comercial: ninguno todavía; valor de seguridad: la base sobre la que se apoya todo lo demás.*
 - **Base de datos** (`…_cotizaciones_fundacion.sql`): `cotizaciones` (núcleo + prospecto, sin contenido financiero), `cotizacion_eventos` (con el único tipo `creada`); trigger de máquina de estados (RF-072) y de inmutabilidad; trigger de alta que impone estado inicial, versión y auditoría; trigger de `row_version` y de auditoría de fila; RLS y `GRANT` **por columna en `INSERT` y en `UPDATE`** (`contracts/acceso-y-rls.md` §1.1). F1 no crea ninguna RPC.
 - **Frontend**: rutas, entrada de menú y `NavItem.subpages` (DA-13); `CotizacionesList` (lectura real, estado vacío); `CotizacionDetalle` con validación de UUID y «no encontrada»; `CotizacionesCatalogo` con estado vacío honesto («el catálogo se habilita en la siguiente fase»); `types/cotizaciones.ts`; `cotizaciones.ts` mínimo con la traducción de errores.
-- **Pruebas**: pgTAP `cotizaciones_fundacion` (A1–A9 en las dos tablas; S1, S2, S3 solo sobre el prospecto, S4 solo sobre eventos, S10, S14, S15, S17); Vitest de menú, migas y rutas (actualización deliberada de `admin-nav`, `admin-shell`, `admin-routes`); e2e local de acceso por rol; test de traducción de errores.
+- **Pruebas**: pgTAP `cotizaciones_fundacion` (A1–A9 en las dos tablas; S1, S2, S3 solo sobre el prospecto, S4 solo sobre eventos, S10, S14, S15, S17, S22 sobre las columnas de F1 y S24 sobre el evento `creada`); Vitest de menú, migas y rutas (actualización deliberada de `admin-nav`, `admin-shell`, `admin-routes`); e2e local de acceso por rol; test de traducción de errores.
 - **Lo que F1 no da por hecho**: ni número, ni fechas de emisión, ni líneas, ni cálculo, ni aceptaciones, ni RPC. Las filas de ejemplo de S2 y S3 se llevan de un estado a otro como `postgres` solo para ejercitar los triggers; cuando F4 añade la restricción de forma de las filas emitidas, F4 actualiza esos datos de ejemplo a propósito, sin relajar ninguna aserción.
 - **Criterios de aceptación**: `quickstart.md` F1-1 a F1-5; CE-003, CE-014.
 - **Depende de**: nada pendiente (DA-06 y DA-13 aprobadas; DA-05 no condiciona ningún archivo de F1).
-- **Propietario**: aplicar la migración antes de publicar.
+- **Propietario**: aplicar la migración antes de publicar, con su autorización expresa para esta migración. Es la primera del módulo.
 
 ### F2 — Catálogo de servicios
 
@@ -178,18 +180,19 @@ cimientos  catálogo  borrador+cálculo  emisión+revisiones  aceptación  proye
 ### F3 — Creación de cotizaciones y cálculos
 
 - **Entrega independiente**: el administrador arma borradores completos, ve los totales exactos y los previsualiza; sustituye el cálculo manual. *Sin número, sin vigencia, sin emisión todavía.*
-- **Base de datos** (`…_cotizaciones_borradores.sql`): columnas de contenido y anticipo en `cotizaciones`; `cotizacion_lineas` (con `cantidad`, `precio_unitario`, `importe` calculado y `unidades_adicionales`), `cotizacion_tramos` (tarifa por unidad y por período), `cotizacion_hitos`; funciones `cotizacion_redondear_anticipo`, `cotizacion_recalcular`, `cotizacion_validar` y `cotizacion_resolver_precio`; triggers de recálculo (importes de línea, inclusión de módulos, totales y versión del borrador) y de límites (cantidad, producto, línea 101, tramo 13, total); `GRANT` por columna en `INSERT` y en `UPDATE` (importes de línea, totales y referencias de precio no escribibles); tipo de evento `precio_resuelto`; pgTAP `cotizaciones_borradores` con los **vectores V-01 a V-36** y S3, S6 a S9, S13, S14, S16 a S20.
+- **Base de datos** (`…_cotizaciones_borradores.sql`): columnas de contenido y anticipo en `cotizaciones`; `cotizacion_lineas` (con `cantidad`, `precio_unitario`, `importe` calculado y `unidades_adicionales`), `cotizacion_tramos` (tarifa por unidad y por período), `cotizacion_hitos`; funciones `cotizacion_redondear_anticipo`, `cotizacion_recalcular`, `cotizacion_validar` y `cotizacion_resolver_precio`; triggers de recálculo (importes de línea, inclusión de módulos, totales y versión del borrador) y de límites (cantidad, producto, línea 101, tramo 13, total); `GRANT` por columna en `INSERT` y en `UPDATE` (importes de línea, totales y referencias de precio no escribibles); tipo de evento `precio_resuelto`; pgTAP `cotizaciones_borradores` con los **vectores V-01 a V-36** y S3, S6 a S9, S13, S14, S16 a S20, S22 (columnas de F3 e hijas) y S24. `cotizacion_validar` es `STABLE` y no bloquea filas; el recálculo no entra en recursión (`data-model.md` §3.1).
 - **Frontend**: `cotizacionCalculo.ts` (mismos vectores, con el orden de comprobación de límites y `Number.isSafeInteger`), formulario del borrador (react-hook-form + zod), editor de líneas (catálogo y manuales, cantidad y precio unitario, cortesía, unidades adicionales), anticipo e hitos, recurrentes con tramos, panel «qué falta» (de `cotizacion_validar`), `CotizacionDocumento` (vista previa con cantidad, precio unitario e importe por línea, el aviso de impuestos **junto a los totales** y el total rotulado sin impuestos), aviso de conflicto de versión.
 - **Valores de la base tras guardar** (DA-05, DA-06): cada cambio en una línea, un tramo o un hito recarga la cotización —versión y totales calculados— antes de permitir otra escritura, y las mutaciones de un mismo borrador se serializan. La vista previa de TypeScript se sustituye por los valores de la base, y el aviso de conflicto solo aparece por cambios de otra sesión.
+- **Ediciones simultáneas** (DT-03): cada línea, tramo e hito lleva su propia versión; todo `UPDATE` y todo `DELETE` va condicionado a la versión leída y 0 filas afectadas es un conflicto de edición que no sobrescribe (`data-model.md` §3.1). La versión de la cotización sigue protegiendo la emisión.
 - **Criterios de aceptación**: `quickstart.md` F3-1 a F3-17; CE-001, CE-002, CE-006, CE-018 a CE-020, CE-026, CE-027, CE-031, CE-032, CE-036 a CE-039.
 - **Depende de**: F2 (DA-01, DA-07, DA-08 y DA-12 aprobadas).
 
 ### F4 — Emisión, numeración, vigencia y revisiones
 
 - **Entrega independiente**: el administrador emite cotizaciones con número permanente y vigencia, las revisa, las duplica, las rechaza, las cancela y las archiva. *Valor: ciclo comercial completo hasta la respuesta del cliente (sin registrar aún la aceptación).*
-- **Base de datos** (`…_cotizaciones_emision.sql`): `cotizacion_familias`, `cotizacion_secuencias`; columnas de emisión, versión, cierre y archivo, y la restricción de forma de las filas emitidas; funciones de fecha y de número; RPC `cotizacion_emitir`, `cotizacion_crear_revision`, `cotizacion_duplicar`, `cotizacion_rechazar`, `cotizacion_cancelar`, `cotizacion_archivar` y `cotizacion_confirmar_anticipo`; tipos de evento de la fase; índices únicos parciales; pgTAP `cotizaciones_emision` (vectores D-01 a D-08 y N-01 a N-05, S3, S5, S13, S14, S16, S17, contador en 9 999, cambio de año, una revisión en borrador por familia, origen no elegible) y la actualización deliberada de los datos de ejemplo de S2 en el archivo de F1.
+- **Base de datos** (`…_cotizaciones_emision.sql`): `cotizacion_familias`, `cotizacion_secuencias`; columnas de emisión, versión, cierre y archivo, y la restricción de forma de las filas emitidas; funciones de fecha y de número; RPC `cotizacion_emitir`, `cotizacion_crear_revision`, `cotizacion_duplicar`, `cotizacion_rechazar`, `cotizacion_cancelar`, `cotizacion_archivar` y `cotizacion_confirmar_anticipo`; tipos de evento de la fase; índices únicos parciales; pgTAP `cotizaciones_emision` (vectores D-01 a D-08 y N-01 a N-05, S3, S5, S13, S14, S16, S17, S22 a S25, contador en 9 999, cambio de año, una revisión en borrador por familia, origen no elegible) y la actualización deliberada de los datos de ejemplo de S2 en el archivo de F1. La migración de F4 reemite dos funciones de trigger con `CREATE OR REPLACE FUNCTION`: la de inmutabilidad, para añadir a la lista blanca la sustitución, el cierre y el archivo (`contracts/ciclo-de-vida.md` §5), y la de alta de líneas, para las copias de revisión y de duplicado (`contracts/acceso-y-rls.md` §1.1). También reemite `cotizacion_recalcular`, para poner la marca de confirmación del anticipo cuando cambia el total de una revisión o de un duplicado (RF-093). La restricción de forma no alcanza a un borrador cancelado, que nunca recibe número.
 - **Frontend**: `cotizacionVigencia.ts` y `cotizacionEstados.ts` (mismas reglas, mismos vectores), listado completo (filtros por estado, vencidas y archivadas, búsqueda, paginación), acciones con diálogo de motivo (10–1 000 caracteres), comparación de precios del duplicado, historial de eventos, indicadores «Vencida/Sustituida/Archivada» iguales en lista, detalle y vista previa.
-- **Criterios de aceptación**: `quickstart.md` F4-1 a F4-12; CE-004, CE-005, CE-007, CE-010, CE-015, CE-017, CE-022 a CE-025, CE-029, CE-030, CE-034, CE-035. (CE-008 es un criterio sobre la propia spec y no pertenece a ninguna fase.)
+- **Criterios de aceptación**: `quickstart.md` F4-1 a F4-14; CE-004, CE-005, CE-007, CE-010, CE-015, CE-017, CE-022 a CE-025, CE-029, CE-030, CE-034, CE-035 y la parte de CE-033 sobre los datos mínimos del prospecto para emitir. (CE-008 es un criterio sobre la propia spec y no pertenece a ninguna fase.)
 - **Depende de**: F3. Ninguna decisión pendiente: DA-12 está aprobada y DA-10 es una puerta de F5a.
 - **Nota sobre el historial de aceptación** *(corrección)*: en F4 no existe `cotizacion_aceptaciones` ni puede existir ninguna aceptación. Por eso `cotizacion_cancelar` y `cotizacion_crear_revision` **no** consultan el historial en F4 y las pruebas de F4 no lo ejercitan. La regla de RF-104, la de RF-083 sobre el historial y sus pruebas (S11, S21) entran en F5a, cuya migración sustituye ambas funciones. Una versión anterior de este plan situaba esa comprobación en F4 con datos de ejemplo que no podían existir.
 
@@ -201,9 +204,9 @@ cimientos  catálogo  borrador+cálculo  emisión+revisiones  aceptación  proye
   - **DA-09**: asociación con un registro formal de cliente (`cliente_perfil_id`).
   - **DA-10**: si una «Emitida» que volvió de una aceptación revertida puede revisarse. **Por defecto no**: no se habilita en silencio.
   - **DA-11**: procedimiento concreto de la cancelación correctiva. El requisito RF-105 se conserva y no se sustituye por el rechazo ordinario; la puerta confirma la justificación y la confirmación escrita del número.
-- **Base de datos** (`…_cotizaciones_aceptacion.sql`): `cotizacion_aceptaciones`, `cotizacion_reversiones`; `cliente_perfil_id` (si DA-09 se aprueba); RPC `cotizacion_registrar_aceptacion`, `cotizacion_revertir_aceptacion` y `cotizacion_cancelar_correctiva`; **sustitución** de `cotizacion_cancelar` (RF-104: sin historial de aceptación) y de `cotizacion_crear_revision` (sin historial de aceptación mientras DA-10 siga pendiente); tipos de evento de la fase; pgTAP `cotizaciones_aceptacion` (S4 sobre aceptaciones y reversiones, S11, S13, S14, S17, S21; evidencia ilegible para colaborador, cliente y `anon`).
+- **Base de datos** (`…_cotizaciones_aceptacion.sql`): `cotizacion_aceptaciones`, `cotizacion_reversiones`; `cliente_perfil_id` (si DA-09 se aprueba); RPC `cotizacion_registrar_aceptacion`, `cotizacion_revertir_aceptacion` y `cotizacion_cancelar_correctiva`; **sustitución** de `cotizacion_cancelar` (RF-104: sin historial de aceptación) y de `cotizacion_crear_revision` (sin historial de aceptación mientras DA-10 siga pendiente); tipos de evento de la fase; pgTAP `cotizaciones_aceptacion` (S4 sobre aceptaciones y reversiones, S11, S13, S14, S17, S21, S22, S24; evidencia ilegible para colaborador, cliente y `anon`).
 - **Frontend**: diálogo de aceptación (referencia obligatoria, enlace `https` opcional validado con `safeUrl.ts`), reversión con motivo, cancelación correctiva con justificación y confirmación escrita del número, nota visible de que el control de acceso al documento detrás del enlace pertenece al sistema donde se guardó.
-- **Criterios de aceptación**: `quickstart.md` F5a-0 a F5a-8; CE-009, CE-011, CE-012, CE-016, CE-021, CE-028.
+- **Criterios de aceptación**: `quickstart.md` F5a-0 a F5a-8; CE-009, CE-011, CE-012, CE-016, CE-021, CE-028 y la parte de CE-033 sobre la evidencia de aceptación.
 - **Depende de**: F4 y las cuatro puertas anteriores.
 
 ### F5b — Asociación con proyectos (FINAL, BLOQUEADA)
@@ -213,7 +216,7 @@ cimientos  catálogo  borrador+cálculo  emisión+revisiones  aceptación  proye
 - **Entrega independiente**: enlazar un proyecto existente o crear uno desde una cotización «Aceptada y firmada», con el vínculo visible en la cotización. *Sin cambios visibles en la pantalla del proyecto.*
 - **Base de datos** (`…_cotizaciones_proyecto.sql`): `cotizacion_proyecto_vinculos` con la unicidad aprobada; RPC `cotizacion_vincular_proyecto` y `cotizacion_crear_proyecto` (patrón de `convert_ticket_to_project`, sin modificarlo); sustitución de `cotizacion_revertir_aceptacion` y `cotizacion_cancelar_correctiva` para añadir `COT:PROYECTO_VINCULADO`; pgTAP `cotizaciones_proyecto` (S12, cardinalidad, el colaborador líder y el cliente del proyecto no ven cotizaciones ni importes).
 - **Frontend**: panel «Proyecto» en el detalle de la cotización; sin cambios en `ProjectDetail.tsx`, `Project` ni `ProjectsList`.
-- **Criterios de aceptación**: `quickstart.md` F5b-0 a F5b-5; CE-033.
+- **Criterios de aceptación**: `quickstart.md` F5b-0 a F5b-5; la parte de CE-033 sobre lo que recibe el proyecto (las otras dos partes se verifican en F4 y en F5a).
 - **Fuera de F5b (RF-068, instrucción del propietario)**: revertir la aceptación o cancelar correctivamente una cotización **con proyecto vinculado** queda **no disponible** en la primera versión, a la espera de un procedimiento administrativo aparte que el propietario apruebe por separado.
 
 ## Estrategia de pruebas y regresión
@@ -222,7 +225,7 @@ cimientos  catálogo  borrador+cálculo  emisión+revisiones  aceptación  proye
 | --- | --- | --- |
 | Aritmética y fechas | Vectores V-01…V-36, D-01…D-08, N-01…N-05, **idénticos** en TS y SQL | `src/lib/*.test.ts` y pgTAP |
 | Captura y presentación de importes | Vectores M-01…M-06, también con la configuración regional cambiada | `src/lib/cotizacionDinero.test.ts` |
-| Seguridad de datos | A1–A9 por tabla, S1–S21, cada una en la fase que crea lo que prueba | pgTAP (rol por rol) |
+| Seguridad de datos | A1–A9 por tabla, S1–S25, cada una en la fase que crea lo que prueba | pgTAP (rol por rol) |
 | Menú y rutas | 4 funcionales, 12 entradas, migas, `aria-current`, `catalogo` vs `:id`, `allowedTypes` | `admin-nav`, `admin-shell`, `admin-routes`, `dashboard-admin-only`, `ProtectedRoute`; e2e local |
 | Pantallas | comportamiento visible: errores en español, `maxLength`, estados vacíos, conflicto de versión, acciones ofrecidas según `ciclo-de-vida.md` §3 | Testing Library |
 | Regresión | las 3 pantallas actuales (`Dashboard`, `ProjectsList`, `ProjectDetail`, `TicketsGlobal`) y el portal no cambian | suites de caracterización existentes sin modificar |
@@ -238,6 +241,8 @@ Cada bug corregido durante la implementación lleva un test que falla sin el arr
 | Divergencia entre el cálculo de TypeScript y el de SQL | Vectores compartidos; la BD es la autoridad al emitir (R-19) |
 | Un `UPDATE` directo salta la máquina de estados | `GRANT` por columna + triggers (R-04, R-05) + pgTAP como `postgres` |
 | Un `INSERT` directo fabrica estado, origen de revisión, auditoría o totales | `GRANT INSERT` por columna, política que exige borrador y trigger de alta (R-04); pruebas S15 y S16 |
+| Dos administradores se pisan un precio, una cantidad, un tramo o un hito sin aviso | Versión por fila en líneas, tramos e hitos, comprobada de forma atómica en `UPDATE` y `DELETE`; 0 filas es un conflicto de edición (DT-03); prueba S18 y escenario F3-11 |
+| Un borrador cancelado no cumple la forma de una fila emitida | La restricción de forma se aplica solo a las filas emitidas; los datos de emisión solo se fijan al emitir y no se anulan (`data-model.md` §2.5); prueba S22 en F4 |
 | Falso conflicto de versión tras editar líneas | La versión es de todo el borrador; la capa de datos recarga la cotización tras cada cambio en sus hijas y serializa las mutaciones (R-17); pruebas S18 y de pantalla |
 | Desbordamiento o conversión insegura de números | Límites por nivel comprobados en orden y antes del porcentaje, enteros de centavos, `Number.isSafeInteger`, conversión por análisis de texto (R-03); vectores V-31 a V-35 y M-04 |
 | Función `SECURITY DEFINER` ejecutable por quien no debe o con `search_path` alterable | `REVOKE ALL … FROM PUBLIC, anon, authenticated`, `GRANT` solo a las 14 RPC, `search_path` fijo; prueba S17 en cada fase |
@@ -282,6 +287,19 @@ Ninguna se ha resuelto en silencio. Las aprobadas ya están aplicadas en los art
 - Un ajuste del primer período acordado a mano se aplica una vez a toda la línea, no una vez por unidad.
 - Las cantidades fraccionarias y la facturación por horas con fracciones quedan diferidas.
 
+### Decisiones técnicas aprobadas con salvaguardas (2026-11-09)
+
+Propuestas técnicas que salieron de corregir `tasks.md` y que el propietario aprobó con la salvaguarda indicada. No cambian el alcance: 12 tablas, 14 RPC y 6 migraciones.
+
+| ID | Decisión aprobada | Salvaguarda del propietario | Dónde se aplica |
+| --- | --- | --- | --- |
+| **DT-01** | Columna `linea_origen_id` en las líneas, para que las copias de revisión y de duplicado sigan su regla de precios sin saltarse el trigger | Solo la escriben operaciones de confianza de la base; nunca queda bajo control del cliente | `data-model.md` §2.6, `acceso-y-rls.md` §1.1, S16 y S23 |
+| **DT-02** | Tres códigos de error controlados: `COT:INMUTABLE`, `COT:ORIGEN_INVALIDO` y `COT:DETALLE_INVALIDO` | La interfaz conserva el manejo seguro: mensaje propio en español para el primero y mensaje genérico, sin detalle técnico, para los otros dos y para cualquier código desconocido | `rpc-cotizaciones.md` §1 |
+| **DT-03** | Concurrencia optimista: versión de la cotización para el encabezado y la emisión, y versión por fila para líneas, tramos e hitos | Ninguna edición financiera se sobrescribe en silencio; una emisión desde una vista desactualizada se rechaza. Vigente antes del uso comercial (F3) | `data-model.md` §3.1, S18, `quickstart.md` F3-11 |
+| **DT-04** | Cada fase espera a que el propietario aplique la migración de la anterior | Orden de fase obligatorio y autorización expresa y separada del propietario para cada migración en producción | «Fases de entrega», `quickstart.md` §3 |
+| **DT-05** | Esquema estricto del `detalle` de los eventos de auditoría | Lista cerrada de claves no sensibles, con tipo, formato y tamaño, impuesta por un trigger; sin importes ni datos personales cuando basta una referencia protegida | `data-model.md` §2.9, S24 |
+| **DT-06** | Retirar tres tareas de comprobación redundantes | Su verificación sigue cubierta en el gate de su fase y en la prueba de rutas | `tasks.md` (T017, T041, T074, T110) |
+
 ### Pendientes
 
 | ID | Decisión | Tipo | Recomendación del plan | Alternativas | Bloquea | Qué hace el módulo mientras tanto |
@@ -305,11 +323,11 @@ La línea base de planificación son **12 tablas, 14 RPC y 6 migraciones por fas
 | --- | --- | --- |
 | C1 | Cumple | El diseño final no añade servicios: el vínculo, la auditoría y la numeración caben en Postgres; la evidencia por archivo quedó fuera (DA-02). |
 | C2 | Cumple | Las 12 tablas y 14 RPC limitan por `get_user_type() = 0`; F5b se diseñó para **no** hacer visibles importes al colaborador ni al cliente. |
-| C3 | Cumple | Pruebas A1–A9 y S1–S21 cubren los cuatro roles en cada tabla y RPC, las altas directas, los privilegios por columna y los privilegios de ejecución de las funciones; no hay Edge Functions. |
+| C3 | Cumple | Pruebas A1–A9 y S1–S25 cubren los cuatro roles en cada tabla y RPC, las altas directas, los privilegios por columna y los privilegios de ejecución de las funciones; no hay Edge Functions. |
 | C4 | Cumple | Vectores compartidos (V, D, N y M) y gate por fase; cada fase prueba solo lo que ella crea. |
 | C5 | Cumple | Seis migraciones nuevas, ninguna edita una existente; todo paso remoto es del Propietario. |
 | C6 | Cumple | Los artefactos usan rutas relativas y datos sintéticos; no incluyen el identificador del proyecto Supabase. |
-| C7 | Cumple | Decisiones aprobadas aplicadas y decisiones abiertas listadas como puertas de F5a o bloqueos de F5b; sin tareas ni código; implementación por `/tarea`. |
+| C7 | Cumple | Decisiones aprobadas aplicadas y decisiones abiertas listadas como puertas de F5a o bloqueos de F5b; sin código; `tasks.md` es un insumo y la implementación entra por `/tarea`. |
 
 Revalidado el 2026-11-09 tras aplicar las decisiones aprobadas: la cantidad por precio unitario, los límites, el redondeo y el formato de moneda no añaden servicios, dependencias, rutas ni accesos (C1, C2), y las salvaguardas de DA-06 refuerzan C3.
 
@@ -325,7 +343,7 @@ No hay violaciones de la constitución que justificar.
 
 ## Preparación para `/speckit-tasks`
 
-**Estado: listo para generar las tareas de F1 a F5a.** No queda ninguna decisión que impida escribirlas.
+**Estado: tareas generadas.** `tasks.md` cubre F1 a F5a con 147 tareas y deja F5b bloqueada; esta sección se conserva como registro de las indicaciones con las que se generó.
 
 | Fase | Decisiones que necesita | Estado |
 | --- | --- | --- |
