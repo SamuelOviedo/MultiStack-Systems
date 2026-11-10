@@ -75,6 +75,91 @@ export type Database = {
         }
         Relationships: []
       }
+      cotizacion_eventos: {
+        Row: {
+          actor: string
+          cotizacion_id: string
+          detalle: NonNullable<Json>
+          id: number
+          motivo: string | null
+          ocurrido_at: string
+          tipo: string
+        }
+        ComputedFields: never
+        Insert: {
+          actor: string
+          cotizacion_id: string
+          detalle?: NonNullable<Json>
+          id?: never
+          motivo?: string | null
+          ocurrido_at?: string
+          tipo: string
+        }
+        Update: {
+          actor?: string
+          cotizacion_id?: string
+          detalle?: NonNullable<Json>
+          id?: never
+          motivo?: string | null
+          ocurrido_at?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotizacion_eventos_cotizacion_id_fkey"
+            columns: ["cotizacion_id"]
+            isOneToOne: false
+            referencedRelation: "cotizaciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cotizaciones: {
+        Row: {
+          actualizado_at: string
+          actualizado_por: string | null
+          creado_at: string
+          creado_por: string
+          estado: string
+          id: string
+          prospecto_contacto: string | null
+          prospecto_email: string | null
+          prospecto_nombre: string | null
+          prospecto_telefono: string | null
+          referencia_interna: string
+          row_version: number
+        }
+        ComputedFields: never
+        Insert: {
+          actualizado_at?: string
+          actualizado_por?: string | null
+          creado_at?: string
+          creado_por: string
+          estado?: string
+          id?: string
+          prospecto_contacto?: string | null
+          prospecto_email?: string | null
+          prospecto_nombre?: string | null
+          prospecto_telefono?: string | null
+          referencia_interna: string
+          row_version?: number
+        }
+        Update: {
+          actualizado_at?: string
+          actualizado_por?: string | null
+          creado_at?: string
+          creado_por?: string
+          estado?: string
+          id?: string
+          prospecto_contacto?: string | null
+          prospecto_email?: string | null
+          prospecto_nombre?: string | null
+          prospecto_telefono?: string | null
+          referencia_interna?: string
+          row_version?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           email: string | null
