@@ -94,7 +94,7 @@ Se crea en la **primera emisión** de una cotización original. Las revisiones e
 | Columna | Tipo | Reglas |
 | --- | --- | --- |
 | `id` | uuid PK | |
-| `referencia_interna` | text UNIQUE NOT NULL | `BOR-` + identidad numérica; estable; **no** es el número de cotización (RF-028) |
+| `referencia_interna` | text UNIQUE NOT NULL | `BOR-` + identidad numérica; estable; **no** es el número de cotización (RF-028). La asigna siempre el trigger de alta desde una secuencia `bigint`, y la base la limita con `CHECK (referencia_interna ~ '^BOR-[0-9]+$')`. **Aceptado para F1**: la capa de datos es más estricta, `^BOR-[0-9]{1,19}$`. El camino normal no puede generar un valor que el frontend rechace (una secuencia `bigint` no pasa de 19 dígitos); solo se alcanzaría como propietario de la base desactivando el trigger de alta o el de cambios, y entonces la interfaz falla cerrada (rechaza la respuesta entera con el mensaje genérico). F1 no añade otra migración por esto; se reevalúa en la siguiente migración del módulo o en la revisión de seguridad |
 | `estado` | text NOT NULL DEFAULT `'borrador'` | `CHECK IN ('borrador','emitida','aceptada_firmada','rechazada','cancelada')` (RF-025). «vencida», «archivada» y «sustituida» **no** son valores |
 | `prospecto_nombre` | text | persona o empresa, ≤ 200 |
 | `prospecto_contacto` | text | persona de contacto, ≤ 200 |

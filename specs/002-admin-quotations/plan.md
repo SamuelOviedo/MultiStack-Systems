@@ -12,7 +12,7 @@ Se añade al panel administrativo un módulo de cotizaciones **solo para el admi
 
 **Enfoque técnico** (todo sobre el stack actual, sin infraestructura nueva):
 
-- **Frontend**: tres páginas `lazy` bajo `ProtectedRoute allowedTypes={[0]}` y `AdminShell`; datos en `src/lib/*` con TanStack Query; cálculo en funciones puras con **enteros de centavos**; componentes con las primitivas shadcn del panel.
+- **Frontend**: tres páginas `lazy` bajo `ProtectedRoute allowedTypes={[0]}` y `AdminShell`; datos en `src/lib/*`, que las pantallas del módulo cargan con un hook local, sin TanStack Query ni caché compartida (desviación aprobada de T013); cálculo en funciones puras con **enteros de centavos**; componentes con las primitivas shadcn del panel.
 - **Base de datos**: 12 tablas nuevas con RLS de administrador y privilegios mínimos, **por columna en `INSERT` y en `UPDATE`**; la máquina de estados y la inmutabilidad viven en **triggers**; todas las transiciones son **RPC `SECURITY DEFINER`** atómicas, con `search_path` fijo y privilegios de ejecución explícitos, que escriben su evento de auditoría (DA-06).
 - **Autoridad del cálculo** (DA-05): Postgres calcula los importes de línea, los totales, el anticipo y la validación financiera; el navegador nunca los envía. El cliente replica la misma aritmética solo para la vista previa inmediata, con **los mismos vectores de prueba** en Vitest y pgTAP, y recarga los valores de la base después de guardar.
 - **Dinero**: cantidad entera (1 a 9 999) por precio unitario; límites por nivel comprobados por separado (DA-07); un único redondeo, mitad hacia arriba, en el anticipo por porcentaje (DA-01); presentación `L 1,250.00` y captura determinista propias del módulo (DA-14).
@@ -97,13 +97,16 @@ specs/002-admin-quotations/
 └── tasks.md                        # lo crea /speckit-tasks
 ```
 
-### Código fuente (propuesta; nada de esto existe todavía)
+### Código fuente (propuesta; F1 está en curso: parte de lo marcado F1 ya existe y `tasks.md` lleva el estado de cada tarea)
 
 ```text
 src/
 ├── App.tsx                                     (editar: 3 rutas lazy)                        F1
 ├── components/admin/adminNav.ts                (editar: entrada + NavItem.subpages)           F1
 ├── components/admin/preloadPanel.ts            (editar, opcional)                             F1
+├── components/admin/cotizaciones/              (nuevo; no estaba en la propuesta)             F1
+│   ├── useRecursoCotizacion.ts                 (carga local sin caché compartida; T013)       F1
+│   └── presentacionCotizacion.ts               (etiquetas y fechas en hora de Honduras)       F1
 ├── types/cotizaciones.ts                       (nuevo; NO se toca types/projects.ts)          F1…
 ├── lib/
 │   ├── cotizaciones.ts                         (consultas, mutaciones, traducción de errores) F1…
@@ -127,7 +130,7 @@ supabase/
 e2e/              1 spec local nuevo (acceso por rol de las tres rutas)
 ```
 
-**Decisión de estructura**: se sigue el esquema plano de `src/lib/*` y `src/pages/dashboard/*` ya existente; los componentes del módulo van en una carpeta propia bajo `components/dashboard/` como `tickets/` y `project-detail/`. No se crean directorios de primer nivel.
+**Decisión de estructura**: se sigue el esquema plano de `src/lib/*` y `src/pages/dashboard/*` ya existente; los componentes del módulo van en una carpeta propia bajo `components/dashboard/` como `tickets/` y `project-detail/`. No se crean directorios de primer nivel. Los dos archivos de apoyo de F1, `useRecursoCotizacion.ts` y `presentacionCotizacion.ts`, viven en `src/components/admin/cotizaciones/`, junto al resto de componentes del panel de administración (decisión aprobada del 2026-11-10); la ubicación de los componentes de fases posteriores se decidirá en su fase y, hasta entonces, sigue siendo la prevista arriba.
 
 ## Trazabilidad: requisitos aprobados → fase
 
@@ -162,7 +165,7 @@ cimientos  catálogo  borrador+cálculo  emisión+revisiones  aceptación  proye
 
 - **Entrega independiente**: el módulo existe, está cerrado a todo rol salvo el administrador y su base de datos tiene la máquina de estados y la auditoría. *Valor comercial: ninguno todavía; valor de seguridad: la base sobre la que se apoya todo lo demás.*
 - **Base de datos** (`…_cotizaciones_fundacion.sql`): `cotizaciones` (núcleo + prospecto, sin contenido financiero), `cotizacion_eventos` (con el único tipo `creada`); trigger de máquina de estados (RF-072) y de inmutabilidad; trigger de alta que impone estado inicial, versión y auditoría; trigger de `row_version` y de auditoría de fila; RLS y `GRANT` **por columna en `INSERT` y en `UPDATE`** (`contracts/acceso-y-rls.md` §1.1). F1 no crea ninguna RPC.
-- **Frontend**: rutas, entrada de menú y `NavItem.subpages` (DA-13); `CotizacionesList` (lectura real, estado vacío); `CotizacionDetalle` con validación de UUID y «no encontrada»; `CotizacionesCatalogo` con estado vacío honesto («el catálogo se habilita en la siguiente fase»); `types/cotizaciones.ts`; `cotizaciones.ts` mínimo con la traducción de errores.
+- **Frontend**: rutas, entrada de menú y `NavItem.subpages` (DA-13); `CotizacionesList` (lectura real, estado vacío); `CotizacionDetalle` con validación de UUID y «no encontrada»; `CotizacionesCatalogo` con estado vacío honesto («el catálogo se habilita en la siguiente fase»); `types/cotizaciones.ts`; `cotizaciones.ts` mínimo con la traducción de errores y, de forma aditiva, `listarPaginaCotizaciones({ pagina, tamano, signal? })` → `{ cotizaciones, haySiguiente }`: una sola consulta de `tamano + 1` filas con el desplazamiento calculado sobre el `tamano` pedido; todas las filas se validan, también la de más, que nunca se devuelve, y `haySiguiente` es falso en la página 10 000 (`PAGINA_MAXIMA`). Ella y `obtenerCotizacion(id, { signal? })` aceptan una `AbortSignal` opcional; una consulta cancelada falla con el código propio `CANCELADA`, que no viene de la base. `listarCotizaciones` no cambia. Dos archivos no previstos: `components/admin/cotizaciones/useRecursoCotizacion.ts` (carga local, sin TanStack Query ni caché compartida; desviación aprobada de T013) y `components/admin/cotizaciones/presentacionCotizacion.ts` (etiquetas de estado y formato de fechas en la zona comercial de Honduras, compartidos por el listado y el detalle).
 - **Pruebas**: pgTAP `cotizaciones_fundacion` (A1–A9 en las dos tablas; S1, S2, S3 solo sobre el prospecto, S4 solo sobre eventos, S10, S14, S15, S17, S22 sobre las columnas de F1 y S24 sobre el evento `creada`); Vitest de menú, migas y rutas (actualización deliberada de `admin-nav`, `admin-shell`, `admin-routes`); e2e local de acceso por rol; test de traducción de errores.
 - **Lo que F1 no da por hecho**: ni número, ni fechas de emisión, ni líneas, ni cálculo, ni aceptaciones, ni RPC. Las filas de ejemplo de S2 y S3 se llevan de un estado a otro como `postgres` solo para ejercitar los triggers; cuando F4 añade la restricción de forma de las filas emitidas, F4 actualiza esos datos de ejemplo a propósito, sin relajar ninguna aserción.
 - **Criterios de aceptación**: `quickstart.md` F1-1 a F1-5; CE-003, CE-014.
