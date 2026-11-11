@@ -788,6 +788,10 @@ function violacionesDeNulo(campos: string[]): Array<[string, Fila]> {
   return campos.map((campo): [string, Fila] => [`${campo} nulo`, { [campo]: null }]);
 }
 
+// Dígitos que NO son `[0-9]`: se construyen con códigos para que ninguna herramienta los normalice.
+const DIGITO_ANCHO_COMPLETO = String.fromCharCode(0xff11);
+const DIGITO_ARABIGO_INDICO = String.fromCharCode(0x0661);
+
 /** Violaciones que valen para el listado (`CotizacionResumen`) y para el detalle (`Cotizacion`). */
 const VIOLACIONES_COMUNES: Array<[string, Fila]> = [
   ["estado desconocido «vencida»", { estado: "vencida" }],
@@ -804,6 +808,19 @@ const VIOLACIONES_COMUNES: Array<[string, Fila]> = [
   ["referencia con un prefijo delante «XBOR-1»", { referencia_interna: "XBOR-1" }],
   ["referencia con un espacio delante « BOR-1»", { referencia_interna: " BOR-1" }],
   ["referencia con salto de línea final", { referencia_interna: "BOR-1\n" }],
+  ["referencia con un espacio al final «BOR-1 »", { referencia_interna: "BOR-1 " }],
+  ["referencia con un salto de línea delante", { referencia_interna: "\nBOR-1" }],
+  ["referencia con un salto de línea CRLF al final", { referencia_interna: "BOR-1\r\n" }],
+  ["referencia con un espacio entre el guion y los dígitos «BOR- 1»", { referencia_interna: "BOR- 1" }],
+  ["referencia con signo menos «BOR--1»", { referencia_interna: "BOR--1" }],
+  ["referencia con signo más «BOR-+1»", { referencia_interna: "BOR-+1" }],
+  ["referencia con decimales «BOR-1.5»", { referencia_interna: "BOR-1.5" }],
+  ["referencia con un dígito de ancho completo (U+FF11)", { referencia_interna: `BOR-${DIGITO_ANCHO_COMPLETO}` }],
+  ["referencia con un dígito arábigo-índico (U+0661)", { referencia_interna: `BOR-${DIGITO_ARABIGO_INDICO}` }],
+  // La base genera `'BOR-' || nextval(...)` sobre una secuencia `bigint`: como máximo 19 dígitos.
+  ["referencia de 20 dígitos (uno más que los 19 de un bigint)", { referencia_interna: `BOR-${"1".repeat(20)}` }],
+  ["referencia de 20 nueves", { referencia_interna: `BOR-${"9".repeat(20)}` }],
+  ["referencia de 10 000 dígitos (longitud arbitraria)", { referencia_interna: `BOR-${"9".repeat(10000)}` }],
   ["referencia numérica", { referencia_interna: 1 }],
   ["row_version 0", { row_version: 0 }],
   ["row_version -1", { row_version: -1 }],
@@ -855,7 +872,12 @@ const VARIANTES_VALIDAS_COMUNES: Array<[string, Fila]> = [
   ["prospecto_nombre de 200 caracteres", { prospecto_nombre: "n".repeat(200) }],
   ["prospecto_nombre de 200 emoji (400 unidades UTF-16)", { prospecto_nombre: EMOJI.repeat(200) }],
   ["prospecto_nombre de 100 emoji y 100 letras (200 puntos de código)", { prospecto_nombre: EMOJI.repeat(100) + "a".repeat(100) }],
+  ["referencia de 1 dígito «BOR-1»", { referencia_interna: "BOR-1" }],
   ["referencia «BOR-12345»", { referencia_interna: "BOR-12345" }],
+  ["referencia de 18 dígitos", { referencia_interna: `BOR-${"1".repeat(18)}` }],
+  // El máximo de una secuencia `bigint` y el tope de la regex: 19 dígitos.
+  ["referencia de 19 dígitos, el máximo de bigint «BOR-9223372036854775807»", { referencia_interna: "BOR-9223372036854775807" }],
+  ["referencia de 19 nueves", { referencia_interna: `BOR-${"9".repeat(19)}` }],
   ["row_version 1", { row_version: 1 }],
   ["row_version MAX_SAFE_INTEGER", { row_version: Number.MAX_SAFE_INTEGER }],
   ...FECHAS_VALIDAS.map((valor): [string, Fila] => [`creado_at «${valor}»`, { creado_at: valor }]),
@@ -1320,6 +1342,182 @@ describe("listarCotizaciones · datos inválidos", () => {
       delete incompleta[clave];
       programar(responde([resumen(1), incompleta, resumen(3)]));
       await esperarFallo(listarCotizaciones(), "DATOS_INVALIDOS", GENERICO);
+    });
+  });
+});
+
+/**
+ * El tope de `tamano` no se comprueba solo una vez (`datos.length`): se vuelve a imponer en cada vuelta del
+ * bucle. Un arreglo no genuino (un `Proxy` cuyo `length` cambia, o uno con `Symbol.iterator` propio) puede dar
+ * más filas de las que declaró; entonces la página ENTERA es DATOS_INVALIDOS (nunca se trunca a `tamano` ni
+ * se devuelve una parte) y el módulo deja de consumir en cuanto ve una fila de más.
+ */
+describe("listarCotizaciones · el tope de tamano también se impone dentro del bucle", () => {
+  type Opciones = Parameters<typeof listarCotizaciones>[0];
+
+  /** Filas de listado válidas y distintas, numeradas desde 1. */
+  const filasValidas = (cantidad: number): Fila[] => Array.from({ length: cantidad }, (_, i) => resumen(i + 1));
+
+  /**
+   * Arreglo REAL (`Array.isArray` es verdadero) que declara `declarada` filas mientras no se itera y, en
+   * cuanto el módulo empieza a recorrerlo (pide `Symbol.iterator` o un índice), pasa a decir la verdad:
+   * `reales`. `leidos` cuenta los índices que se leyeron, es decir, cuántos elementos consumió el módulo.
+   */
+  function arregloQueCreceAlIterar(reales: number, declarada: number): { arreglo: Fila[]; leidos: () => number } {
+    const base = filasValidas(reales);
+    let iterando = false;
+    let leidos = 0;
+    const arreglo = new Proxy(base, {
+      get(objetivo, clave, receptor): unknown {
+        const esIndice = typeof clave === "string" && /^[0-9]+$/.test(clave);
+        if (clave === Symbol.iterator || esIndice) iterando = true;
+        if (esIndice) leidos += 1;
+        if (clave === "length" && !iterando) return declarada;
+        return Reflect.get(objetivo, clave, receptor);
+      },
+    });
+    return { arreglo, leidos: () => leidos };
+  }
+
+  /** Arreglo vacío con un `Symbol.iterator` propio que entrega `entregar` filas válidas y se acaba. */
+  function arregloConIteradorPropio(entregar: number): { arreglo: Fila[]; entregadas: () => number } {
+    let entregadas = 0;
+    const arreglo: Fila[] = [];
+    Object.defineProperty(arreglo, Symbol.iterator, {
+      value: function* (): Generator<Fila> {
+        for (let n = 1; n <= entregar; n += 1) {
+          entregadas = n;
+          yield resumen(n);
+        }
+      },
+    });
+    return { arreglo, entregadas: () => entregadas };
+  }
+
+  // Si una regresión quitara el tope, un iterador sin fin colgaría la suite: este contador de seguridad lo
+  // hace fallar rápido. Su excepción la convierte `validarRespuesta` en DATOS_INVALIDOS, así que lo que
+  // detecta la regresión no es el rechazo sino `desbordado` y el número de elementos consumidos.
+  const PASOS_DE_SEGURIDAD = 10000;
+
+  /** Arreglo vacío cuyo `Symbol.iterator` da filas válidas sin fin (hasta el contador de seguridad). */
+  function arregloConIteradorInfinito(): { arreglo: Fila[]; consumidas: () => number; desbordado: () => boolean } {
+    let consumidas = 0;
+    let desbordado = false;
+    const arreglo: Fila[] = [];
+    Object.defineProperty(arreglo, Symbol.iterator, {
+      value: (): Iterator<Fila> => ({
+        next(): IteratorResult<Fila> {
+          if (consumidas >= PASOS_DE_SEGURIDAD) {
+            desbordado = true;
+            throw new Error("iterador sin fin consumido sin tope");
+          }
+          consumidas += 1;
+          return { done: false, value: resumen(consumidas) };
+        },
+      }),
+    });
+    return { arreglo, consumidas: () => consumidas, desbordado: () => desbordado };
+  }
+
+  const TAMANOS: Array<[string, Opciones, number]> = [
+    ["tamano 1", { tamano: 1 }, 1],
+    ["tamano 25", { tamano: 25 }, 25],
+    ["tamano 100 (el máximo)", { tamano: 100 }, 100],
+    ["el tamano predeterminado (25)", undefined, 25],
+  ];
+
+  describe("un arreglo genuino", () => {
+    it.each(TAMANOS)("de exactamente tamano filas válidas se acepta con %s y devuelve esas mismas filas", async (_nombre, opciones, tamano) => {
+      const filas = filasValidas(tamano);
+      programar(responde(filas));
+      const resultado = await listarCotizaciones(opciones);
+      expect(resultado).toHaveLength(tamano);
+      expect(resultado).toStrictEqual(filas);
+    });
+
+    it.each(TAMANOS)("de tamano + 1 filas válidas lo rechaza entero la comprobación previa de longitud con %s (no se trunca a tamano)", async (_nombre, opciones, tamano) => {
+      programar(responde(filasValidas(tamano + 1)));
+      await esperarFalloSeguro(listarCotizaciones(opciones), "DATOS_INVALIDOS");
+    });
+  });
+
+  describe("un Proxy de arreglo cuyo length cambia al iterarlo", () => {
+    // `length` dice «tamano» (o menos) al comprobarlo y luego deja iterar más filas válidas de las debidas.
+    const CRECE: Array<[string, Opciones, number, number, number]> = [
+      ["declara 25 (tamano) y da 26", { tamano: 25 }, 25, 25, 26],
+      ["declara 1 y da 26", { tamano: 25 }, 25, 1, 26],
+      ["declara 0 y da 26", { tamano: 25 }, 25, 0, 26],
+      ["declara 100 (tamano) y da 101", { tamano: 100 }, 100, 100, 101],
+      ["declara 1 (tamano) y da 2", { tamano: 1 }, 1, 1, 2],
+      ["declara 25 (tamano) y da 1000: deja de consumir en cuanto sobra una", { tamano: 25 }, 25, 25, 1000],
+      ["declara 25 (el tamano predeterminado) y da 26", undefined, 25, 25, 26],
+    ];
+
+    it.each(CRECE)("%s: DATOS_INVALIDOS, no se devuelve ninguna parte y se consume como mucho tamano + 1", async (_nombre, opciones, tamano, declarada, reales) => {
+      const { arreglo, leidos } = arregloQueCreceAlIterar(reales, declarada);
+      expect(Array.isArray(arreglo)).toBe(true);
+      programar(responde(arreglo));
+      await esperarFalloSeguro(listarCotizaciones(opciones), "DATOS_INVALIDOS");
+      expect(leidos()).toBeLessThanOrEqual(tamano + 1);
+    });
+
+    it.each(TAMANOS)("control: si declara tamano y da exactamente tamano se acepta con %s (las filas del ayudante son válidas)", async (_nombre, opciones, tamano) => {
+      const { arreglo } = arregloQueCreceAlIterar(tamano, tamano);
+      programar(responde(arreglo));
+      const resultado = await listarCotizaciones(opciones);
+      expect(resultado).toHaveLength(tamano);
+      expect(resultado).toStrictEqual(filasValidas(tamano));
+    });
+
+    it("control: declara 0 y da 25 con tamano 25 se acepta (el tope es tamano, no lo que se declara)", async () => {
+      const { arreglo } = arregloQueCreceAlIterar(25, 0);
+      programar(responde(arreglo));
+      await expect(listarCotizaciones({ tamano: 25 })).resolves.toStrictEqual(filasValidas(25));
+    });
+  });
+
+  describe("un arreglo con Symbol.iterator propio", () => {
+    it.each(TAMANOS)("que da exactamente tamano filas válidas se acepta con %s", async (_nombre, opciones, tamano) => {
+      const { arreglo } = arregloConIteradorPropio(tamano);
+      programar(responde(arreglo));
+      const resultado = await listarCotizaciones(opciones);
+      expect(resultado).toHaveLength(tamano);
+      expect(resultado).toStrictEqual(filasValidas(tamano));
+    });
+
+    it.each(TAMANOS)("que da tamano + 1 filas válidas es DATOS_INVALIDOS con %s (no se trunca)", async (_nombre, opciones, tamano) => {
+      const { arreglo, entregadas } = arregloConIteradorPropio(tamano + 1);
+      programar(responde(arreglo));
+      await esperarFalloSeguro(listarCotizaciones(opciones), "DATOS_INVALIDOS");
+      expect(entregadas()).toBeLessThanOrEqual(tamano + 1);
+    });
+
+    it.each(TAMANOS)("que da muchas más filas válidas es DATOS_INVALIDOS con %s y no se consumen todas", async (_nombre, opciones, tamano) => {
+      const { arreglo, entregadas } = arregloConIteradorPropio(tamano + 500);
+      programar(responde(arreglo));
+      await esperarFalloSeguro(listarCotizaciones(opciones), "DATOS_INVALIDOS");
+      expect(entregadas()).toBeLessThanOrEqual(tamano + 1);
+    });
+  });
+
+  describe("un iterador sin fin de filas válidas", () => {
+    it.each(TAMANOS)("es DATOS_INVALIDOS con %s, no se cuelga y se consumen como mucho tamano + 1 elementos", async (_nombre, opciones, tamano) => {
+      const { arreglo, consumidas, desbordado } = arregloConIteradorInfinito();
+      programar(responde(arreglo));
+      await esperarFalloSeguro(listarCotizaciones(opciones), "DATOS_INVALIDOS");
+      expect(desbordado()).toBe(false);
+      expect(consumidas()).toBeLessThanOrEqual(tamano + 1);
+    });
+
+    it("control: el contador de seguridad detecta un consumo sin tope (el iterador sin fin sí desborda si se le deja)", () => {
+      const { arreglo, consumidas, desbordado } = arregloConIteradorInfinito();
+      expect(() => {
+        for (const _fila of arreglo) {
+          // Se consume sin ningún tope.
+        }
+      }).toThrow("iterador sin fin consumido sin tope");
+      expect(desbordado()).toBe(true);
+      expect(consumidas()).toBe(PASOS_DE_SEGURIDAD);
     });
   });
 });
@@ -2382,7 +2580,9 @@ describe("marcas de tiempo · sin Date.parse", () => {
 });
 
 /* ------------------------------------------------------------------------------------------------
- * B6. Ningún camino escribe en la consola (LOW-1): ni el error, ni la respuesta, ni los datos personales
+ * B6. Ningún camino escribe en la consola: ni el error, ni la respuesta, ni los datos personales.
+ * Evita la regresión de un `console.*` olvidado en la capa de datos, que acabaría volcando el error original
+ * del servidor o datos del prospecto en la consola del navegador o en los registros.
  * ---------------------------------------------------------------------------------------------- */
 
 // El resto de métodos de `Console` (table, group, assert, count, timeLog…) escriben a través de log, warn

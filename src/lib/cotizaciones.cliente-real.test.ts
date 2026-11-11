@@ -257,8 +257,8 @@ describe("el cliente real ante fallos HTTP sin JSON · DESCONOCIDO genérico y s
 });
 
 describe("el cliente real ante un fallo de red · DESCONOCIDO genérico y sin el texto de la excepción", () => {
-  // El cliente reintenta las lecturas ante un fallo de red con una espera real (1, 2 y 4 s): se usan
-  // temporizadores simulados para no esperar, y se cuentan los cuatro intentos.
+  // El cliente reintenta las lecturas ante un fallo de red con esperas reales y crecientes entre intentos (las fija postgrest-js): se usan
+  // temporizadores simulados para no esperar. Se protege el resultado final, no el número de intentos.
   it.each([
     ["obtenerCotizacion", () => obtenerCotizacion(ID_A)],
     ["listarCotizaciones", () => listarCotizaciones()],
@@ -271,7 +271,53 @@ describe("el cliente real ante un fallo de red · DESCONOCIDO genérico y sin el
     expect(error.codigo).toBe("DESCONOCIDO");
     expect(error.message).toBe(GENERICO);
     expect([error.message, String(error), JSON.stringify(error), error.stack ?? ""].join("\n")).not.toContain(MARCA);
-    expect(fetchSimulado).toHaveBeenCalledTimes(4);
+    // El número de reintentos es del cliente (postgrest-js) y no de esta capa: por eso no se fija. Basta con
+    // que `fetch` se haya llamado y con que la promesa se haya asentado tras drenar los temporizadores.
+    expect(fetchSimulado.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("el cliente real ante un fallo de red TRANSITORIO · el reintento del cliente lo absorbe", () => {
+  // Si una versión futura del cliente (postgrest-js) dejara de reintentar las lecturas, estas pruebas
+  // lo señalarían como un cambio de comportamiento del cliente (intencionado): habría que revisarlo a
+  // propósito. No dependen del número de reintentos: basta con que `fetch` se llame al menos dos veces.
+  const PAGINA = [
+    {
+      id: ID_A,
+      referencia_interna: "BOR-1",
+      estado: "borrador",
+      prospecto_nombre: "Empresa Ficticia S.A.",
+      creado_at: "2026-11-10T12:00:00.123456+00:00",
+      row_version: 3,
+    },
+    {
+      id: ID_B,
+      referencia_interna: "BOR-2",
+      estado: "emitida",
+      prospecto_nombre: null,
+      creado_at: "2026-11-09T08:15:30Z",
+      row_version: 1,
+    },
+  ];
+
+  it("obtenerCotizacion devuelve la cotización correcta y fetch se llamó al menos dos veces", async () => {
+    vi.useFakeTimers();
+    fetchSimulado.mockRejectedValueOnce(new TypeError(`${MARCA} fetch failed`));
+    fetchSimulado.mockImplementation(async () => json([FILA]));
+    const asentada = Promise.allSettled([obtenerCotizacion(ID_A)]);
+    await vi.runAllTimersAsync();
+    expect(await asentada).toStrictEqual([{ status: "fulfilled", value: FILA }]);
+    expect(fetchSimulado.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("listarCotizaciones devuelve la página correcta y fetch se llamó al menos dos veces", async () => {
+    vi.useFakeTimers();
+    fetchSimulado.mockRejectedValueOnce(new TypeError(`${MARCA} fetch failed`));
+    fetchSimulado.mockImplementation(async () => json(PAGINA));
+    const asentada = Promise.allSettled([listarCotizaciones()]);
+    await vi.runAllTimersAsync();
+    expect(await asentada).toStrictEqual([{ status: "fulfilled", value: PAGINA }]);
+    expect(fetchSimulado.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 });
 

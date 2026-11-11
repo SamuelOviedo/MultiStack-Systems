@@ -147,16 +147,20 @@ export function esUuid(valor: unknown): valor is string {
 // Los mismos topes que las restricciones de la base (`char_length`).
 const LIMITES = { nombre: 200, contacto: 200, email: 254, telefono: 40 } as const;
 
-const REFERENCIA_RE = /^BOR-[0-9]+$/;
+// La base la genera como `'BOR-' || nextval(...)` sobre una secuencia `bigint`: como máximo 19 dígitos.
+// Sin tope, un origen comprometido podría colar referencias de longitud arbitraria.
+const REFERENCIA_RE = /^BOR-[0-9]{1,19}$/;
 
 function esReferenciaInterna(valor: unknown): valor is string {
   return typeof valor === 'string' && REFERENCIA_RE.test(valor);
 }
 
 // La lista de estados vive duplicada: el CHECK de la base (`cotizaciones_estado_check`) y
-// `ESTADOS_COTIZACION`. Una fila con un estado no listado hace fallar la página ENTERA. Por eso, si
-// una migración futura amplía ese CHECK, primero se despliega el frontend que conoce el estado
-// nuevo y después se aplica la migración.
+// `ESTADOS_COTIZACION`. Orden de despliegue: la regla general es aplicar la migración ANTES de
+// publicar el frontend de su fase (`specs/002-admin-quotations/quickstart.md`, §3, paso 2). Única
+// excepción: añadir un valor nuevo a ese CHECK (la lista actual de 5 estados es definitiva y no está
+// previsto ampliarla). Entonces se publica primero un frontend que ya conoce el estado nuevo, porque
+// una fila con un estado que esta lista no conoce hace fallar la página ENTERA.
 function esEstadoCotizacion(valor: unknown): valor is EstadoCotizacion {
   return ESTADOS_COTIZACION.some((estado) => estado === valor);
 }
@@ -355,6 +359,10 @@ export async function listarCotizaciones(opciones?: OpcionesListadoCotizaciones)
     if (!Array.isArray(datos) || datos.length > tamano) throw new ErrorCotizacion('DATOS_INVALIDOS');
     const resumenes: CotizacionResumen[] = [];
     for (const fila of datos) {
+      // El tope se vuelve a imponer en cada vuelta: un arreglo no genuino (un `Proxy` con `length`
+      // cambiante o un `Symbol.iterator` propio) puede dar más filas de las que declaró. Una de más
+      // rechaza la página entera, nunca se trunca: lo devuelto jamás supera `tamano`.
+      if (resumenes.length >= tamano) throw new ErrorCotizacion('DATOS_INVALIDOS');
       const resumen = aResumen(fila);
       // Una fila inválida rechaza la página entera: nunca se omite en silencio ni se devuelve una parte.
       if (resumen === null) throw new ErrorCotizacion('DATOS_INVALIDOS');
