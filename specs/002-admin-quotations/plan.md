@@ -245,7 +245,7 @@ Cada bug corregido durante la implementación lleva un test que falla sin el arr
 | Un borrador cancelado no cumple la forma de una fila emitida | La restricción de forma se aplica solo a las filas emitidas; los datos de emisión solo se fijan al emitir y no se anulan (`data-model.md` §2.5); prueba S22 en F4 |
 | Falso conflicto de versión tras editar líneas | La versión es de todo el borrador; la capa de datos recarga la cotización tras cada cambio en sus hijas y serializa las mutaciones (R-17); pruebas S18 y de pantalla |
 | Desbordamiento o conversión insegura de números | Límites por nivel comprobados en orden y antes del porcentaje, enteros de centavos, `Number.isSafeInteger`, conversión por análisis de texto (R-03); vectores V-31 a V-35 y M-04 |
-| Función `SECURITY DEFINER` ejecutable por quien no debe o con `search_path` alterable | `REVOKE ALL … FROM PUBLIC, anon, authenticated`, `GRANT` solo a las 14 RPC, `search_path` fijo; prueba S17 en cada fase |
+| Función `SECURITY DEFINER` ejecutable por quien no debe o con `search_path` alterable | `REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role`, `GRANT` solo a las 14 RPC, `search_path` fijo; prueba S17 en cada fase |
 | Numeración con huecos o duplicados bajo concurrencia | Fila de secuencia por año con `ON CONFLICT DO UPDATE` en la transacción de emisión + `UNIQUE`; el formato no usa `lpad` sobre 9 999 (R-06) |
 | Vigencia mal contada por zona horaria | Funciones puras con instantes explícitos y vectores fijos; reutiliza `calendarDate.ts` en cliente (R-07) |
 | Filtración de datos personales a registros o errores | Mensajes `COT:<CODIGO>` sin datos; eventos sin PII; pruebas de mensajes (RF-004) |

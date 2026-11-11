@@ -73,7 +73,7 @@ Declara «este paquete ya incluye este módulo». Sin dependencias ni incompatib
 | `anio` | integer PK | año del calendario de `America/Tegucigalpa` |
 | `ultimo` | bigint NOT NULL | último número asignado ese año |
 
-RLS activo, `REVOKE ALL … FROM PUBLIC, anon, authenticated`: solo la usan las funciones `SECURITY DEFINER` (mismo patrón que `contact_rate_events`).
+RLS activo, `REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role`: solo la usan las funciones `SECURITY DEFINER` (mismo patrón que `contact_rate_events`).
 
 ### 2.4 `cotizacion_familias` — F4 *(RF-080, RF-082, RF-087)*
 
@@ -135,7 +135,7 @@ Se crea en la **primera emisión** de una cotización original. Las revisiones e
 | `familia_id` | uuid FK → `cotizacion_familias` | `NULL` en borradores originales y duplicados; asignada al emitir o al crear una revisión |
 | `revision` | integer | `0` original; `n ≥ 1` revisión; asignada al emitir |
 | `emitida_at` | timestamptz | instante de emisión |
-| `emitida_por` | uuid FK → `auth.users` | |
+| `emitida_por` | uuid | Sin clave foránea a `auth.users`, igual que `creado_por`, `actualizado_por` y `actor` desde F1: borrar la cuenta de un administrador no debe bloquearse, ni borrar cotizaciones, ni perder la atribución de la auditoría |
 | `fecha_emision` | date | día de calendario de Honduras en `emitida_at` (RF-062) |
 | `valida_hasta` | date | `fecha_emision + 14` (`CHECK` exacto, RF-062) |
 | `revision_de_id` | uuid FK → `cotizaciones` | versión de la que parte una revisión |

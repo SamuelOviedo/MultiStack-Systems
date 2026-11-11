@@ -242,7 +242,7 @@ Todas las tablas tienen RLS activo. Políticas basadas en `auth.uid() = user_id`
 
 ### No hay ORM
 
-Queries directas vía Supabase JS SDK (`supabase.from(...)`). Los tipos se definen manualmente en `src/types/` y `src/integrations/supabase/types.ts` (este último auto-generado e incompleto).
+Queries directas vía Supabase JS SDK (`supabase.from(...)`). Los tipos se definen manualmente en `src/types/` y `src/integrations/supabase/types.ts` (este último auto-generado con `postgres-meta` y al día con las migraciones hasta Cotizaciones F1; `src/lib/projects.ts`, `src/lib/tickets.ts` y `src/lib/portal.ts` todavía usan `supabase as any`).
 
 ---
 

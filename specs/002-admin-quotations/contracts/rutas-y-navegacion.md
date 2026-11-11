@@ -51,6 +51,7 @@ Se actualizan por **una razón explícita** (la entrada nueva), nunca se debilit
 | `src/test/admin-shell.test.tsx` | listas de entradas por grupo (líneas ~169, 185, 238) incluyen «Cotizaciones» |
 | `src/test/admin-routes.test.tsx` | el `App` real conserva los `allowedTypes` de las 4 pantallas; **nuevas**: cada una de las 3 rutas nuevas con administrador (render correcto), colaborador, cliente y sin sesión (rechazo/redirección como `/dashboard`), y `/dashboard/cotizaciones/catalogo` abre el catálogo y no el detalle |
 | `src/test/dashboard-admin-only.test.tsx`, `src/test/ProtectedRoute.test.tsx`, `src/test/dashboard-parity.test.tsx`, `e2e/dashboard-admin-only.spec.ts` | se revisan por si fijan la lista de rutas del panel; se añaden las tres rutas nuevas si corresponde |
+| `src/test/dashboard-home.test.tsx` | los accesos rápidos del Resumen salen del menú: pasan a Proyectos, Cotizaciones y Tickets (solo cambia la lista esperada) |
 
 Las pruebas de «Servicios y renovaciones» (etiqueta larga en migas) y de «Clientes» (próximamente) **no cambian**.
 

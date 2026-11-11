@@ -9,7 +9,7 @@ Esta guía dice **cómo comprobar** que cada fase funciona, no cómo implementar
 | Necesidad | Para qué |
 | --- | --- |
 | Node y dependencias ya instaladas (`npm ci` solo si falta `node_modules`) | gate del frontend |
-| Docker y Supabase CLI | pgTAP y entorno local (`supabase test db`, `supabase start`) |
+| Docker y Supabase CLI | pgTAP y entorno local (`supabase test db`, `supabase start`); si la CLI no es utilizable, la verificación local equivalente: una base PostgreSQL desechable con la imagen de Supabase en Docker, publicada solo en `127.0.0.1`, migraciones aplicadas en orden y `pg_prove` (no es idéntica al entorno completo de la CLI) |
 | Índice de CodeGraph (`codegraph init`, ignorado por git) | análisis de impacto |
 | Usuarios de prueba **locales y sintéticos** (administrador, colaborador, cliente) | comprobar acceso por rol |
 
@@ -19,7 +19,7 @@ Reglas: ningún test usa credenciales, correos ni el proyecto de producción; Pl
 
 ```text
 npm run lint && npx tsc -p tsconfig.app.json --noEmit && npm test && npm run build
-supabase test db          # cuando la fase cambia la base de datos
+supabase test db          # cuando la fase cambia la base de datos; CI lo ejecuta siempre y la verificación local equivalente no lo sustituye
 ```
 
 Además, en cada fase: `revisor` sin hallazgos críticos; `security` sin hallazgos críticos si la fase toca datos (todas); `qa` para accesibilidad de las pantallas nuevas (WCAG 2.2 AA, teclado). Se cierra con `/bitacora`.
