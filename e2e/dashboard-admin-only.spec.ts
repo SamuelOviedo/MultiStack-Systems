@@ -10,7 +10,7 @@ const PANEL_PATHS = ["/dashboard", "/dashboard/tickets"] as const;
 
 /** Lo que solo existe cuando el panel está montado, por ruta. */
 const panelReady = (page: Page, path: (typeof PANEL_PATHS)[number]) =>
-  path === "/dashboard" ? page.locator("#contenido") : page.getByRole("heading", { level: 1, name: "$ tickets" });
+  path === "/dashboard" ? page.locator("#contenido") : page.getByRole("heading", { level: 1, name: "Tickets" });
 const DENIED: ReadonlyArray<readonly [Role, string]> = [
   [1, "/"],
   [2, "/solicitudes"],
@@ -73,7 +73,7 @@ test.describe("Dashboard is administrator-only (UI)", () => {
             await page.evaluate(() => {
               const sidebar = document.querySelector("#admin-sidebar") ? "panel" : "";
               const content = document.querySelector("#contenido") ? "panel" : "";
-              const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "$ tickets") ? "panel" : "";
+              const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "Tickets") ? "panel" : "";
               const logo = document.querySelector('img[alt="MultiStack Systems Logo"]') ? "logo" : "";
               return [sidebar, content, tickets, logo].filter(Boolean).join("+") || "vacío";
             }),
@@ -127,7 +127,7 @@ test.describe("Dashboard is administrator-only (UI)", () => {
             await page.evaluate(() => {
               const sidebar = document.querySelector("#admin-sidebar") ? "panel" : "";
               const content = document.querySelector("#contenido") ? "panel" : "";
-              const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "$ tickets") ? "panel" : "";
+              const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "Tickets") ? "panel" : "";
               const logo = document.querySelector('img[alt="MultiStack Systems Logo"]') ? "logo" : "";
               return [sidebar, content, tickets, logo].filter(Boolean).join("+") || "vacío";
             }),

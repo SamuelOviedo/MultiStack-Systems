@@ -166,7 +166,7 @@ export interface ContentMark {
 export const PANEL_MARKS: readonly ContentMark[] = [
   { name: "#admin-sidebar", selector: "#admin-sidebar" },
   { name: "#contenido", selector: "#contenido" },
-  { name: "$ tickets", selector: "h1", text: "$ tickets" },
+  { name: "Tickets", selector: "h1", text: "Tickets" },
 ];
 
 /**
