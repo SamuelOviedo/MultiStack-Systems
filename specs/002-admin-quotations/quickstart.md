@@ -127,7 +127,8 @@ No los ejecuta quien implementa. Las migraciones se aplican **en orden de fase**
 1. Revisar la migración y su prueba pgTAP en el PR.
 2. Aplicar la migración **antes** de publicar el frontend de esa fase (el merge a `main` no despliega migraciones; si el frontend llegara antes, las pantallas del administrador fallarían al consultar tablas inexistentes).
 3. Confirmar con una verificación de solo lectura que RLS está activo en las tablas nuevas.
-4. Publicar el frontend (Vercel) y comprobar con una cuenta de administrador.
-5. Sin Edge Functions nuevas: no hay despliegue de funciones ni secretos asociados a este módulo.
+4. **Comprobación previa obligatoria a la publicación** (desde F1): verificar, en solo lectura, que el límite de filas de la API de datos (`max_rows` de PostgREST, en la configuración de la API del proyecto) es **al menos 101**. `listarPaginaCotizaciones` pide `tamano + 1` filas para saber si hay página siguiente; si el servidor truncara la respuesta, el cliente no podría detectarlo sin una cuenta adicional y `haySiguiente` saldría falso sin ningún error. Las pantallas piden 25 por página, así que con el valor por defecto de Supabase (1000) no hay riesgo; el límite importa para el tamaño máximo (100, que pide 101 filas). Si el valor fuera menor, no se publica: la alternativa segura es reducir el tamaño máximo de `listarPaginaCotizaciones` a `max_rows − 1` (cambio de código con su prueba), en vez de mostrar un `haySiguiente` incorrecto. **El valor real de producción no se ha verificado.**
+5. Publicar el frontend (Vercel) y comprobar con una cuenta de administrador.
+6. Sin Edge Functions nuevas: no hay despliegue de funciones ni secretos asociados a este módulo.
 
 Mientras DA-02 esté en la opción «referencia», **no** hay configuración de Storage.
