@@ -1,3 +1,6 @@
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { createElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cotizacion } from "@/types/cotizaciones";
 
@@ -30,8 +33,22 @@ vi.mock("@/integrations/supabase/client", async () => {
   };
 });
 
-import { ErrorCotizacion, listarCotizaciones, listarPaginaCotizaciones, obtenerCotizacion } from "./cotizaciones";
-import type { CodigoErrorCotizacion } from "./cotizaciones";
+// Solo para la pantalla del listado que se monta al final del archivo: una sesión de administrador ya resuelta. La capa
+// de datos y el cliente de Supabase siguen siendo los REALES (lo único simulado es `fetch`).
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({ user: { id: "usuario-admin-sintetico" }, userType: 0, loading: false }),
+}));
+
+import CotizacionesList from "@/pages/dashboard/CotizacionesList";
+import {
+  ErrorCotizacion,
+  listarCotizaciones,
+  listarPaginaCotizaciones,
+  obtenerCotizacion,
+  TAMANO_PAGINA_MAXIMO,
+  TAMANO_PAGINA_PREDETERMINADO,
+} from "./cotizaciones";
+import type { CodigoErrorCotizacion, PaginaCotizaciones } from "./cotizaciones";
 
 /* ------------------------------------------------------------------------------------------------
  * Datos sintéticos y ayudantes
@@ -896,5 +913,175 @@ describe("la cancelación con el cliente real · abortar durante la petición es
       await expect(invocar(controlador.signal)).resolves.toStrictEqual(esperado);
       expect(controlador.signal.aborted).toBe(true);
     });
+  });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * `max_rows` de PostgREST y la fila de más del listado
+ *
+ * `listarPaginaCotizaciones` pide `tamano + 1` filas para saber si hay página siguiente. Si PostgREST tuviera
+ * `max_rows` (`db-max-rows`) por debajo de `tamano + 1`, recortaría la respuesta SIN avisar (HTTP 200, sin error) y
+ * `haySiguiente` saldría falso con filas todavía por mostrar. El cliente no puede detectarlo: `postgrest-js` solo lee
+ * `Content-Range` cuando se pide `count`, y la capa de datos no lo pide. Por eso `max_rows >= 101` (el mayor pedido
+ * posible, `TAMANO_PAGINA_MAXIMO + 1`) es una COMPROBACIÓN PREVIA OBLIGATORIA a la publicación: este archivo fija qué
+ * pasa por encima y por debajo de ese límite, con el cliente real y un `fetch` que se comporta como PostgREST.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** El `max_rows` mínimo que se exige del servidor antes de publicar. Es `TAMANO_PAGINA_MAXIMO + 1`. */
+const MAX_ROWS_MINIMO_EXIGIDO = 101;
+
+/**
+ * Un `fetch` que se comporta como PostgREST con `max_rows`: de las `total` filas del servidor (de la más reciente a la
+ * más antigua) entrega, a partir de `offset`, como mucho `min(limit, max_rows)`. Si recorta no lo dice: HTTP 200.
+ */
+function servidorConMaxRows(total: number, maxRows: number): void {
+  const todas = filasDeLista(total);
+  fetchSimulado.mockImplementation(async (entrada: unknown) => {
+    const url = new URL(typeof entrada === "string" ? entrada : entrada instanceof URL ? entrada.href : String(entrada));
+    const desde = Number(url.searchParams.get("offset") ?? "0");
+    const pedidas = url.searchParams.has("limit") ? Number(url.searchParams.get("limit")) : Number.POSITIVE_INFINITY;
+    return json(todas.slice(desde, desde + Math.min(pedidas, maxRows)));
+  });
+}
+
+/** Recorre las páginas como una pantalla: sigue mientras `haySiguiente` es verdadero y se detiene en la primera falsa. */
+async function recorrerPaginas(tamano: number): Promise<PaginaCotizaciones[]> {
+  const paginas: PaginaCotizaciones[] = [];
+  for (let pagina = 1; pagina <= 1000; pagina += 1) {
+    const actual = await listarPaginaCotizaciones({ pagina, tamano });
+    paginas.push(actual);
+    if (!actual.haySiguiente) return paginas;
+  }
+  throw new Error("haySiguiente nunca fue falso: la secuencia no termina");
+}
+
+const referenciasDeLista = (cantidad: number): unknown[] => filasDeLista(cantidad).map((fila) => fila.referencia_interna);
+
+describe("listarPaginaCotizaciones con un servidor que aplica max_rows · el tamaño predeterminado de las pantallas", () => {
+  const T = TAMANO_PAGINA_PREDETERMINADO;
+  const enPaginas = (completas: number, resto: number): number[] => [
+    ...Array.from({ length: completas }, () => T),
+    ...(resto > 0 ? [resto] : []),
+  ];
+
+  // [filas en el servidor, filas de cada página recorrida]: la última página nunca tiene siguiente.
+  const SECUENCIAS: Array<[number, number[]]> = [
+    [0, [0]],
+    [1, [1]],
+    [T - 1, [T - 1]],
+    [T, [T]],
+    [T + 1, [T, 1]],
+    [2 * T, [T, T]],
+    [2 * T + 1, [T, T, 1]],
+    [2 * T + 10, enPaginas(2, 10)],
+    [10 * T, enPaginas(10, 0)],
+  ];
+
+  // 1000 es el valor por defecto de Supabase; 100 es un valor bajo plausible que aún cubre `T + 1`.
+  describe.each([1000, 100])("max_rows %i", (maxRows) => {
+    it.each(SECUENCIAS)(
+      "%i filas en el servidor: páginas de %j, siguiente verdadero salvo en la última y nunca más de tamano",
+      async (total, esperadas) => {
+        servidorConMaxRows(total, maxRows);
+        const paginas = await recorrerPaginas(T);
+
+        expect(paginas.map((pagina) => pagina.cotizaciones.length)).toStrictEqual(esperadas);
+        expect(paginas.map((pagina) => pagina.haySiguiente)).toStrictEqual(esperadas.map((_, i) => i < esperadas.length - 1));
+        for (const pagina of paginas) expect(pagina.cotizaciones.length).toBeLessThanOrEqual(T);
+        // Contiguas, sin saltos ni repetidas, y la fila de más nunca sale en ninguna página.
+        expect(paginas.flatMap((pagina) => pagina.cotizaciones.map((item) => item.referencia_interna))).toStrictEqual(
+          referenciasDeLista(total),
+        );
+        // Cada petición pidió UNA fila de más y arrancó donde terminó la anterior.
+        const hechas = peticiones();
+        expect(hechas.map((peticion) => peticion.url.searchParams.get("limit"))).toStrictEqual(esperadas.map(() => String(T + 1)));
+        expect(hechas.map((peticion) => peticion.url.searchParams.get("offset"))).toStrictEqual(esperadas.map((_, i) => String(i * T)));
+      },
+    );
+  });
+});
+
+describe("la pantalla del listado con un servidor que aplica max_rows · pide exactamente el tamaño predeterminado", () => {
+  it("el tamaño predeterminado + 1, y el mayor tamaño posible + 1, caben en el max_rows mínimo exigido (101)", () => {
+    // Si alguien sube el tamaño de las pantallas (o el tope de la capa de datos) por encima, esta prueba lo señala: el
+    // mínimo exigido al servidor tendría que subir con él, y la comprobación previa a la publicación también.
+    expect(TAMANO_PAGINA_PREDETERMINADO + 1).toBeLessThanOrEqual(MAX_ROWS_MINIMO_EXIGIDO);
+    expect(TAMANO_PAGINA_MAXIMO + 1).toBeLessThanOrEqual(MAX_ROWS_MINIMO_EXIGIDO);
+  });
+
+  it.each([1000, 100])(
+    "con max_rows %i la pantalla pagina de TAMANO_PAGINA_PREDETERMINADO en TAMANO_PAGINA_PREDETERMINADO hasta la última",
+    async (maxRows) => {
+      const T = TAMANO_PAGINA_PREDETERMINADO;
+      servidorConMaxRows(2 * T + 10, maxRows);
+      render(createElement(MemoryRouter, { initialEntries: ["/dashboard/cotizaciones"] }, createElement(CotizacionesList)));
+
+      const filasVisibles = () => within(screen.getByRole("table")).getAllByRole("row").length - 1; // sin la fila de títulos
+      const siguiente = () => screen.getByRole("button", { name: "Página siguiente" });
+
+      await screen.findByRole("link", { name: "BOR-1" }, { timeout: 5000 });
+      expect(filasVisibles()).toBe(T);
+      expect(siguiente()).not.toHaveAttribute("aria-disabled");
+
+      fireEvent.click(siguiente());
+      await screen.findByRole("link", { name: `BOR-${T + 1}` }, { timeout: 5000 });
+      expect(filasVisibles()).toBe(T);
+      expect(siguiente()).not.toHaveAttribute("aria-disabled");
+
+      fireEvent.click(siguiente());
+      await screen.findByRole("link", { name: `BOR-${2 * T + 1}` }, { timeout: 5000 });
+      expect(filasVisibles()).toBe(10);
+      expect(siguiente()).toHaveAttribute("aria-disabled", "true");
+
+      // Exactamente el tamaño predeterminado + 1 en cada petición, y nunca por encima del mínimo exigido al servidor.
+      const hechas = peticiones();
+      const limites = hechas.map((peticion) => peticion.url.searchParams.get("limit"));
+      expect(limites).toStrictEqual([String(T + 1), String(T + 1), String(T + 1)]);
+      for (const limite of limites) expect(Number(limite)).toBeLessThanOrEqual(MAX_ROWS_MINIMO_EXIGIDO);
+      expect(hechas.map((peticion) => peticion.url.searchParams.get("offset"))).toStrictEqual(["0", String(T), String(2 * T)]);
+    },
+  );
+});
+
+describe("LIMITACIÓN CONOCIDA, NO DESEADA · tamano 100 con un servidor de max_rows 100", () => {
+  // Caracterización de un límite, no el comportamiento que se quiere: la fila de más (la 101) nunca llega y la capa de
+  // datos no tiene cómo saberlo, así que da la página por última. Mientras la capa de datos no cuente filas (o el
+  // servidor no cumpla `max_rows >= 101`) esto es lo que ocurre; por eso `max_rows >= 101` es una comprobación previa
+  // obligatoria a la publicación. Las pantallas usan 25, que no lo alcanza, pero cualquier llamador con `tamano: 100` sí.
+  it("CARACTERIZACIÓN: con max_rows 100 y tamano 100, haySiguiente sale FALSO aunque haya más filas (debería ser verdadero)", async () => {
+    servidorConMaxRows(250, 100);
+    const pagina = await listarPaginaCotizaciones({ tamano: 100 });
+
+    expect(pagina.cotizaciones).toHaveLength(100); // nunca más de tamano
+    expect(pagina.haySiguiente).toBe(false); // LIMITACIÓN: quedan 150 filas por mostrar
+    const [peticion] = peticiones();
+    expect(peticion.url.searchParams.get("limit")).toBe("101"); // sí pidió la fila de más; el servidor la recortó
+  });
+
+  it("CARACTERIZACIÓN: la consecuencia es que las filas 101 en adelante no se alcanzan al recorrer las páginas", async () => {
+    servidorConMaxRows(250, 100);
+    const paginas = await recorrerPaginas(100);
+
+    expect(paginas).toHaveLength(1);
+    expect(paginas[0].cotizaciones.map((item) => item.referencia_interna)).toStrictEqual(referenciasDeLista(100));
+  });
+
+  it("con max_rows 101 (el mínimo exigido) el mismo escenario es correcto: 100, 100, 50 y siguiente solo mientras quedan filas", async () => {
+    servidorConMaxRows(250, MAX_ROWS_MINIMO_EXIGIDO);
+    const paginas = await recorrerPaginas(100);
+
+    expect(paginas.map((pagina) => pagina.cotizaciones.length)).toStrictEqual([100, 100, 50]);
+    expect(paginas.map((pagina) => pagina.haySiguiente)).toStrictEqual([true, true, false]);
+    expect(paginas.flatMap((pagina) => pagina.cotizaciones.map((item) => item.referencia_interna))).toStrictEqual(
+      referenciasDeLista(250),
+    );
+  });
+
+  it("con max_rows 1000 (el valor por defecto de Supabase) el mismo escenario también es correcto", async () => {
+    servidorConMaxRows(250, 1000);
+    const paginas = await recorrerPaginas(100);
+
+    expect(paginas.map((pagina) => pagina.cotizaciones.length)).toStrictEqual([100, 100, 50]);
+    expect(paginas.map((pagina) => pagina.haySiguiente)).toStrictEqual([true, true, false]);
   });
 });
