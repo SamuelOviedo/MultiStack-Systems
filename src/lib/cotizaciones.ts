@@ -9,16 +9,23 @@
  *   error. Esta capa no añade ni sustituye ese control.
  * - Falla cerrado: valida los parámetros antes de llamar a Supabase y cada fila recibida contra una
  *   lista permitida. Una sola fila inválida rechaza la página entera: nunca se omiten filas en
- *   silencio ni se devuelve una parte. Cada objeto se construye campo por campo, así que ninguna
- *   clave inesperada del servidor llega a la interfaz.
+ *   silencio ni se devuelve una parte. Una respuesta con más filas de las pedidas también se rechaza
+ *   entera, nunca se trunca. La fila de más con la que `listarPaginaCotizaciones` sabe si hay página
+ *   siguiente se valida igual que las demás y nunca se devuelve. Cada objeto se construye campo por
+ *   campo, así que ninguna clave inesperada del servidor llega a la interfaz.
+ * - Cancelación opcional: `listarPaginaCotizaciones` y `obtenerCotizacion` aceptan una `AbortSignal`
+ *   genuina (cualquier otro valor es `PARAMETROS_INVALIDOS`) y la entregan a supabase-js con su
+ *   método `abortSignal`. Con la señal ya cancelada no se llama a Supabase, y un fallo con la señal
+ *   cancelada sale como `CANCELADA`, para que la interfaz no lo confunda con un error del servidor.
  * - Nunca expone SQL: todo fallo que esta capa propaga sale como `ErrorCotizacion`, cuyo `message`
  *   (en las instancias que crea esta capa) es siempre un texto en español de una tabla fija. Incluye
- *   los parámetros, la consulta, el transporte, la lectura de la respuesta y la validación de las
- *   filas, también cuando el error o la respuesta son hostiles (un getter que lanza, un `Proxy` con
- *   trampas o revocado): el error original (mensaje, detalle, pista, código SQLSTATE) ni se guarda
- *   ni se reenvía ni se registra, y tampoco los datos del prospecto. Quedan fuera de la garantía los
- *   fallos del propio motor (por ejemplo, memoria agotada) y una `ErrorCotizacion` fabricada por
- *   código que ya importe la clase: no hay ruta de datos del servidor que la produzca.
+ *   los parámetros, la consulta, el transporte, la cancelación, la lectura de la respuesta y la
+ *   validación de las filas, también cuando el error o la respuesta son hostiles (un getter que
+ *   lanza, un `Proxy` con trampas o revocado): el error original (mensaje, detalle, pista, código
+ *   SQLSTATE) ni se guarda ni se reenvía ni se registra, y tampoco el motivo (`reason`) de una
+ *   cancelación ni los datos del prospecto. Quedan fuera de la garantía los fallos del propio motor
+ *   (por ejemplo, memoria agotada) y una `ErrorCotizacion` fabricada por código que ya importe la
+ *   clase: no hay ruta de datos del servidor que la produzca.
  */
 import { supabase } from '@/integrations/supabase/client';
 import { ESTADOS_COTIZACION } from '@/types/cotizaciones';
@@ -52,11 +59,18 @@ const MENSAJES_COT = [
 
 export type CodigoCotizacionConocido = (typeof MENSAJES_COT)[number][0];
 
+/**
+ * Códigos de `ErrorCotizacion`: los `COT:` conocidos más los propios de esta capa. `CANCELADA` no es
+ * un fallo del servidor: quien llamó canceló la consulta con su `AbortSignal`, así que la interfaz
+ * debe ignorarlo en vez de mostrar un error. Como los demás códigos propios, su `message` es el
+ * genérico y no está en la tabla de textos.
+ */
 export type CodigoErrorCotizacion =
   | CodigoCotizacionConocido
   | 'DESCONOCIDO'
   | 'DATOS_INVALIDOS'
-  | 'PARAMETROS_INVALIDOS';
+  | 'PARAMETROS_INVALIDOS'
+  | 'CANCELADA';
 
 // Las búsquedas usan `Map`, nunca `objeto[clave]`: una clave como `constructor` o `__proto__` que
 // viniera de un error no puede resolverse contra el prototipo.
@@ -74,7 +88,7 @@ export class ErrorCotizacion extends Error {
   readonly codigo: CodigoErrorCotizacion;
 
   constructor(codigo: CodigoErrorCotizacion) {
-    // Los códigos propios (DESCONOCIDO, DATOS_INVALIDOS, PARAMETROS_INVALIDOS) no están en la tabla.
+    // Los códigos propios (DESCONOCIDO, DATOS_INVALIDOS, PARAMETROS_INVALIDOS, CANCELADA) no están en la tabla.
     super(TEXTO_POR_CODIGO.get(codigo) ?? MENSAJE_ERROR_GENERICO);
     this.name = 'ErrorCotizacion';
     this.codigo = codigo;
@@ -309,6 +323,70 @@ function validarRespuesta<T>(validar: () => T): T {
   }
 }
 
+/**
+ * Getter nativo de `AbortSignal.prototype.aborted`, capturado una sola vez al cargar el módulo para
+ * que un cambio posterior del prototipo no lo sustituya. Hace su propia comprobación de marca: lanza
+ * con cualquier objeto que no sea una `AbortSignal` genuina, aunque herede de su prototipo o imite
+ * sus propiedades. En el navegador también rechaza un `Proxy`; en jsdom y Node, un `Proxy` sin trampas
+ * sobre una señal genuina la supera (y `fetch` del navegador lo rechazaría después). `undefined` si el
+ * entorno no tiene `AbortSignal`: entonces toda señal se rechaza.
+ */
+function capturarLectorDeCancelacion(): ((this: unknown) => unknown) | undefined {
+  try {
+    if (typeof AbortSignal !== 'function') return undefined;
+    const lector = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted')?.get;
+    return typeof lector === 'function' ? lector : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const LEER_CANCELACION = capturarLectorDeCancelacion();
+
+/**
+ * Estado de una `AbortSignal` genuina, leído con el getter nativo y nunca con `valor.aborted`, que una
+ * propiedad propia o un prototipo cambiado podrían sombrear: `true` si está cancelada, `false` si no,
+ * `null` si `valor` no es una `AbortSignal` genuina o no se puede leer (un `Proxy` con trampas o
+ * revocado). Es total: no lanza nunca. No lee el motivo (`reason`).
+ */
+function estadoDeSenal(valor: unknown): boolean | null {
+  try {
+    if (LEER_CANCELACION === undefined || !(valor instanceof AbortSignal)) return null;
+    const cancelada: unknown = LEER_CANCELACION.call(valor);
+    return typeof cancelada === 'boolean' ? cancelada : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Verdadero para `undefined` (sin señal) o una `AbortSignal` genuina; falso para cualquier otro valor. */
+function esSenalOpcional(valor: unknown): valor is AbortSignal | undefined {
+  return valor === undefined || estadoDeSenal(valor) !== null;
+}
+
+/** Verdadero solo si hay señal y está cancelada. Si no se puede leer, falso: decide el código de hoy. */
+function estaCancelada(signal: AbortSignal | undefined): boolean {
+  return signal !== undefined && estadoDeSenal(signal) === true;
+}
+
+/**
+ * Ejecuta `operacion` con cancelación. Si la señal ya está cancelada, lanza `CANCELADA` sin ejecutarla
+ * (sin llamar a Supabase). Tras CUALQUIER fallo, si la señal está cancelada en ese momento el resultado
+ * es `CANCELADA`; si no, el fallo que corresponda, siempre como `ErrorCotizacion`. Un éxito se devuelve
+ * tal cual. Ni el error original ni el motivo de la cancelación se guardan ni se reenvían. Sin señal
+ * es transparente: los fallos de `operacion` ya son `ErrorCotizacion` y `aErrorCotizacion` los devuelve
+ * sin cambios.
+ */
+async function conCancelacion<T>(signal: AbortSignal | undefined, operacion: () => Promise<T>): Promise<T> {
+  if (estaCancelada(signal)) throw new ErrorCotizacion('CANCELADA');
+  try {
+    return await operacion();
+  } catch (fallo) {
+    if (estaCancelada(signal)) throw new ErrorCotizacion('CANCELADA');
+    throw aErrorCotizacion(fallo);
+  }
+}
+
 export interface OpcionesListadoCotizaciones {
   /** Base 1. Por defecto 1. */
   pagina?: number;
@@ -336,33 +414,79 @@ function leerOpciones(opciones: OpcionesListadoCotizaciones | undefined): { pagi
   }
 }
 
-/**
- * Una página del listado, de la más reciente a la más antigua. La paginación es en el servidor y
- * `id` desempata el orden para que sea estable. Con parámetros inválidos lanza
- * `ErrorCotizacion('PARAMETROS_INVALIDOS')` sin llamar a Supabase.
- */
-export async function listarCotizaciones(opciones?: OpcionesListadoCotizaciones): Promise<CotizacionResumen[]> {
-  const { pagina, tamano } = leerOpciones(opciones);
+export interface OpcionesPaginaCotizaciones extends OpcionesListadoCotizaciones {
+  /** Cancela la consulta. Solo `undefined` o una `AbortSignal` genuina: otro valor es `PARAMETROS_INVALIDOS`. */
+  signal?: AbortSignal;
+}
 
-  const desde = (pagina - 1) * tamano;
-  const hasta = desde + tamano - 1;
-  const { datos } = await leerDatos(() =>
-    supabase
+/** Resultado de `listarPaginaCotizaciones`, construido nuevo en cada llamada. */
+export interface PaginaCotizaciones {
+  /** Como mucho `tamano` filas, ya validadas. */
+  cotizaciones: CotizacionResumen[];
+  /** Si existe una página siguiente que se pueda pedir. */
+  haySiguiente: boolean;
+}
+
+/**
+ * Como `leerOpciones`, más la señal de cancelación. Cada propiedad (`pagina`, `tamano`, `signal`) se
+ * lee UNA sola vez y el valor validado es el que se usa después. Si la lectura lanza o un valor no es
+ * válido, lanza `PARAMETROS_INVALIDOS` sin el original.
+ */
+function leerOpcionesPagina(opciones: OpcionesPaginaCotizaciones | undefined): {
+  pagina: number;
+  tamano: number;
+  signal: AbortSignal | undefined;
+} {
+  try {
+    if (opciones !== undefined && !esObjeto(opciones)) throw new ErrorCotizacion('PARAMETROS_INVALIDOS');
+    // Cada propiedad se lee una sola vez; `undefined` toma el valor por defecto, `null` no.
+    const {
+      pagina = 1,
+      tamano = TAMANO_PAGINA_PREDETERMINADO,
+      signal,
+    }: { pagina?: unknown; tamano?: unknown; signal?: unknown } = opciones ?? {};
+    if (
+      !esEnteroEnRango(pagina, 1, PAGINA_MAXIMA) ||
+      !esEnteroEnRango(tamano, 1, TAMANO_PAGINA_MAXIMO) ||
+      !esSenalOpcional(signal)
+    ) {
+      throw new ErrorCotizacion('PARAMETROS_INVALIDOS');
+    }
+    return { pagina, tamano, signal };
+  } catch {
+    throw new ErrorCotizacion('PARAMETROS_INVALIDOS');
+  }
+}
+
+/**
+ * Una sola consulta del listado: columnas explícitas, de la más reciente a la más antigua con `id`
+ * como desempate estable, `filas` filas a partir de `desde`. Acepta como mucho `filas` filas y las
+ * valida todas: una de más o una inválida rechaza la respuesta entera con `DATOS_INVALIDOS`. Con
+ * `signal`, la entrega a supabase-js con `abortSignal`; sin ella, la consulta no cambia.
+ */
+async function consultarResumenes(
+  desde: number,
+  filas: number,
+  signal: AbortSignal | undefined,
+): Promise<CotizacionResumen[]> {
+  const { datos } = await leerDatos(() => {
+    const consulta = supabase
       .from('cotizaciones')
       .select(COLUMNAS_RESUMEN)
       .order('creado_at', { ascending: false })
       .order('id', { ascending: false })
-      .range(desde, hasta),
-  );
+      .range(desde, desde + filas - 1);
+    return signal === undefined ? consulta : consulta.abortSignal(signal);
+  });
 
   return validarRespuesta(() => {
-    if (!Array.isArray(datos) || datos.length > tamano) throw new ErrorCotizacion('DATOS_INVALIDOS');
+    if (!Array.isArray(datos) || datos.length > filas) throw new ErrorCotizacion('DATOS_INVALIDOS');
     const resumenes: CotizacionResumen[] = [];
     for (const fila of datos) {
       // El tope se vuelve a imponer en cada vuelta: un arreglo no genuino (un `Proxy` con `length`
       // cambiante o un `Symbol.iterator` propio) puede dar más filas de las que declaró. Una de más
-      // rechaza la página entera, nunca se trunca: lo devuelto jamás supera `tamano`.
-      if (resumenes.length >= tamano) throw new ErrorCotizacion('DATOS_INVALIDOS');
+      // rechaza la página entera, nunca se trunca: lo devuelto jamás supera `filas`.
+      if (resumenes.length >= filas) throw new ErrorCotizacion('DATOS_INVALIDOS');
       const resumen = aResumen(fila);
       // Una fila inválida rechaza la página entera: nunca se omite en silencio ni se devuelve una parte.
       if (resumen === null) throw new ErrorCotizacion('DATOS_INVALIDOS');
@@ -370,6 +494,64 @@ export async function listarCotizaciones(opciones?: OpcionesListadoCotizaciones)
     }
     return resumenes;
   });
+}
+
+/**
+ * Una página del listado, de la más reciente a la más antigua. La paginación es en el servidor y
+ * `id` desempata el orden para que sea estable. Pide exactamente `tamano` filas y rechaza más. Con
+ * parámetros inválidos lanza `ErrorCotizacion('PARAMETROS_INVALIDOS')` sin llamar a Supabase. Para
+ * saber si hay página siguiente o poder cancelar, usa `listarPaginaCotizaciones`.
+ */
+export async function listarCotizaciones(opciones?: OpcionesListadoCotizaciones): Promise<CotizacionResumen[]> {
+  const { pagina, tamano } = leerOpciones(opciones);
+  return consultarResumenes((pagina - 1) * tamano, tamano, undefined);
+}
+
+/**
+ * Una página del listado (mismo orden, columnas, valores por defecto y topes que `listarCotizaciones`)
+ * y si existe otra después. En la MISMA consulta pide una fila de más (`tamano + 1`): si llega, hay
+ * página siguiente. Esa fila de más se valida como las demás (una inválida rechaza la página entera con
+ * `DATOS_INVALIDOS`) y nunca se devuelve; más de `tamano + 1` filas también es `DATOS_INVALIDOS`.
+ * `haySiguiente` es falso en `PAGINA_MAXIMA`, porque la siguiente se rechazaría como parámetro inválido.
+ *
+ * Orden de las comprobaciones: los parámetros (`PARAMETROS_INVALIDOS`, sin red), después la señal (ya
+ * cancelada: `CANCELADA`, sin red) y por último la consulta. Un fallo con la señal cancelada es
+ * `CANCELADA`; sin señal, los fallos son los mismos que en `listarCotizaciones`.
+ */
+export async function listarPaginaCotizaciones(opciones?: OpcionesPaginaCotizaciones): Promise<PaginaCotizaciones> {
+  const { pagina, tamano, signal } = leerOpcionesPagina(opciones);
+  // `desde` usa el `tamano` PEDIDO, nunca el de la consulta (`tamano + 1`), para que las páginas no se
+  // solapen. Con los topes ya validados, `desde` ≤ (10 000 − 1) × 100 = 999 900 y la última fila pedida,
+  // `desde + tamano`, ≤ 1 000 000: enteros seguros, sin desborde posible.
+  const desde = (pagina - 1) * tamano;
+  return conCancelacion(signal, async () => {
+    const filas = await consultarResumenes(desde, tamano + 1, signal);
+    return {
+      cotizaciones: filas.slice(0, tamano),
+      haySiguiente: filas.length > tamano && pagina < PAGINA_MAXIMA,
+    };
+  });
+}
+
+export interface OpcionesObtenerCotizacion {
+  /** Cancela la consulta. Solo `undefined` o una `AbortSignal` genuina: otro valor es `PARAMETROS_INVALIDOS`. */
+  signal?: AbortSignal;
+}
+
+/**
+ * Lee y valida las opciones de `obtenerCotizacion`. `signal` se lee UNA sola vez. Si `opciones` no es
+ * un objeto (también `null`), la lectura lanza o la señal no es válida, lanza `PARAMETROS_INVALIDOS`
+ * sin el original.
+ */
+function leerOpcionesObtener(opciones: unknown): AbortSignal | undefined {
+  try {
+    if (!esObjeto(opciones)) throw new ErrorCotizacion('PARAMETROS_INVALIDOS');
+    const { signal }: { signal?: unknown } = opciones;
+    if (!esSenalOpcional(signal)) throw new ErrorCotizacion('PARAMETROS_INVALIDOS');
+    return signal;
+  } catch {
+    throw new ErrorCotizacion('PARAMETROS_INVALIDOS');
+  }
 }
 
 /**
@@ -381,24 +563,38 @@ export async function listarCotizaciones(opciones?: OpcionesListadoCotizaciones)
  * un 404 que el cliente reescribe como 204, un `status` ausente o no numérico) la respuesta no tiene
  * cuerpo y NO se toma por «no encontrada»: lanza `DATOS_INVALIDOS`, igual que el listado. Un 200 con
  * cuerpo vacío es indistinguible de 0 filas y se acepta como tal.
+ *
+ * `opciones` es aditivo: llamar solo con `id` se comporta igual que antes de existir. Su valor por
+ * defecto mantiene `obtenerCotizacion.length` en 1. Orden de las comprobaciones: `opciones`
+ * (`PARAMETROS_INVALIDOS`, sin red), después el `id` (`null`, porque no hay consulta que cancelar),
+ * después la señal (ya cancelada: `CANCELADA`, sin red) y por último la consulta. Un fallo con la
+ * señal cancelada es `CANCELADA`.
  */
-export async function obtenerCotizacion(id: string): Promise<Cotizacion | null> {
+export async function obtenerCotizacion(
+  id: string,
+  opciones: OpcionesObtenerCotizacion = {},
+): Promise<Cotizacion | null> {
+  const signal = leerOpcionesObtener(opciones);
   if (!esUuid(id)) return null;
 
-  const { datos: dato, status } = await leerDatos(() =>
-    supabase.from('cotizaciones').select(COLUMNAS_COTIZACION).eq('id', id).maybeSingle(),
-  );
-  if (dato === null) {
-    if (status === 200) return null;
-    throw new ErrorCotizacion('DATOS_INVALIDOS');
-  }
-
-  return validarRespuesta(() => {
-    const cotizacion = aCotizacion(dato);
-    // La fila devuelta debe ser la pedida: otra distinta es una respuesta inválida, no «no encontrada».
-    if (cotizacion === null || cotizacion.id.toLowerCase() !== id.toLowerCase()) {
+  return conCancelacion(signal, async () => {
+    const { datos: dato, status } = await leerDatos(() => {
+      const filtro = supabase.from('cotizaciones').select(COLUMNAS_COTIZACION).eq('id', id);
+      // `abortSignal` va antes de `maybeSingle()`, que devuelve un constructor sin ese método.
+      return (signal === undefined ? filtro : filtro.abortSignal(signal)).maybeSingle();
+    });
+    if (dato === null) {
+      if (status === 200) return null;
       throw new ErrorCotizacion('DATOS_INVALIDOS');
     }
-    return cotizacion;
+
+    return validarRespuesta(() => {
+      const cotizacion = aCotizacion(dato);
+      // La fila devuelta debe ser la pedida: otra distinta es una respuesta inválida, no «no encontrada».
+      if (cotizacion === null || cotizacion.id.toLowerCase() !== id.toLowerCase()) {
+        throw new ErrorCotizacion('DATOS_INVALIDOS');
+      }
+      return cotizacion;
+    });
   });
 }
