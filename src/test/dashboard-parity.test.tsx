@@ -202,11 +202,29 @@ describe("rutas y roles: el panel es solo del administrador (allowedTypes [0]); 
     expect(blocks["/solicitudes"]).not.toContain("AdminShell");
   });
 
-  it("las 4 rutas del panel usan el shell; el resto de rutas privadas y las públicas quedan como estaban", () => {
+  // Por el módulo de Cotizaciones: a las 4 rutas de siempre se suman exactamente sus 3 rutas (lista, catálogo y detalle).
+  it("las 7 rutas del panel usan el shell; el resto de rutas privadas y las públicas quedan como estaban", () => {
     const conShell = Object.entries(blocks).filter(([, b]) => b.includes("<AdminShell>")).map(([p]) => p);
-    expect(conShell.sort()).toEqual(["/dashboard", "/dashboard/project/:id", "/dashboard/proyectos", "/dashboard/tickets"]);
+    expect(conShell.sort()).toEqual([
+      "/dashboard",
+      "/dashboard/cotizaciones",
+      "/dashboard/cotizaciones/:id",
+      "/dashboard/cotizaciones/catalogo",
+      "/dashboard/project/:id",
+      "/dashboard/proyectos",
+      "/dashboard/tickets",
+    ]);
     const protegidas = Object.entries(blocks).filter(([, b]) => b.includes("<ProtectedRoute")).map(([p]) => p);
-    expect(protegidas.sort()).toEqual(["/dashboard", "/dashboard/project/:id", "/dashboard/proyectos", "/dashboard/tickets", "/solicitudes"]);
+    expect(protegidas.sort()).toEqual([
+      "/dashboard",
+      "/dashboard/cotizaciones",
+      "/dashboard/cotizaciones/:id",
+      "/dashboard/cotizaciones/catalogo",
+      "/dashboard/project/:id",
+      "/dashboard/proyectos",
+      "/dashboard/tickets",
+      "/solicitudes",
+    ]);
     // Portal de clientes, acceso y recuperación: públicos y sin shell.
     for (const path of ["/client/:token", "/login", "/signup", "/auth/callback", "/auth/reset-password", "/auth/update-password"]) {
       expect(blocks[path], path).toBeDefined();
@@ -484,7 +502,8 @@ describe("visita directa al panel: el armazón y su primera página se piden a l
 
 describe("indicador de carga ligero del Resumen y la lista", () => {
   it("App usa el indicador de solo texto únicamente en las pantallas con armazón; las demás rutas conservan el de siempre", () => {
-    expect(appSource).toContain('new Set(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"])');
+    // Por el módulo de Cotizaciones: su lista también usa el armazón desde la primera carga (el catálogo y el detalle, no).
+    expect(appSource).toContain('new Set(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets", "/dashboard/cotizaciones"])');
     expect(appSource).toContain("<Suspense fallback={<RouteFallback />}>");
     expect(appSource).toContain("<PageLoader />");
   });

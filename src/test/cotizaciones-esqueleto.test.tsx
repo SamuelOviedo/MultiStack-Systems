@@ -1,5 +1,6 @@
 // T019 · Esqueleto de Cotizaciones (F1): listado, detalle y catálogo, solo lectura.
-// Se montan las tres pantallas reales con `MemoryRouter` y `Routes` propios (todavía no están en `App.tsx`). Solo se
+// Se montan las tres pantallas reales con `MemoryRouter` y `Routes` propios, aisladas de `App` (las rutas reales se
+// prueban en `admin-routes.test.tsx` y `cotizaciones-rutas.test.tsx`). Solo se
 // simulan `useAuth` (la sesión de cada caso), la capa de datos (`listarPaginaCotizaciones` y `obtenerCotizacion`;
 // `ErrorCotizacion`, `esUuid` y `traducirErrorCotizacion` son los reales) y el cliente de Supabase, que nunca debe
 // usarse. Todos los datos son sintéticos y cada respuesta la entrega la prueba a mano: sin red ni temporizadores.

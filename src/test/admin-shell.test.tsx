@@ -163,6 +163,70 @@ describe("navegación y aria-current", () => {
   });
 });
 
+// Cotizaciones: una sola entrada del menú para la lista, el catálogo y el detalle, y sus migas con las rutas reales.
+// (La entrada ya figura en las listas de arriba: enlaces, grupos, orden y colaborador sin menú.)
+describe("Cotizaciones: entrada actual y migas con las rutas reales", () => {
+  const LISTA = "/dashboard/cotizaciones";
+  const CATALOGO = "/dashboard/cotizaciones/catalogo";
+  const DETALLE = "/dashboard/cotizaciones/0a1b2c3d-0007-4000-8000-000000000007";
+  const current = () => screen.getAllByRole("link").filter((l) => l.getAttribute("aria-current") === "page");
+  const crumbs = () => screen.getByRole("navigation", { name: "Migas de pan" });
+  const items = () => Array.from(crumbs().querySelectorAll("ol > li"));
+  const textos = () => items().map((li) => li.textContent).filter(Boolean);
+  /** Lo que se ve por debajo de 768 px: las entradas SIN `hidden` sin prefijo. */
+  const onNarrow = () => items().filter((li) => !/(^|\s)hidden(\s|$)/.test(li.className));
+
+  it.each([
+    ["la lista", LISTA],
+    ["la lista con barra final", `${LISTA}/`],
+    ["el catálogo", CATALOGO],
+    ["el catálogo con barra final", `${CATALOGO}/`],
+    ["el detalle", DETALLE],
+  ])("%s marca «Cotizaciones» en el menú y solo esa entrada", (_nombre, path) => {
+    renderShell(path);
+    expect(current().map((l) => l.textContent)).toEqual(["Cotizaciones"]);
+    expect(screen.getByRole("link", { name: "Cotizaciones", current: "page" })).toHaveAttribute("href", LISTA);
+  });
+
+  it("lista: Gestión comercial / Cotizaciones, con la última miga como página actual y sin enlaces", () => {
+    renderShell(LISTA);
+    expect(textos()).toEqual(["Gestión comercial", "Cotizaciones"]);
+    const migas = within(crumbs());
+    expect(migas.getByText("Cotizaciones")).toHaveAttribute("aria-current", "page");
+    expect(migas.queryAllByRole("link")).toHaveLength(0);
+    expect(migas.queryByText("Detalle")).toBeNull();
+    expect(migas.queryByText("Catálogo")).toBeNull();
+    // En una sola línea (móvil) queda solo la miga actual.
+    expect(onNarrow().map((li) => li.textContent)).toEqual(["Cotizaciones"]);
+  });
+
+  it.each([
+    ["catálogo", CATALOGO, "Catálogo", "Detalle"],
+    ["catálogo con barra final", `${CATALOGO}/`, "Catálogo", "Detalle"],
+    ["detalle", DETALLE, "Detalle", "Catálogo"],
+  ])("%s: Gestión comercial / Cotizaciones (enlace a la lista) / %s, con aria-current en la última", (_nombre, path, ultima, ajena) => {
+    renderShell(path);
+    expect(textos()).toEqual(["Gestión comercial", "Cotizaciones", ultima]);
+    const migas = within(crumbs());
+    expect(migas.getByRole("link", { name: "Cotizaciones" })).toHaveAttribute("href", LISTA);
+    expect(migas.getAllByRole("link")).toHaveLength(1);
+    expect(migas.getByText(ultima)).toHaveAttribute("aria-current", "page");
+    expect(migas.queryByText(ajena)).toBeNull();
+    expect(migas.queryByRole("link", { name: ultima })).toBeNull();
+  });
+
+  it.each([
+    ["catálogo", CATALOGO],
+    ["detalle", DETALLE],
+  ])("%s: en móvil queda un enlace corto «‹ Cotizaciones» a la lista y la miga final sigue para desde 768 px", (_nombre, path) => {
+    renderShell(path);
+    const visibles = onNarrow();
+    expect(visibles).toHaveLength(1);
+    expect(within(visibles[0] as HTMLElement).getByRole("link", { name: "Cotizaciones" })).toHaveAttribute("href", LISTA);
+    expect(items().some((li) => /(^|\s)hidden(\s|$)/.test(li.className) && ["Catálogo", "Detalle"].includes(li.textContent ?? ""))).toBe(true);
+  });
+});
+
 describe("visibilidad por rol (solo presentación)", () => {
   it("el administrador ve primero lo disponible (3 grupos) y los grupos sin entradas disponibles no se dibujan", () => {
     renderShell();
