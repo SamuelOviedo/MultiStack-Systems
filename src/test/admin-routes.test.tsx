@@ -290,12 +290,14 @@ describe("Dashboard dentro del shell", () => {
     for (const fn of [libs.getProjects, libs.getProjectRequests, libs.getUpcomingRenewals, libs.getAllTickets]) expect(fn).not.toHaveBeenCalled();
   });
 
-  it("el administrador ve las 3 rutas reales y «Próximamente» cerrada (8 módulos, sin enlaces nuevos)", async () => {
+  // Por la entrada «Cotizaciones»: el menú tiene 4 enlaces funcionales (antes 3); «Próximamente» sigue sin enlaces.
+  it("el administrador ve los 4 enlaces del menú y «Próximamente» cerrada (8 módulos, sin enlaces nuevos)", async () => {
     signIn(0);
     goTo("/dashboard");
     const nav = within(await screen.findByRole("navigation", { name: "Principal" }, WAIT));
     expect(nav.getAllByRole("link").map((a) => a.getAttribute("href")).sort()).toEqual([
       "/dashboard",
+      "/dashboard/cotizaciones",
       "/dashboard/proyectos",
       "/dashboard/tickets",
     ]);
@@ -305,7 +307,7 @@ describe("Dashboard dentro del shell", () => {
     expect(nav.queryByText(/^Pronto$/)).toBeNull();
     fireEvent.click(proximamente);
     expect(nav.getByRole("list", { name: "Finanzas" })).toBeVisible();
-    expect(nav.getAllByRole("link")).toHaveLength(3);
+    expect(nav.getAllByRole("link")).toHaveLength(4);
   });
 
   it("el colaborador no ve el panel ni «Próximamente»: se le redirige antes de pintar el menú", async () => {

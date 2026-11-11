@@ -148,7 +148,8 @@ describe("navegación y aria-current", () => {
     const hrefs = within(screen.getByRole("navigation", { name: "Principal" }))
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
-    expect(hrefs.sort()).toEqual(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"]);
+    // Por la entrada «Cotizaciones»: se suma /dashboard/cotizaciones a las rutas del menú.
+    expect(hrefs.sort()).toEqual(["/dashboard", "/dashboard/cotizaciones", "/dashboard/proyectos", "/dashboard/tickets"]);
   });
 
   it("navegar con el teclado: los enlaces son tabulables y activar uno cambia la ruta", () => {
@@ -173,7 +174,12 @@ describe("visibilidad por rol (solo presentación)", () => {
     for (const group of ["Finanzas", "Centro de Operaciones", "Administración"]) {
       expect(nav.queryByRole("list", { name: group }), group).toBeNull();
     }
-    expect(nav.getAllByRole("link")).toHaveLength(3);
+    // Por la entrada «Cotizaciones»: 4 enlaces (Resumen, Proyectos, Cotizaciones y Tickets) en los mismos 3 grupos.
+    expect(nav.getAllByRole("link")).toHaveLength(4);
+    expect(within(nav.getByRole("list", { name: "Gestión comercial" })).getAllByRole("link").map((a) => a.textContent)).toEqual([
+      "Proyectos",
+      "Cotizaciones",
+    ]);
   });
 
   it("el colaborador no ve ninguna entrada ni sección «Próximamente» (el panel es solo del administrador)", () => {
@@ -182,7 +188,7 @@ describe("visibilidad por rol (solo presentación)", () => {
     const nav = within(screen.getByRole("navigation", { name: "Principal" }));
     expect(nav.queryAllByRole("link")).toHaveLength(0);
     expect(nav.queryAllByRole("listitem")).toHaveLength(0);
-    for (const text of ["Resumen", "Proyectos", "Tickets", "Inicio", "Gestión comercial", "Soporte", "Finanzas", "Administración", "Clientes"]) {
+    for (const text of ["Resumen", "Proyectos", "Cotizaciones", "Tickets", "Inicio", "Gestión comercial", "Soporte", "Finanzas", "Administración", "Clientes"]) {
       expect(nav.queryByText(text), text).toBeNull();
     }
     expect(nav.queryByRole("button", { name: /Próximamente/ })).toBeNull();
@@ -222,6 +228,7 @@ describe("sección «Próximamente»", () => {
     expect(items.map((el) => el.getAttribute("href") ?? "boton")).toEqual([
       "/dashboard",
       "/dashboard/proyectos",
+      "/dashboard/cotizaciones", // Por la entrada «Cotizaciones»: va tras Proyectos, dentro de Gestión comercial.
       "/dashboard/tickets",
       "boton",
     ]);
@@ -260,8 +267,8 @@ describe("sección «Próximamente»", () => {
       expect(el.closest("a")).toBeNull();
     }
     expect(screen.queryByRole("link", { name: /Clientes|Finanzas|Cobros|Auditoría/ })).toBeNull();
-    // Abrirla no añade enlaces: siguen siendo las 3 rutas que existen.
-    expect(within(nav()).getAllByRole("link")).toHaveLength(3);
+    // Abrirla no añade enlaces: siguen siendo las 4 rutas del menú (3 + «Cotizaciones»).
+    expect(within(nav()).getAllByRole("link")).toHaveLength(4);
   });
 
   it("se abre y se cierra con el mismo botón nativo (teclado: Enter y Espacio) sin perder el foco", () => {
@@ -292,8 +299,8 @@ describe("sección «Próximamente»", () => {
     expect(botones[0]).toHaveAttribute("title", expect.stringContaining("Próximamente"));
     expect(botones[0].querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     expect(panel()).not.toBeVisible();
-    // Nada de texto de módulos a la vista y los enlaces reales no cambian.
-    expect(within(nav()).getAllByRole("link")).toHaveLength(3);
+    // Nada de texto de módulos a la vista y los enlaces reales no cambian (4 con «Cotizaciones»).
+    expect(within(nav()).getAllByRole("link")).toHaveLength(4);
     for (const el of nav().querySelectorAll('[aria-disabled="true"]')) expect(el).not.toBeVisible();
   });
 
@@ -729,7 +736,8 @@ describe("áreas táctiles: 44 px en móvil, escritorio sin cambio", () => {
     const dialog = await screen.findByRole("dialog");
     const nav = within(dialog).getByRole("navigation", { name: "Principal" });
     const filas = [...within(nav).getAllByRole("link"), within(nav).getByRole("button", { name: /Próximamente/ })];
-    expect(filas).toHaveLength(4);
+    // Por la entrada «Cotizaciones»: 4 enlaces + el botón «Próximamente» = 5 filas.
+    expect(filas).toHaveLength(5);
     for (const a of filas) {
       expect(a.className, a.textContent ?? "").toContain("min-h-11");
       expect(a.className, a.textContent ?? "").toContain("lg:min-h-9");

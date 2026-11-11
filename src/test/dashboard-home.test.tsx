@@ -363,12 +363,14 @@ describe("Resumen · proyectos recientes", () => {
 });
 
 describe("Resumen · accesos rápidos", () => {
-  it("salen del menú: solo módulos funcionales y existentes (Proyectos y Tickets), nunca los «Pronto»", async () => {
+  // Por la entrada «Cotizaciones»: los accesos salen del menú, así que ahora incluyen Cotizaciones (entre Proyectos y Tickets).
+  it("salen del menú: solo módulos funcionales y existentes (Proyectos, Cotizaciones y Tickets), nunca los «Pronto»", async () => {
     renderResumen();
     const region = await screen.findByRole("region", { name: "Accesos rápidos" });
     const enlaces = within(region).getAllByRole("link");
     expect(enlaces.map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
       ["Proyectos", "/dashboard/proyectos"],
+      ["Cotizaciones", "/dashboard/cotizaciones"],
       ["Tickets", "/dashboard/tickets"],
     ]);
   });

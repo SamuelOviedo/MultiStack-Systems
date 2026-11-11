@@ -387,11 +387,12 @@ describe("la lista completa vive en /dashboard/proyectos", () => {
 });
 
 describe("lo que daba la barra superior anterior (Panel, Soporte, Salir, tema, sitio) ahora lo da el shell", () => {
-  it("menú: Resumen, Proyectos y Tickets con la insignia de tickets abiertos; «Ver sitio» lleva a la landing", async () => {
+  it("menú: Resumen, Proyectos, Cotizaciones y Tickets con la insignia de tickets abiertos; «Ver sitio» lleva a la landing", async () => {
     signIn(0, "responsable@example.test");
     goTo("/dashboard");
     const nav = within(await screen.findByRole("navigation", { name: "Principal" }, WAIT));
-    expect(nav.getAllByRole("link").map((a) => a.getAttribute("href")).sort()).toEqual(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"]);
+    // Por la entrada «Cotizaciones»: se suma /dashboard/cotizaciones a los enlaces del menú.
+    expect(nav.getAllByRole("link").map((a) => a.getAttribute("href")).sort()).toEqual(["/dashboard", "/dashboard/cotizaciones", "/dashboard/proyectos", "/dashboard/tickets"]);
     await waitFor(() => expect(nav.getByRole("link", { name: /Tickets/ })).toHaveTextContent("1 abiertos"), WAIT);
     expect(screen.getByRole("link", { name: /Ver sitio/ })).toHaveAttribute("href", "/");
     expect(screen.getByRole("button", { name: /Cambiar a tema/ })).toBeInTheDocument();
