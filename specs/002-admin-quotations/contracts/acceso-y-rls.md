@@ -131,3 +131,26 @@ Complementan las de base de datos (ver `contracts/rutas-y-navegacion.md`): `Prot
 ## 5. Revisión de `security`
 
 Por tocar auth y datos (constitución II, `CLAUDE.md`), `security` revisa **cada migración y cada RPC antes del cierre de su fase**, con foco en: `search_path` y objetos cualificados en funciones `SECURITY DEFINER`, privilegios de ejecución explícitos, privilegios por columna en `INSERT` y en `UPDATE`, valores impuestos en el alta, bloqueo de filas en las funciones que escriben (y ninguno en la validación `STABLE`), atomicidad de los eventos, ausencia de datos personales en mensajes de error y en el `detalle` de los eventos, la lista blanca de inmutabilidad (falla cerrado), que ninguna vía use una variable de sesión, una exención por rol o un trigger desactivado, y que `get_user_type()` sea la única fuente del rol.
+
+### 5.1 Resultado de la revisión de F1 (T023)
+
+Medido el 2026-11-13 en una base local desechable con las 15 migraciones aplicadas:
+
+- Suite pgTAP: 428 de 428.
+  - Al cierre de F1 se añadieron cuatro aserciones al grupo LEN de `cotizaciones_fundacion`, una por columna `prospecto_*`: un `CHECK` de longitud rechazado llega al administrador como `23514` sin `DETAIL` (el ayudante de la prueba solo informa el SQLSTATE y una marca fija, nunca valores). Con ellas la suite pasa a 432 de 432 (medido el 2026-11-14 con el mismo procedimiento local), y son las que fijan, para la ruta de la API, la primera mitad de la regla de §5.2: con el rol `authenticated` el rechazo no trae `DETAIL`.
+- Las seis funciones del módulo son `SECURITY DEFINER` con `search_path = public, pg_temp` y sin `EXECUTE` para `PUBLIC`, `anon`, `authenticated` ni `service_role`.
+- Los ocho triggers están en `ENABLE ALWAYS` y siguen disparando con `session_replication_role = replica`.
+- `authenticated` solo tiene `SELECT` de tabla e `INSERT`/`UPDATE` sobre las cuatro columnas `prospecto_*`; `anon` y `service_role` no tienen nada.
+- F1 no expone ninguna RPC.
+
+Revisión sin hallazgos críticos, altos ni medios; un hallazgo bajo, que origina la regla de §5.2. La medición se hizo en local y con sesiones simuladas: siguen sin verificar la ejecución oficial de `supabase test db` en CI y, en producción, la versión de la API de datos y los ajustes de log; esta medición no los sustituye.
+
+### 5.2 Regla que sale de esa medición (obligatoria desde F3)
+
+Un `CHECK` que falla bajo un rol exento de RLS devuelve y registra la fila completa en `DETAIL`. Exentos: `postgres` y toda función `SECURITY DEFINER` propiedad de `postgres` (las RPC de F3 en adelante). Con el rol `authenticated` no se emite (lo fijan las cuatro aserciones LEN de §5.1): en la medición local, por la API de F1 la respuesta trae `details` nulo y el log del servidor, con los ajustes de log por defecto de la imagen local, no guarda valores. Los ajustes de log de producción no se han verificado. Por eso:
+
+- Cada RPC que escriba columnas de contenido valida las longitudes antes del DML, o captura `check_violation` y `not_null_violation` y relanza `COT:<CODIGO>` con mensaje constante.
+- Su pgTAP llama a la RPC con un valor fuera de límite a través de `pg_temp.rechazo()` y exige `P0001|sin_detalle`: el error propio, sin `DETAIL` y sin imprimir valores.
+- La capa de datos del cliente valida, antes de enviar, los mismos límites (200, 200, 254 y 40 caracteres).
+- Al añadir RPC se amplía también la expresión de S17 para cubrir `current_user`, `session_user`, `current_role`, `pg_has_role`, `SET ROLE`, `auth.jwt`, `auth.role`, `raw_user_meta_data` y `app_metadata`.
+- Ninguna RPC construye SQL dinámico con valores incrustados: SQL estático o `EXECUTE … USING`. Una cancelación (por ejemplo, `statement_timeout`) no la captura `WHEN OTHERS`, y su `CONTEXT` lleva el texto de la sentencia.

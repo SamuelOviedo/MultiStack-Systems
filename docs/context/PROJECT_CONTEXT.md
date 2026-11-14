@@ -55,8 +55,8 @@ Tres contextos de usuario:
 │   │   ├── ui/         — 70+ componentes shadcn auto-generados (NO EDITAR)
 │   │   └── *.tsx       — Componentes globales (Navbar, ProtectedRoute, etc.)
 │   ├── hooks/          — useAuth, use-toast, use-mobile
-│   ├── lib/            — Capa de acceso a datos (projects.ts, tickets.ts, portal.ts)
-│   ├── types/          — Enums y tipos de dominio (projects.ts, tickets.ts)
+│   ├── lib/            — Capa de acceso a datos (projects.ts, tickets.ts, portal.ts, cotizaciones.ts)
+│   ├── types/          — Enums y tipos de dominio (projects.ts, tickets.ts, cotizaciones.ts)
 │   └── integrations/
 │       └── supabase/   — client.ts (singleton), types.ts (auto-generado)
 │
@@ -101,6 +101,8 @@ User interaction (click/submit)
           → toast de éxito/error
 ```
 
+**Cotizaciones (solo administrador):** las pantallas del módulo leen por `src/lib/cotizaciones.ts` y cargan con el hook local `src/components/admin/cotizaciones/useRecursoCotizacion.ts`. No usan la caché compartida de TanStack Query para los datos personales del prospecto (nombre, contacto, correo y teléfono): los datos viven solo en el estado del componente que los pidió y se descartan al desmontarlo, al cerrar sesión o al cambiar de cuenta. El hook no autoriza; la autorización real es `ProtectedRoute` + RLS. En F1 la capa solo lee (listado paginado y detalle), valida cada fila recibida, falla cerrado y convierte todo fallo en `ErrorCotizacion` con un texto fijo en español, sin el error crudo de Supabase.
+
 ### Estado global
 
 Solo **Context API** via `useAuth`:
@@ -136,12 +138,17 @@ Todo lo demás es `useState` local en el componente que lo necesita.
 /dashboard → Dashboard [user_type: 0, 1]
 /project/:id → ProjectDetail [user_type: 0, 1]
 /tickets → TicketsGlobal [user_type: 0, 1]
+/dashboard/cotizaciones → CotizacionesList [user_type: 0]
+/dashboard/cotizaciones/catalogo → CotizacionesCatalogo [user_type: 0]
+/dashboard/cotizaciones/:id → CotizacionDetalle [user_type: 0]
 /mis-solicitudes → MisSolicitudes [user_type: 2]
 /client/:token → ClientPortal [público, sin auth]
 * → NotFound
 ```
 
 `ProtectedRoute` envuelve todas las rutas del dashboard. `ClientPortal` es pública.
+
+Las tres rutas de Cotizaciones son solo del administrador: `ProtectedRoute allowedTypes={[0]}` dentro de `AdminShell`, con páginas `lazy`. `catalogo` se declara antes de `:id`, y el detalle no consulta nada si `:id` no es un UUID. En F1 el listado y el detalle son de solo lectura y el catálogo es un esqueleto sin datos. El menú del panel (`src/components/admin/adminNav.ts`) tiene una sola entrada «Cotizaciones», visible solo para el rol 0.
 
 ---
 
@@ -190,6 +197,9 @@ Las notificaciones fallan silenciosamente si Resend API cae. **No hay retry ni q
 - `Ticket` — soporte/solicitud con type, priority, status
 - `TicketMessage` — mensajes en un ticket
 - `ClientAccessToken` — token para portal público
+- `Cotizacion` — cotización (en F1: referencia interna, estado, instantánea del prospecto, auditoría y versión de fila)
+- `CotizacionResumen` — lo que muestra el listado de cotizaciones
+- `CotizacionEvento` — evento de auditoría de una cotización (en F1 solo `creada`)
 
 ---
 
@@ -208,6 +218,18 @@ auth.users (Supabase)
         └── tickets (1:N, project_id nullable)
               └── ticket_messages (1:N) — conversación
 ```
+
+Módulo de Cotizaciones (F1, solo administrador). Sin clave foránea a `auth.users`: la identidad de auditoría sale de `auth.uid()` dentro de los triggers.
+
+```
+cotizaciones — cotización: instantánea del prospecto, estado y referencia interna (BOR-n)
+  └── cotizacion_eventos (1:N, ON DELETE RESTRICT) — auditoría de la cotización
+```
+
+- `cotizaciones` — una fila por cotización. Nace siempre en `borrador`; el navegador solo escribe las cuatro columnas `prospecto_*`, y `referencia_interna`, `estado`, `row_version` y la auditoría (`creado_*`, `actualizado_*`) los fija la base.
+- `cotizacion_eventos` — auditoría de cada cotización (tipo, actor y momento). Solo se añade: nadie la modifica ni la borra, y `detalle` no lleva datos personales. En F1 el único evento es `creada`, que escribe un trigger al insertar la cotización.
+- La máquina de estados, la inmutabilidad y la auditoría las imponen triggers (8, todos en `ENABLE ALWAYS`), para cualquier rol que llegue a escribir, también `postgres`: alta segura, matriz de transiciones, fila congelada fuera de `borrador` salvo una lista blanca, sin `DELETE` ni `TRUNCATE`, y eventos inmutables con `detalle` de esquema estricto. Sus errores son `COT:<CODIGO>` (SQLSTATE `P0001`; `42501` en `COT:SIN_PERMISO`), sin datos del prospecto.
+- Diseño completo y fases siguientes: `specs/002-admin-quotations/data-model.md`.
 
 ### Enums en base de datos (CHECK constraints, no ENUM type)
 
@@ -232,13 +254,23 @@ auth.users (Supabase)
 
 -- tickets.status
 'abierto' | 'en_revision' | 'en_progreso' | 'resuelto' | 'cerrado'
+
+-- cotizaciones.estado
+'borrador' | 'emitida' | 'aceptada_firmada' | 'rechazada' | 'cancelada'
+
+-- cotizacion_eventos.tipo (F1; cada fase amplía el CHECK)
+'creada'
 ```
 
 **Estos enums deben mantenerse sincronizados con los tipos en `src/types/`.**
 
+En `cotizaciones.estado`, el `CHECK` solo fija los cinco valores (los mismos de `ESTADOS_COTIZACION` en `src/types/cotizaciones.ts`). Qué transiciones valen lo decide un trigger, no el `CHECK` ni el frontend: `borrador` → `emitida` o `cancelada`; `emitida` → `aceptada_firmada`, `rechazada` o `cancelada`; `aceptada_firmada` → `emitida`. `rechazada` y `cancelada` no tienen salida y nunca se vuelve a `borrador`.
+
 ### RLS
 
 Todas las tablas tienen RLS activo. Políticas basadas en `auth.uid() = user_id`. Las funciones RPC del portal usan `SECURITY DEFINER` y validan token internamente.
+
+**Cotizaciones:** RLS solo administrador. Todas las políticas de `cotizaciones` y `cotizacion_eventos` usan `get_user_type() = 0` (nunca `IN (0,1)`): al leer, colaborador, cliente y un usuario sin perfil reciben 0 filas, y no pueden escribir. `authenticated` solo tiene `SELECT` de tabla e `INSERT`/`UPDATE` por columna sobre las cuatro `prospecto_*` (solo con `estado = 'borrador'`), sin `DELETE`; `anon` no tiene ningún privilegio. **Ningún objeto del módulo concede privilegios a `service_role`**: la migración de F1 le retira todo sobre las dos tablas, las dos secuencias y las seis funciones, porque ese rol salta RLS, y todo objeto nuevo del módulo (tabla, secuencia o función) debe retirárselo también. Las seis funciones son de trigger, `SECURITY DEFINER` con `search_path = public, pg_temp` y sin `EXECUTE` para ningún rol de la API; F1 no crea ninguna RPC. Contrato completo: `specs/002-admin-quotations/contracts/acceso-y-rls.md`.
 
 ### No hay ORM
 
@@ -374,6 +406,8 @@ export async function getFoo(id: string): Promise<MiTipo[]> {
 | `ProjectDetail.tsx` | Alto | 686 líneas entrelazadas. Múltiples estados interdependientes. |
 | `supabase/migrations/` | Alto | Orden de ejecución es irreversible en producción. |
 | `portal.ts` + RPC SQL | Medio | Portal público sin auth. Token en URL. Sin rate limiting. |
+| `20261109120000_cotizaciones_fundacion.sql` | Alto | Base de Cotizaciones: privilegios por columna, RLS y 8 triggers `ENABLE ALWAYS` son capas independientes. No se edita: cada fase reemite sus funciones con `CREATE OR REPLACE` en una migración nueva. |
+| `src/lib/cotizaciones.ts` | Medio | Única capa de datos de Cotizaciones; maneja datos personales del prospecto. Falla cerrado (una fila inválida rechaza la página entera) y nunca deja pasar el error crudo de Supabase. |
 
 ### Side effects frecuentes
 
@@ -381,6 +415,9 @@ export async function getFoo(id: string): Promise<MiTipo[]> {
 - Cambiar nombre de tabla/columna en migración sin actualizar `src/lib/` → silent fail con TypeScript permisivo
 - Agregar campo a `proyectos_clientes` sin actualizar el select en `getProject()` → campo no llega al frontend
 - Modificar `send-auth-email` Edge Function → puede romper confirmación de emails en registro
+- Añadir un valor al `CHECK` de `cotizaciones.estado` sin publicar antes un frontend que lo conozca → `src/lib/cotizaciones.ts` rechaza la página entera del listado
+- Reactivar un trigger de Cotizaciones con `ENABLE TRIGGER` (sin `ALWAYS`) → `session_replication_role = replica` vuelve a saltarlo, sin aviso
+- Ejecutar como `postgres` un DML sobre `cotizaciones` que viole un `CHECK` → el error registra la fila completa (datos del prospecto) en `DETAIL`
 
 ### Partes acopladas
 
@@ -388,6 +425,8 @@ export async function getFoo(id: string): Promise<MiTipo[]> {
 - `useAuth.tsx` ↔ `ProtectedRoute.tsx` ↔ `Navbar.tsx` (todos leen `userType`)
 - `portal.ts` ↔ RPC SQL functions (si cambia firma de RPC, hay que actualizar ambos)
 - `src/types/projects.ts` ↔ TODO el dashboard (STATUS_CONFIG, PIPELINE_STAGES usados en 6+ archivos)
+- `cotizaciones_estado_check` (SQL) ↔ `ESTADOS_COTIZACION` (`src/types/cotizaciones.ts`) ↔ `src/lib/cotizaciones.ts` (lista de estados duplicada; los límites de `prospecto_*` —200, 200, 254 y 40 caracteres— también están en la base y en la capa de datos)
+- `src/lib/cotizaciones.ts` ↔ `useRecursoCotizacion.ts` ↔ `CotizacionesList.tsx` y `CotizacionDetalle.tsx` (cancelación con `AbortSignal` y código `CANCELADA`)
 
 ---
 
@@ -455,6 +494,8 @@ export async function getFoo(id: string): Promise<MiTipo[]> {
 - Constantes de configuración visual (`STATUS_CONFIG`, `PIPELINE_STAGES`) en `src/types/`
 - Toasts con `useToast()` para errores destructivos
 - `ProtectedRoute` con `allowedTypes` para control de acceso
+- En Cotizaciones, cada tabla, secuencia o función nueva retira primero todo a `PUBLIC`, `anon`, `authenticated` y `service_role`; a `service_role` no se le concede nada
+- Los datos personales del prospecto se cargan con `useRecursoCotizacion`, no con la caché compartida de TanStack Query
 
 ### Cómo hacer cambios mínimos
 
