@@ -8,6 +8,7 @@ import dashboardSource from "@/pages/dashboard/Dashboard.tsx?raw";
 import projectDetailSource from "@/pages/dashboard/ProjectDetail.tsx?raw";
 import ticketsSource from "@/pages/dashboard/TicketsGlobal.tsx?raw";
 import protectedRouteSource from "@/components/common/ProtectedRoute.tsx?raw";
+import type { Cotizacion, CotizacionResumen } from "@/types/cotizaciones";
 
 const WAIT = { timeout: 15000 };
 // Los chunks lazy (ProjectDetail pesa ~45 kB) tardan en transformarse la primera vez.
@@ -46,6 +47,13 @@ const libs = vi.hoisted(() => ({
   getProjectTickets: vi.fn(),
   getProjectTokens: vi.fn(),
   getOpenTicketsCount: vi.fn(),
+  listarPaginaCotizaciones: vi.fn<typeof import("@/lib/cotizaciones").listarPaginaCotizaciones>(),
+  obtenerCotizacion: vi.fn<typeof import("@/lib/cotizaciones").obtenerCotizacion>(),
+}));
+vi.mock("@/lib/cotizaciones", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/cotizaciones")>()),
+  listarPaginaCotizaciones: libs.listarPaginaCotizaciones,
+  obtenerCotizacion: libs.obtenerCotizacion,
 }));
 vi.mock("@/lib/projects", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/projects")>()),
@@ -119,6 +127,26 @@ const TICKETS = [
   ticket("t3", "Duda de factura", "resuelto", "baja"),
 ];
 
+// Cotizaciones (datos sintéticos): un UUID válido, su fila de la lista y su detalle completo.
+const ID_COTIZACION = "0a1b2c3d-0007-4000-8000-000000000007";
+const RESUMEN_COTIZACION: CotizacionResumen = {
+  id: ID_COTIZACION,
+  referencia_interna: "BOR-7",
+  estado: "borrador",
+  prospecto_nombre: "Prospecto Sintético Siete",
+  creado_at: NOW,
+  row_version: 1,
+};
+const COTIZACION: Cotizacion = {
+  ...RESUMEN_COTIZACION,
+  prospecto_contacto: "Contacto Sintético Siete",
+  prospecto_email: "siete@example.test",
+  prospecto_telefono: "+504 5550-0107",
+  creado_por: "0a1b2c3d-0001-4000-8000-000000000001",
+  actualizado_por: null,
+  actualizado_at: NOW,
+};
+
 function signIn(userType: number | null, email = "persona@example.test") {
   const user = { id: userType === 1 ? "u-colab" : "u-admin", email };
   auth.session = { user: { ...user, email_confirmed_at: NOW } };
@@ -161,6 +189,8 @@ beforeEach(() => {
   libs.getProjectTickets.mockReset().mockResolvedValue([]);
   libs.getProjectTokens.mockReset().mockResolvedValue([]);
   libs.getOpenTicketsCount.mockReset().mockResolvedValue(2);
+  libs.listarPaginaCotizaciones.mockReset().mockResolvedValue({ cotizaciones: [RESUMEN_COTIZACION], haySiguiente: false });
+  libs.obtenerCotizacion.mockReset().mockResolvedValue(COTIZACION);
 });
 
 afterEach(() => {
@@ -200,14 +230,26 @@ describe("App · allowedTypes originales (inspección del módulo)", () => {
     expect(blocks["/solicitudes"]).not.toContain("AdminShell");
   });
 
-  // La única ruta real nueva es /dashboard/proyectos (la lista completa que antes vivía en /dashboard).
-  it("solo esas 4 rutas reales usan el shell y ninguna otra ruta privada nueva apareció", () => {
+  // La ruta real nueva de la reorganización fue /dashboard/proyectos (la lista completa que antes vivía en /dashboard);
+  // después, el módulo de Cotizaciones sumó exactamente tres: lista, catálogo y detalle.
+  it("solo esas 7 rutas reales (las 4 del panel y las 3 de Cotizaciones) usan el shell y ninguna otra ruta privada nueva apareció", () => {
     const real = Object.entries(blocks);
     const withShell = real.filter(([, b]) => b.includes("<AdminShell>")).map(([p]) => p);
-    expect(withShell.sort()).toEqual(["/dashboard", "/dashboard/project/:id", "/dashboard/proyectos", "/dashboard/tickets"]);
+    expect(withShell.sort()).toEqual([
+      "/dashboard",
+      "/dashboard/cotizaciones",
+      "/dashboard/cotizaciones/:id",
+      "/dashboard/cotizaciones/catalogo",
+      "/dashboard/project/:id",
+      "/dashboard/proyectos",
+      "/dashboard/tickets",
+    ]);
     const protectedPaths = real.filter(([, b]) => b.includes("<ProtectedRoute")).map(([p]) => p);
     expect(protectedPaths.sort()).toEqual([
       "/dashboard",
+      "/dashboard/cotizaciones",
+      "/dashboard/cotizaciones/:id",
+      "/dashboard/cotizaciones/catalogo",
       "/dashboard/project/:id",
       "/dashboard/proyectos",
       "/dashboard/tickets",
@@ -234,6 +276,72 @@ describe("App · allowedTypes originales (inspección del módulo)", () => {
     for (const [name, src] of Object.entries({ dashboardSource, projectDetailSource, ticketsSource })) {
       expect(src, name).not.toMatch(/Navbar/);
       expect(src, name).not.toMatch(/\bpt-24\b/);
+    }
+  });
+});
+
+/** Las únicas rutas del módulo de Cotizaciones, ordenadas como `sort()`. Una ruta más, de cualquier fase, tiene que hacer fallar la prueba. */
+const RUTAS_DE_COTIZACIONES = ["/dashboard/cotizaciones", "/dashboard/cotizaciones/:id", "/dashboard/cotizaciones/catalogo"];
+
+/** El `path` de cada `<Route>` de App.tsx, sea cual sea la forma de escribirlo (comillas dobles o simples, llaves, plantilla sin `${`). */
+function rutasDeclaradas(): string[] {
+  return appSource
+    .split(/<Route\b/)
+    .slice(1)
+    .map((chunk) => /\bpath=(?:\{\s*)?(["'`])([^"'`$]*)\1/.exec(chunk)?.[2])
+    .filter((p): p is string => p !== undefined);
+}
+
+describe("App · rutas de Cotizaciones (inspección del módulo)", () => {
+  const blocks = routeBlocks();
+
+  it("las rutas del módulo declaradas en App son EXACTAMENTE tres: lista, catálogo y detalle", () => {
+    const declaradas = rutasDeclaradas();
+    // Toda <Route> declara su path con un texto literal: ninguna ruta puede esconderse en una constante o en un índice.
+    expect(declaradas, "cada <Route> declara su path con un literal").toHaveLength(appSource.match(/<Route\b/g)!.length);
+    expect(declaradas.filter((p) => /cotizacion/i.test(p)).sort()).toEqual(RUTAS_DE_COTIZACIONES);
+    // Ninguna otra vía de declarar rutas dentro de App.
+    expect(appSource).not.toMatch(/\b(useRoutes|createBrowserRouter|createRoutesFromElements|RouterProvider)\b/);
+  });
+
+  it.each(RUTAS_DE_COTIZACIONES)("%s está en <ProtectedRoute allowedTypes={[0]}> (solo administrador) con el shell DENTRO", (path) => {
+    const block = blocks[path];
+    expect(block, path).toBeDefined();
+    const open = block.match(/<ProtectedRoute([^>]*)>/);
+    expect(open, path).not.toBeNull();
+    expect(open![1].trim(), `${path}: solo administrador`).toBe("allowedTypes={[0]}");
+    expect(block.indexOf("<ProtectedRoute")).toBeLessThan(block.indexOf("<AdminShell>"));
+    expect(block.indexOf("<AdminShell>")).toBeLessThan(block.indexOf("</AdminShell>"));
+    expect(block.indexOf("</AdminShell>")).toBeLessThan(block.indexOf("</ProtectedRoute>"));
+  });
+
+  it.each([
+    ["/dashboard/cotizaciones", "CotizacionesList"],
+    ["/dashboard/cotizaciones/catalogo", "CotizacionesCatalogo"],
+    ["/dashboard/cotizaciones/:id", "CotizacionDetalle"],
+  ])("%s muestra %s, cargada con React.lazy (fuera de la entrada), y ninguna de las otras dos", (path, componente) => {
+    expect(blocks[path], path).toContain(`<${componente} />`);
+    for (const otra of ["CotizacionesList", "CotizacionesCatalogo", "CotizacionDetalle"].filter((c) => c !== componente)) {
+      expect(blocks[path], `${path} no muestra ${otra}`).not.toContain(`<${otra}`);
+    }
+    expect(appSource).toMatch(new RegExp(`const ${componente}\\s*=\\s*lazy\\(\\(\\) => import\\("\\./pages/dashboard/${componente}\\.tsx"\\)\\)`));
+    expect(appSource).not.toMatch(new RegExp(`^import .*${componente}`, "m"));
+  });
+
+  it("una ruta que el módulo no declara (/dashboard/cotizaciones/<uuid>/editar) cae en «ruta no encontrada», sin shell ni consultas", async () => {
+    signIn(0);
+    const consola = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      goTo(`/dashboard/cotizaciones/${ID_COTIZACION}/editar`);
+      expect(await screen.findByRole("heading", { level: 1, name: "404" }, WAIT)).toBeInTheDocument();
+      // La página «no encontrada» registra la ruta pedida y nada más.
+      expect(consola.mock.calls.filter(([mensaje]) => !String(mensaje).startsWith("404 Error"))).toEqual([]);
+      expect(screen.queryByRole("main")).toBeNull();
+      expect(document.querySelector("#admin-sidebar")).toBeNull();
+      expect(libs.listarPaginaCotizaciones).not.toHaveBeenCalled();
+      expect(libs.obtenerCotizacion).not.toHaveBeenCalled();
+    } finally {
+      consola.mockRestore();
     }
   });
 });
@@ -290,12 +398,14 @@ describe("Dashboard dentro del shell", () => {
     for (const fn of [libs.getProjects, libs.getProjectRequests, libs.getUpcomingRenewals, libs.getAllTickets]) expect(fn).not.toHaveBeenCalled();
   });
 
-  it("el administrador ve las 3 rutas reales y «Próximamente» cerrada (8 módulos, sin enlaces nuevos)", async () => {
+  // Por la entrada «Cotizaciones»: el menú tiene 4 enlaces funcionales (antes 3); «Próximamente» sigue sin enlaces.
+  it("el administrador ve los 4 enlaces del menú y «Próximamente» cerrada (8 módulos, sin enlaces nuevos)", async () => {
     signIn(0);
     goTo("/dashboard");
     const nav = within(await screen.findByRole("navigation", { name: "Principal" }, WAIT));
     expect(nav.getAllByRole("link").map((a) => a.getAttribute("href")).sort()).toEqual([
       "/dashboard",
+      "/dashboard/cotizaciones",
       "/dashboard/proyectos",
       "/dashboard/tickets",
     ]);
@@ -305,7 +415,7 @@ describe("Dashboard dentro del shell", () => {
     expect(nav.queryByText(/^Pronto$/)).toBeNull();
     fireEvent.click(proximamente);
     expect(nav.getByRole("list", { name: "Finanzas" })).toBeVisible();
-    expect(nav.getAllByRole("link")).toHaveLength(3);
+    expect(nav.getAllByRole("link")).toHaveLength(4);
   });
 
   it("el colaborador no ve el panel ni «Próximamente»: se le redirige antes de pintar el menú", async () => {
@@ -406,5 +516,130 @@ describe("Tickets dentro del shell", () => {
     fireEvent.click(await within(main).findByText("Botón de pago roto", {}, WAIT));
     const drawer = await screen.findByRole("dialog", {}, WAIT);
     expect(drawer.closest(".erp")).not.toBeNull();
+  });
+});
+
+describe("Cotizaciones dentro del shell", () => {
+  const RUTA_LISTA = "/dashboard/cotizaciones";
+  const RUTA_CATALOGO = "/dashboard/cotizaciones/catalogo";
+  const RUTA_DETALLE = `/dashboard/cotizaciones/${ID_COTIZACION}`;
+  const migas = () => within(screen.getByRole("navigation", { name: "Migas de pan" }));
+  const textosDeLasMigas = () =>
+    Array.from(document.querySelectorAll("nav[aria-label='Migas de pan'] ol > li"))
+      .map((li) => li.textContent)
+      .filter(Boolean);
+
+  it("lista (administrador): se pinta DENTRO del shell con la primera página, marca Cotizaciones y sus migas", async () => {
+    signIn(0);
+    goTo(RUTA_LISTA);
+    const main = await screen.findByRole("main", {}, WAIT);
+    expect(await within(main).findByRole("heading", { level: 1, name: "Cotizaciones" }, WAIT)).toBeInTheDocument();
+    expect(await within(main).findByRole("link", { name: "BOR-7" }, WAIT)).toHaveAttribute("href", RUTA_DETALLE);
+    expect(window.location.pathname).toBe(RUTA_LISTA);
+    expect(libs.listarPaginaCotizaciones).toHaveBeenCalledTimes(1);
+    expect(libs.listarPaginaCotizaciones.mock.calls[0][0]).toMatchObject({ pagina: 1, tamano: 25 });
+    expect(libs.obtenerCotizacion).not.toHaveBeenCalled();
+    // El shell envuelve a la página: una sola barra principal y «Cotizaciones» como entrada actual.
+    expect(screen.getAllByRole("navigation", { name: "Principal" })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Cotizaciones", current: "page" })).toHaveAttribute("href", RUTA_LISTA);
+    expect(textosDeLasMigas()).toEqual(["Gestión comercial", "Cotizaciones"]);
+    expect(migas().getByText("Cotizaciones")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("catálogo (administrador): se pinta DENTRO del shell, sin consultas, y marca Cotizaciones", async () => {
+    signIn(0);
+    goTo(RUTA_CATALOGO);
+    const main = await screen.findByRole("main", {}, WAIT);
+    expect(await within(main).findByRole("heading", { level: 1, name: "Catálogo" }, WAIT)).toBeInTheDocument();
+    expect(within(main).getByRole("heading", { level: 2, name: "El catálogo se habilita en la siguiente fase" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe(RUTA_CATALOGO);
+    expect(libs.listarPaginaCotizaciones).not.toHaveBeenCalled();
+    expect(libs.obtenerCotizacion).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("navigation", { name: "Principal" })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Cotizaciones", current: "page" })).toHaveAttribute("href", RUTA_LISTA);
+    expect(textosDeLasMigas()).toEqual(["Gestión comercial", "Cotizaciones", "Catálogo"]);
+    expect(migas().getByRole("link", { name: "Cotizaciones" })).toHaveAttribute("href", RUTA_LISTA);
+    expect(migas().getByText("Catálogo")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("detalle (administrador): pide esa cotización, se pinta DENTRO del shell, marca Cotizaciones y sus migas", async () => {
+    signIn(0);
+    goTo(RUTA_DETALLE);
+    const main = await screen.findByRole("main", {}, WAIT);
+    expect(await within(main).findByRole("heading", { level: 1, name: "Cotización BOR-7" }, WAIT)).toBeInTheDocument();
+    expect(within(main).getByText("Prospecto Sintético Siete")).toBeInTheDocument();
+    expect(window.location.pathname).toBe(RUTA_DETALLE);
+    expect(libs.obtenerCotizacion).toHaveBeenCalledTimes(1);
+    expect(libs.obtenerCotizacion.mock.calls[0][0]).toBe(ID_COTIZACION);
+    expect(libs.listarPaginaCotizaciones).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("navigation", { name: "Principal" })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Cotizaciones", current: "page" })).toHaveAttribute("href", RUTA_LISTA);
+    expect(textosDeLasMigas()).toEqual(["Gestión comercial", "Cotizaciones", "Detalle"]);
+    expect(migas().getByRole("link", { name: "Cotizaciones" })).toHaveAttribute("href", RUTA_LISTA);
+    expect(migas().getByText("Detalle")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("/dashboard/cotizaciones/catalogo abre el catálogo y NO el detalle: no pide ninguna cotización ni dice «no encontrada»", async () => {
+    signIn(0);
+    goTo(RUTA_CATALOGO);
+    const main = await screen.findByRole("main", {}, WAIT);
+    expect(await within(main).findByRole("heading", { level: 1, name: "Catálogo" }, WAIT)).toBeInTheDocument();
+    expect(libs.obtenerCotizacion).not.toHaveBeenCalled();
+    expect(within(main).queryByRole("heading", { name: "Cotización no encontrada" })).toBeNull();
+    expect(within(main).queryByRole("group", { name: "Detalle de la cotización" })).toBeNull();
+    expect(within(main).queryByRole("heading", { name: /^Cotización / })).toBeNull();
+    // Y el detalle con un UUID sí es el detalle, con su propia consulta.
+    cleanup();
+    goTo(RUTA_DETALLE);
+    expect(await screen.findByRole("group", { name: "Detalle de la cotización" }, WAIT)).toBeInTheDocument();
+    await waitFor(() => expect(libs.obtenerCotizacion).toHaveBeenCalledTimes(1), WAIT);
+  });
+
+  it("navegar de la lista al detalle, de vuelta a la lista y al catálogo mantiene un solo shell y marca Cotizaciones", async () => {
+    signIn(0);
+    goTo(RUTA_LISTA);
+    fireEvent.click(await screen.findByRole("link", { name: "BOR-7" }, WAIT));
+    await waitFor(() => expect(window.location.pathname).toBe(RUTA_DETALLE));
+    expect(await screen.findByRole("heading", { level: 1, name: "Cotización BOR-7" }, WAIT)).toBeInTheDocument();
+    expect(screen.getAllByRole("navigation", { name: "Principal" })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Cotizaciones", current: "page" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Volver a cotizaciones" }));
+    await waitFor(() => expect(window.location.pathname).toBe(RUTA_LISTA));
+    fireEvent.click(await screen.findByRole("link", { name: "Ver catálogo" }, WAIT));
+    await waitFor(() => expect(window.location.pathname).toBe(RUTA_CATALOGO));
+    expect(await screen.findByRole("heading", { level: 1, name: "Catálogo" }, WAIT)).toBeInTheDocument();
+    expect(screen.getAllByRole("navigation", { name: "Principal" })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Cotizaciones", current: "page" })).toBeInTheDocument();
+    // Una sola consulta de detalle y dos de lista (la inicial y la de volver a ella).
+    expect(libs.obtenerCotizacion).toHaveBeenCalledTimes(1);
+    expect(libs.listarPaginaCotizaciones).toHaveBeenCalledTimes(2);
+  });
+
+  // Mismo destino que hoy para cada rol: el de /dashboard (sin sesión a /login, colaborador a /, cliente a /solicitudes).
+  const PANTALLAS = [
+    { nombre: "lista", path: RUTA_LISTA },
+    { nombre: "catálogo", path: RUTA_CATALOGO },
+    { nombre: "detalle", path: RUTA_DETALLE },
+  ];
+  const SIN_ACCESO = [
+    { nombre: "sin sesión", userType: null, destino: "/login", encabezado: "Login (simulado)" },
+    { nombre: "colaborador (1)", userType: 1, destino: "/", encabezado: null },
+    { nombre: "cliente (2)", userType: 2, destino: "/solicitudes", encabezado: "Mis solicitudes (simulada)" },
+  ];
+
+  describe.each(PANTALLAS.map((pantalla) => [pantalla.nombre, pantalla.path] as const))("%s (%s) sin acceso", (_nombre, path) => {
+    it.each(SIN_ACCESO.map((caso) => [caso.nombre, caso.destino, caso.userType, caso.encabezado] as const))("%s: termina en %s, sin ver el shell ni pedir nada", async (_caso, destino, userType, encabezado) => {
+      if (userType !== null) signIn(userType);
+      goTo(path);
+      await waitFor(() => expect(window.location.pathname).toBe(destino), WAIT);
+      if (encabezado !== null) expect(await screen.findByRole("heading", { name: encabezado }, WAIT)).toBeInTheDocument();
+      expect(document.querySelector("#admin-sidebar")).toBeNull();
+      expect(document.querySelector("#contenido")).toBeNull();
+      expect(screen.queryByRole("link", { name: "Cotizaciones" })).toBeNull();
+      expect(screen.queryByText("Prospecto Sintético Siete")).toBeNull();
+      expect(libs.listarPaginaCotizaciones).not.toHaveBeenCalled();
+      expect(libs.obtenerCotizacion).not.toHaveBeenCalled();
+    });
   });
 });

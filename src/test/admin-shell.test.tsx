@@ -148,7 +148,8 @@ describe("navegación y aria-current", () => {
     const hrefs = within(screen.getByRole("navigation", { name: "Principal" }))
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
-    expect(hrefs.sort()).toEqual(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"]);
+    // Por la entrada «Cotizaciones»: se suma /dashboard/cotizaciones a las rutas del menú.
+    expect(hrefs.sort()).toEqual(["/dashboard", "/dashboard/cotizaciones", "/dashboard/proyectos", "/dashboard/tickets"]);
   });
 
   it("navegar con el teclado: los enlaces son tabulables y activar uno cambia la ruta", () => {
@@ -159,6 +160,70 @@ describe("navegación y aria-current", () => {
     expect(tickets).toHaveFocus();
     fireEvent.click(tickets);
     expect(screen.getByRole("link", { name: /Tickets/ })).toHaveAttribute("aria-current", "page");
+  });
+});
+
+// Cotizaciones: una sola entrada del menú para la lista, el catálogo y el detalle, y sus migas con las rutas reales.
+// (La entrada ya figura en las listas de arriba: enlaces, grupos, orden y colaborador sin menú.)
+describe("Cotizaciones: entrada actual y migas con las rutas reales", () => {
+  const LISTA = "/dashboard/cotizaciones";
+  const CATALOGO = "/dashboard/cotizaciones/catalogo";
+  const DETALLE = "/dashboard/cotizaciones/0a1b2c3d-0007-4000-8000-000000000007";
+  const current = () => screen.getAllByRole("link").filter((l) => l.getAttribute("aria-current") === "page");
+  const crumbs = () => screen.getByRole("navigation", { name: "Migas de pan" });
+  const items = () => Array.from(crumbs().querySelectorAll("ol > li"));
+  const textos = () => items().map((li) => li.textContent).filter(Boolean);
+  /** Lo que se ve por debajo de 768 px: las entradas SIN `hidden` sin prefijo. */
+  const onNarrow = () => items().filter((li) => !/(^|\s)hidden(\s|$)/.test(li.className));
+
+  it.each([
+    ["la lista", LISTA],
+    ["la lista con barra final", `${LISTA}/`],
+    ["el catálogo", CATALOGO],
+    ["el catálogo con barra final", `${CATALOGO}/`],
+    ["el detalle", DETALLE],
+  ])("%s marca «Cotizaciones» en el menú y solo esa entrada", (_nombre, path) => {
+    renderShell(path);
+    expect(current().map((l) => l.textContent)).toEqual(["Cotizaciones"]);
+    expect(screen.getByRole("link", { name: "Cotizaciones", current: "page" })).toHaveAttribute("href", LISTA);
+  });
+
+  it("lista: Gestión comercial / Cotizaciones, con la última miga como página actual y sin enlaces", () => {
+    renderShell(LISTA);
+    expect(textos()).toEqual(["Gestión comercial", "Cotizaciones"]);
+    const migas = within(crumbs());
+    expect(migas.getByText("Cotizaciones")).toHaveAttribute("aria-current", "page");
+    expect(migas.queryAllByRole("link")).toHaveLength(0);
+    expect(migas.queryByText("Detalle")).toBeNull();
+    expect(migas.queryByText("Catálogo")).toBeNull();
+    // En una sola línea (móvil) queda solo la miga actual.
+    expect(onNarrow().map((li) => li.textContent)).toEqual(["Cotizaciones"]);
+  });
+
+  it.each([
+    ["catálogo", CATALOGO, "Catálogo", "Detalle"],
+    ["catálogo con barra final", `${CATALOGO}/`, "Catálogo", "Detalle"],
+    ["detalle", DETALLE, "Detalle", "Catálogo"],
+  ])("%s: Gestión comercial / Cotizaciones (enlace a la lista) / %s, con aria-current en la última", (_nombre, path, ultima, ajena) => {
+    renderShell(path);
+    expect(textos()).toEqual(["Gestión comercial", "Cotizaciones", ultima]);
+    const migas = within(crumbs());
+    expect(migas.getByRole("link", { name: "Cotizaciones" })).toHaveAttribute("href", LISTA);
+    expect(migas.getAllByRole("link")).toHaveLength(1);
+    expect(migas.getByText(ultima)).toHaveAttribute("aria-current", "page");
+    expect(migas.queryByText(ajena)).toBeNull();
+    expect(migas.queryByRole("link", { name: ultima })).toBeNull();
+  });
+
+  it.each([
+    ["catálogo", CATALOGO],
+    ["detalle", DETALLE],
+  ])("%s: en móvil queda un enlace corto «‹ Cotizaciones» a la lista y la miga final sigue para desde 768 px", (_nombre, path) => {
+    renderShell(path);
+    const visibles = onNarrow();
+    expect(visibles).toHaveLength(1);
+    expect(within(visibles[0] as HTMLElement).getByRole("link", { name: "Cotizaciones" })).toHaveAttribute("href", LISTA);
+    expect(items().some((li) => /(^|\s)hidden(\s|$)/.test(li.className) && ["Catálogo", "Detalle"].includes(li.textContent ?? ""))).toBe(true);
   });
 });
 
@@ -173,7 +238,12 @@ describe("visibilidad por rol (solo presentación)", () => {
     for (const group of ["Finanzas", "Centro de Operaciones", "Administración"]) {
       expect(nav.queryByRole("list", { name: group }), group).toBeNull();
     }
-    expect(nav.getAllByRole("link")).toHaveLength(3);
+    // Por la entrada «Cotizaciones»: 4 enlaces (Resumen, Proyectos, Cotizaciones y Tickets) en los mismos 3 grupos.
+    expect(nav.getAllByRole("link")).toHaveLength(4);
+    expect(within(nav.getByRole("list", { name: "Gestión comercial" })).getAllByRole("link").map((a) => a.textContent)).toEqual([
+      "Proyectos",
+      "Cotizaciones",
+    ]);
   });
 
   it("el colaborador no ve ninguna entrada ni sección «Próximamente» (el panel es solo del administrador)", () => {
@@ -182,7 +252,7 @@ describe("visibilidad por rol (solo presentación)", () => {
     const nav = within(screen.getByRole("navigation", { name: "Principal" }));
     expect(nav.queryAllByRole("link")).toHaveLength(0);
     expect(nav.queryAllByRole("listitem")).toHaveLength(0);
-    for (const text of ["Resumen", "Proyectos", "Tickets", "Inicio", "Gestión comercial", "Soporte", "Finanzas", "Administración", "Clientes"]) {
+    for (const text of ["Resumen", "Proyectos", "Cotizaciones", "Tickets", "Inicio", "Gestión comercial", "Soporte", "Finanzas", "Administración", "Clientes"]) {
       expect(nav.queryByText(text), text).toBeNull();
     }
     expect(nav.queryByRole("button", { name: /Próximamente/ })).toBeNull();
@@ -222,6 +292,7 @@ describe("sección «Próximamente»", () => {
     expect(items.map((el) => el.getAttribute("href") ?? "boton")).toEqual([
       "/dashboard",
       "/dashboard/proyectos",
+      "/dashboard/cotizaciones", // Por la entrada «Cotizaciones»: va tras Proyectos, dentro de Gestión comercial.
       "/dashboard/tickets",
       "boton",
     ]);
@@ -260,8 +331,8 @@ describe("sección «Próximamente»", () => {
       expect(el.closest("a")).toBeNull();
     }
     expect(screen.queryByRole("link", { name: /Clientes|Finanzas|Cobros|Auditoría/ })).toBeNull();
-    // Abrirla no añade enlaces: siguen siendo las 3 rutas que existen.
-    expect(within(nav()).getAllByRole("link")).toHaveLength(3);
+    // Abrirla no añade enlaces: siguen siendo las 4 rutas del menú (3 + «Cotizaciones»).
+    expect(within(nav()).getAllByRole("link")).toHaveLength(4);
   });
 
   it("se abre y se cierra con el mismo botón nativo (teclado: Enter y Espacio) sin perder el foco", () => {
@@ -292,8 +363,8 @@ describe("sección «Próximamente»", () => {
     expect(botones[0]).toHaveAttribute("title", expect.stringContaining("Próximamente"));
     expect(botones[0].querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     expect(panel()).not.toBeVisible();
-    // Nada de texto de módulos a la vista y los enlaces reales no cambian.
-    expect(within(nav()).getAllByRole("link")).toHaveLength(3);
+    // Nada de texto de módulos a la vista y los enlaces reales no cambian (4 con «Cotizaciones»).
+    expect(within(nav()).getAllByRole("link")).toHaveLength(4);
     for (const el of nav().querySelectorAll('[aria-disabled="true"]')) expect(el).not.toBeVisible();
   });
 
@@ -729,7 +800,8 @@ describe("áreas táctiles: 44 px en móvil, escritorio sin cambio", () => {
     const dialog = await screen.findByRole("dialog");
     const nav = within(dialog).getByRole("navigation", { name: "Principal" });
     const filas = [...within(nav).getAllByRole("link"), within(nav).getByRole("button", { name: /Próximamente/ })];
-    expect(filas).toHaveLength(4);
+    // Por la entrada «Cotizaciones»: 4 enlaces + el botón «Próximamente» = 5 filas.
+    expect(filas).toHaveLength(5);
     for (const a of filas) {
       expect(a.className, a.textContent ?? "").toContain("min-h-11");
       expect(a.className, a.textContent ?? "").toContain("lg:min-h-9");

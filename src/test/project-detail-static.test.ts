@@ -210,21 +210,32 @@ describe("rutas y permisos del detalle de proyecto y los modales", () => {
     expect(appSource).toMatch(/const ProjectDetail\s*=\s*lazy\(\(\) => import\("\.\/pages\/dashboard\/ProjectDetail\.tsx"\)\)/);
   });
 
-  it("los permisos de las rutas no cambian: las 4 del panel llevan allowedTypes={[0]} y /solicitudes allowedTypes={[2]}", () => {
+  // Por el módulo de Cotizaciones: a las 4 rutas del panel se suman exactamente 3 (lista, catálogo y detalle): 7 + /solicitudes.
+  it("los permisos de las rutas no cambian: las 7 del panel llevan allowedTypes={[0]} y /solicitudes allowedTypes={[2]}", () => {
     const rutas = appSource.split("<Route").filter((c) => /path="\/(dashboard|solicitudes)/.test(c));
-    expect(rutas).toHaveLength(5);
+    expect(rutas).toHaveLength(8);
     for (const c of rutas) {
       const esperado = /path="\/solicitudes"/.test(c) ? "allowedTypes={[2]}" : "allowedTypes={[0]}";
       expect(c, c.match(/path="[^"]+"/)?.[0]).toContain(`<ProtectedRoute ${esperado}>`);
     }
   });
 
-  it("no apareció ninguna ruta nueva (siguen las del Resumen y la lista de proyectos)", () => {
+  // Por el módulo de Cotizaciones: las únicas rutas nuevas son sus 3 (lista, catálogo y detalle); cada una, una sola vez.
+  it("no apareció ninguna ruta nueva más allá de las 3 de Cotizaciones (siguen las del Resumen y la lista de proyectos)", () => {
     const paths = [...appSource.matchAll(/path="([^"]+)"/g)].map((m) => m[1]);
-    for (const p of ["/dashboard", "/dashboard/proyectos", "/dashboard/project/:id", "/dashboard/tickets", "/solicitudes"]) {
+    for (const p of [
+      "/dashboard",
+      "/dashboard/proyectos",
+      "/dashboard/project/:id",
+      "/dashboard/tickets",
+      "/dashboard/cotizaciones",
+      "/dashboard/cotizaciones/catalogo",
+      "/dashboard/cotizaciones/:id",
+      "/solicitudes",
+    ]) {
       expect(paths.filter((x) => x === p), p).toHaveLength(1);
     }
-    expect(paths.filter((p) => p.startsWith("/dashboard"))).toHaveLength(4);
+    expect(paths.filter((p) => p.startsWith("/dashboard"))).toHaveLength(7);
   });
 
   it("el modal de alcance sigue siendo uno solo y lo usan el Resumen y el cajón de tickets", () => {
