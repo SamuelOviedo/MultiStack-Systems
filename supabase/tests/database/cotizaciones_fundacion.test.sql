@@ -8,7 +8,8 @@
 --   S17    SECURITY DEFINER functions   S22    whitelist immutability (F1 part)
 --   S24    events without personal data
 -- Extra groups (owner requirements): ROLE (role resolution), SEQ (sequences),
--- PRIV (catalog privileges), LEN (prospect length limits), SVC (service_role:
+-- PRIV (catalog privileges), LEN (prospect length limits, and a rejected length
+-- CHECK that carries no DETAIL: no failing row), SVC (service_role:
 -- no privileges at all, decision of security), ACL (exact access control
 -- lists), ACT (event actor = session), CHK (the declarative layer alone, with
 -- the triggers off), FWD (forward catalog walk), ACC (deleting an admin account).
@@ -29,6 +30,11 @@
 --     RLS and to revoke anon and service_role too (decision of security).
 --   * PRIV expects exactly the four prospect columns to be writable.
 --     F3 adds its content columns here on purpose.
+--   * LEN requires a rejected length CHECK to reach the admin as 23514 with no
+--     DETAIL (the DETAIL of a CHECK is the failing row: the prospect). A later
+--     RPC that writes the prospect columns must keep that true: validate the
+--     lengths before the write, or catch the error and raise its own without
+--     the row, and add its own assertion here with pg_temp.rechazo().
 --   * S22 reads the columns from the catalog: a new column is covered with no
 --     change to plan(n). F4 updates the whitelist table below on purpose.
 --   * A8 is a literal substring match. A column such as "archivada_at" (F4)
@@ -38,7 +44,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(339);
+SELECT plan(343);
 
 -- ── Helpers (live in pg_temp: they die with the transaction) ─────────────────
 -- Creates a cotizacion in the requested state, through the real triggers, as
@@ -87,6 +93,31 @@ BEGIN
   RETURN n;
 EXCEPTION WHEN OTHERS THEN
   RETURN -1;
+END $f$;
+
+-- Runs ONE statement under the CURRENT role (it must stay SECURITY INVOKER) and
+-- always undoes it. Returns only a SQLSTATE and a fixed mark:
+-- "<SQLSTATE>|sin_detalle" or "<SQLSTATE>|con_detalle" when the statement fails,
+-- "sin_error" when it goes through (v_paso decides, so no SQLSTATE raised by the
+-- statement can pass for it). The handler takes every ERROR, the two that OTHERS
+-- leaves out included (a cancel such as statement_timeout, and ASSERT), and it
+-- does not return, raise or log the DETAIL, the message or the statement: a red
+-- assertion prints the mark, not a row value. No handler can take the end of the
+-- connection (FATAL): the server then reports the statement with its literals to
+-- the client and the log, which is why this file holds synthetic values only.
+CREATE FUNCTION pg_temp.rechazo(p_sql text) RETURNS text
+LANGUAGE plpgsql AS $f$
+DECLARE v_paso boolean := false; v_sqlstate text; v_detalle text;
+BEGIN
+  BEGIN
+    EXECUTE p_sql;
+    v_paso := true;   -- variables are not rolled back: it survives the undo
+    RAISE EXCEPTION USING ERRCODE = 'XX001', MESSAGE = 'accepted';   -- forces the undo
+  EXCEPTION WHEN OTHERS OR query_canceled OR assert_failure THEN
+    IF v_paso THEN RETURN 'sin_error'; END IF;
+    GET STACKED DIAGNOSTICS v_sqlstate = RETURNED_SQLSTATE, v_detalle = PG_EXCEPTION_DETAIL;
+    RETURN v_sqlstate || CASE WHEN coalesce(v_detalle, '') = '' THEN '|sin_detalle' ELSE '|con_detalle' END;
+  END;
 END $f$;
 
 -- Two consecutive UPDATEs (the second changes nothing): returns the version steps.
@@ -960,6 +991,21 @@ SELECT lives_ok(
   $$ INSERT INTO public.cotizaciones (prospecto_nombre, prospecto_contacto, prospecto_email, prospecto_telefono)
      VALUES (repeat('a', 200), repeat('b', 200), repeat('c', 254), repeat('1', 40)) $$,
   'LEN: the four prospect columns accept exactly their maximum length');
+
+-- LEN (DETAIL): the DETAIL of a failed CHECK is the failing row, so the rejection
+-- must reach the admin without one. One column goes over its limit while all four
+-- hold sentinels; pg_temp.rechazo() reports only the SQLSTATE and a fixed mark.
+SELECT is(
+  pg_temp.rechazo(format(
+    $q$ INSERT INTO public.cotizaciones (prospecto_nombre, prospecto_contacto, prospecto_email, prospecto_telefono)
+        VALUES (%L, %L, %L, %L) $q$,
+    'SENTINEL-DET-NOMBRE-9d2c'           || repeat('n', CASE v.col WHEN 'prospecto_nombre'   THEN v.n ELSE 0 END),
+    'SENTINEL-DET-CONTACTO-9d2c'         || repeat('c', CASE v.col WHEN 'prospecto_contacto' THEN v.n ELSE 0 END),
+    'sentinel-det-email-9d2c@test.local' || repeat('e', CASE v.col WHEN 'prospecto_email'    THEN v.n ELSE 0 END),
+    'SENTINEL-DET-TEL-9d2c'              || repeat('1', CASE v.col WHEN 'prospecto_telefono' THEN v.n ELSE 0 END))),
+  '23514|sin_detalle',
+  format('LEN: the rejected length CHECK of %s reaches the admin as 23514 with no DETAIL (no row in it)', v.col))
+  FROM (VALUES ('prospecto_nombre', 200), ('prospecto_contacto', 200), ('prospecto_email', 254), ('prospecto_telefono', 40)) AS v(col, n);
 
 -- S17 / SEQ (an admin is authenticated too: still no direct access)
 SELECT throws_ok($$ SELECT public.cotizacion_controlar_cambio() $$, '42501', NULL, 'S17: even an admin cannot call cotizacion_controlar_cambio()');
