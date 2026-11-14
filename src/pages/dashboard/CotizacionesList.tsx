@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { EmptyState } from "@/components/admin/EmptyState";
@@ -26,6 +26,25 @@ import { cn } from "@/lib/utils";
  * (el CSS que se carga al inicio no crece). Sin `pointer-events` el ratón no lo activa ni lo resalta.
  */
 const NO_DISPONIBLE = "pointer-events-none text-muted-foreground opacity-60";
+
+/**
+ * La región de la tabla es más alta que la ventana: si ya asoma, el navegador no la desplaza al enfocarla y su borde
+ * superior quedaba bajo la cabecera fija. Solo con foco de teclado de la propia región y solo si hace falta.
+ */
+function despejarRegionBajoCabecera(e: FocusEvent<HTMLDivElement>) {
+  const region = e.currentTarget;
+  // jsdom no implementa `scrollIntoView`.
+  if (e.target !== region || typeof region.scrollIntoView !== "function") return;
+  let porTeclado = false;
+  try {
+    porTeclado = region.matches(":focus-visible");
+  } catch {
+    // Un navegador que no reconozca `:focus-visible` lanza aquí: ante la duda no se desplaza nada.
+  }
+  if (!porTeclado) return;
+  const margen = parseFloat(getComputedStyle(region).scrollMarginTop) || 0;
+  if (region.getBoundingClientRect().top < margen) region.scrollIntoView({ block: "start", behavior: "instant" });
+}
 
 /**
  * Listado de cotizaciones (`/dashboard/cotizaciones`), solo lectura, de la más reciente a la más antigua. La página
@@ -134,8 +153,10 @@ export default function CotizacionesList() {
               containerProps={{
                 role: "region",
                 tabIndex: 0,
+                onFocus: despejarRegionBajoCabecera,
                 "aria-label": "Tabla de cotizaciones, se desplaza en horizontal",
-                className: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                className:
+                  "scroll-mt-16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
               }}
             >
               <TableCaption className="sr-only">Cotizaciones, de la más reciente a la más antigua.</TableCaption>
@@ -156,7 +177,7 @@ export default function CotizacionesList() {
                       <TableCell className="whitespace-nowrap font-medium">
                         <Link
                           to={`/dashboard/cotizaciones/${c.id}`}
-                          className="rounded-sm underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="scroll-mt-16 rounded-sm underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {c.referencia_interna}
                         </Link>
@@ -192,7 +213,7 @@ export default function CotizacionesList() {
         title="Cotizaciones"
         description="Cotizaciones registradas, de la más reciente a la más antigua."
         actions={
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="scroll-mt-16">
             <Link to="/dashboard/cotizaciones/catalogo">Ver catálogo</Link>
           </Button>
         }
@@ -204,7 +225,7 @@ export default function CotizacionesList() {
         tabIndex={-1}
         role="group"
         aria-label="Listado de cotizaciones"
-        className="rounded-lg outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="scroll-mt-16 rounded-lg outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         {cuerpo}
       </div>

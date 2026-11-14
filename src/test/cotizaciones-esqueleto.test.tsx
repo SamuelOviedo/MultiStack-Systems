@@ -2493,3 +2493,245 @@ describe("accesibilidad básica", () => {
     expect(botonSiguiente().getAttribute("aria-label")?.toLowerCase()).toContain("siguiente");
   });
 });
+
+/* ------------------------------------------------------------------------------------------------
+ * T024 · Foco no oculto por la cabecera fija (WCAG 2.2, 2.4.11)
+ *
+ * La región de la tabla es más alta que la ventana: al enfocarla con Shift+Tab su borde superior quedaba bajo la
+ * cabecera fija del armazón, y el navegador no la desplaza si ya asoma. El manejador `onFocus` de la región la lleva
+ * debajo de la cabecera, pero solo con foco de teclado de la propia región y solo si hace falta. jsdom no tiene
+ * geometría ni los estilos de Tailwind ni `scrollIntoView` (su `:focus-visible` existe pero contesta siempre
+ * «no»): aquí se simula lo que falta. La medición real (Chromium, 25 filas, Tab y Shift+Tab) está en
+ * `e2e/cotizaciones-foco.spec.ts`.
+ *
+ * Una excepción dentro de un manejador de React NO llega a quien llama a `.focus()` (jsdom la reporta en `window`),
+ * así que cada prueba recoge los eventos `error` de `window` y exige que no haya ninguno.
+ *
+ * Ojo con los nombres: Tailwind lee también los archivos de prueba bajo `src/`, y todo lo que parezca una clase suya
+ * (hasta en un comentario) acaba como regla en el CSS de producción. El prefijo del margen se arma en ejecución.
+ * ---------------------------------------------------------------------------------------------- */
+
+const PREFIJO_DEL_MARGEN = ["scroll", "mt"].join("-");
+const llevaMargenDeScroll = (elemento: HTMLElement) =>
+  elemento.className.split(/\s+/).some((clase) => new RegExp(`^${PREFIJO_DEL_MARGEN}-\\d`).test(clase));
+
+describe("T024 · región de la tabla · foco de teclado bajo la cabecera fija", () => {
+  const MARGEN = "64px";
+  const descriptorOriginal = Object.getOwnPropertyDescriptor(Element.prototype, "scrollIntoView");
+  let desplazar: ReturnType<typeof vi.fn>;
+  let simulacros: Array<{ mockRestore: () => void }>;
+
+  function ponerScrollIntoView(valor: unknown) {
+    Object.defineProperty(Element.prototype, "scrollIntoView", { configurable: true, writable: true, value: valor });
+  }
+
+  beforeEach(() => {
+    simulacros = [];
+    desplazar = vi.fn();
+    ponerScrollIntoView(desplazar);
+  });
+
+  afterEach(() => {
+    // Los simulacros propios se restauran SIEMPRE; los globales (consola, red) los restaura el `afterEach` de arriba.
+    simulacros.forEach((simulacro) => simulacro.mockRestore());
+    if (descriptorOriginal) Object.defineProperty(Element.prototype, "scrollIntoView", descriptorOriginal);
+    else delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  async function montarListadoConRegion() {
+    servirPaginas({ 1: pagina([resumen(1), resumen(2)]) });
+    montar(RUTA_LISTA);
+    await screen.findByRole("table");
+    return screen.getByRole("region", { name: /tabla de cotizaciones/i });
+  }
+
+  /**
+   * Lo que un navegador sabe y jsdom no: el `:focus-visible` de la región, su borde superior y su margen de scroll.
+   * Devuelve el espía de `matches` para poder afirmar si se llegó a preguntar por `:focus-visible`.
+   */
+  function simular(
+    region: HTMLElement,
+    { top, focusVisible = true, margen = MARGEN }: { top: number; focusVisible?: boolean; margen?: string },
+  ) {
+    const matchesOriginal = region.matches.bind(region);
+    const matches = vi
+      .spyOn(region, "matches")
+      .mockImplementation((selector: string) => (selector === ":focus-visible" ? focusVisible : matchesOriginal(selector)));
+    simulacros.push(
+      matches,
+      vi.spyOn(region, "getBoundingClientRect").mockReturnValue({
+        top,
+        bottom: top + 900,
+        left: 0,
+        right: 600,
+        width: 600,
+        height: 900,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }),
+    );
+    const estiloOriginal = window.getComputedStyle.bind(window);
+    simulacros.push(
+      vi
+        .spyOn(window, "getComputedStyle")
+        .mockImplementation((elemento: Element, pseudo?: string | null) =>
+          elemento === region ? ({ scrollMarginTop: margen } as CSSStyleDeclaration) : estiloOriginal(elemento, pseudo),
+        ),
+    );
+    return matches;
+  }
+
+  /** Enfoca y devuelve los errores que llegaron a `window` (vacío = el manejador no lanzó nada). */
+  function enfocar(elemento: HTMLElement): unknown[] {
+    const errores: unknown[] = [];
+    const alError = (evento: ErrorEvent) => {
+      errores.push(evento.error ?? evento.message);
+      evento.preventDefault(); // jsdom no lo repite por la consola: lo contamos aquí, que es lo que se afirma
+    };
+    window.addEventListener("error", alError);
+    try {
+      act(() => elemento.focus());
+    } catch (error) {
+      errores.push(error);
+    } finally {
+      window.removeEventListener("error", alError);
+    }
+    return errores;
+  }
+
+  it("el recogedor de errores detecta de verdad una excepción dentro del manejador (control de la propia prueba)", async () => {
+    const region = await montarListadoConRegion();
+    simular(region, { top: 10 });
+    desplazar.mockImplementation(() => {
+      throw new Error("fallo sintético del desplazamiento");
+    });
+
+    expect(enfocar(region).length).toBeGreaterThan(0);
+  });
+
+  it("con foco de teclado y el borde superior bajo la cabecera: la lleva al inicio una sola vez, sin animación", async () => {
+    const region = await montarListadoConRegion();
+    simular(region, { top: 10 });
+
+    expect(enfocar(region)).toEqual([]);
+
+    expect(document.activeElement).toBe(region);
+    expect(desplazar).toHaveBeenCalledTimes(1);
+    expect(desplazar).toHaveBeenCalledWith({ block: "start", behavior: "instant" });
+    expect(desplazar.mock.contexts[0]).toBe(region);
+  });
+
+  it("también cuando el borde superior está por encima de la ventana (negativo)", async () => {
+    const region = await montarListadoConRegion();
+    simular(region, { top: -300 });
+
+    expect(enfocar(region)).toEqual([]);
+
+    expect(desplazar).toHaveBeenCalledTimes(1);
+  });
+
+  it("justo por debajo del margen (63,9 px de 64) sí la desplaza", async () => {
+    const region = await montarListadoConRegion();
+    simular(region, { top: 63.9 });
+
+    expect(enfocar(region)).toEqual([]);
+
+    expect(desplazar).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([64, 64.1, 120, 600])("con el borde superior en %s px (>= al margen de 64): no la desplaza", async (top) => {
+    const region = await montarListadoConRegion();
+    simular(region, { top });
+
+    expect(enfocar(region)).toEqual([]);
+
+    expect(document.activeElement).toBe(region);
+    expect(desplazar).not.toHaveBeenCalled();
+  });
+
+  it("foco que no es :focus-visible (clic de ratón): no la desplaza aunque esté bajo la cabecera", async () => {
+    const region = await montarListadoConRegion();
+    simular(region, { top: 10, focusVisible: false });
+
+    expect(enfocar(region)).toEqual([]);
+
+    expect(document.activeElement).toBe(region);
+    expect(desplazar).not.toHaveBeenCalled();
+  });
+
+  it("foco de un enlace de dentro (burbujea hasta la región): no la desplaza; el de la región sí", async () => {
+    const region = await montarListadoConRegion();
+    simular(region, { top: 10 });
+
+    expect(enfocar(within(region).getByRole("link", { name: "BOR-1" }))).toEqual([]);
+    expect(desplazar).not.toHaveBeenCalled();
+
+    expect(enfocar(region)).toEqual([]);
+    expect(desplazar).toHaveBeenCalledTimes(1);
+  });
+
+  it("sin margen de scroll calculado (cadena vacía) el margen es 0: un borde en 10 px no se desplaza", async () => {
+    const region = await montarListadoConRegion();
+    simular(region, { top: 10, margen: "" });
+
+    expect(enfocar(region)).toEqual([]);
+
+    expect(desplazar).not.toHaveBeenCalled();
+  });
+
+  it("sin scrollIntoView (jsdom no lo tiene): sale antes de preguntar por :focus-visible y no lanza", async () => {
+    const region = await montarListadoConRegion();
+    ponerScrollIntoView(undefined);
+    const matches = simular(region, { top: 10 });
+
+    expect(typeof region.scrollIntoView).toBe("undefined");
+    expect(enfocar(region)).toEqual([]);
+
+    expect(document.activeElement).toBe(region);
+    expect(matches).not.toHaveBeenCalledWith(":focus-visible");
+  });
+
+  it("si `matches(':focus-visible')` lanza: se trata como foco que no es de teclado, sin desplazar y sin error", async () => {
+    const region = await montarListadoConRegion();
+    const matches = simular(region, { top: 10 });
+    matches.mockImplementation(() => {
+      throw new SyntaxError("selector no reconocido");
+    });
+
+    expect(enfocar(region)).toEqual([]);
+
+    expect(matches).toHaveBeenCalledWith(":focus-visible"); // la rama del `catch` sí se recorrió
+    expect(document.activeElement).toBe(region);
+    expect(desplazar).not.toHaveBeenCalled();
+  });
+
+  it("en jsdom tal cual (su :focus-visible contesta que no) y sin simulacros de geometría: no desplaza ni lanza", async () => {
+    const region = await montarListadoConRegion();
+
+    expect(enfocar(region)).toEqual([]);
+
+    expect(document.activeElement).toBe(region);
+    expect(desplazar).not.toHaveBeenCalled();
+  });
+
+  it("listado: los sitios que el foco puede alcanzar bajo la cabecera llevan margen de scroll (enlaces, región, «Ver catálogo» y el grupo de foco por código)", async () => {
+    const region = await montarListadoConRegion();
+
+    expect(llevaMargenDeScroll(region), "región de la tabla").toBe(true);
+    for (const referencia of ["BOR-1", "BOR-2"]) {
+      expect(llevaMargenDeScroll(screen.getByRole("link", { name: referencia })), `enlace ${referencia}`).toBe(true);
+    }
+    expect(llevaMargenDeScroll(screen.getByRole("link", { name: "Ver catálogo" })), "«Ver catálogo»").toBe(true);
+    expect(llevaMargenDeScroll(grupoDelListado()), "grupo «Listado de cotizaciones»").toBe(true);
+  });
+
+  it("detalle: «Volver a cotizaciones» y el grupo de foco por código llevan margen de scroll", async () => {
+    lib.obtenerCotizacion.mockResolvedValue(cotizacion());
+    montar(rutaDetalle(ID_DETALLE), { rutas: "detalle" });
+    await screen.findByRole("heading", { level: 1, name: "Cotización BOR-7" });
+
+    expect(llevaMargenDeScroll(screen.getByRole("link", { name: "Volver a cotizaciones" })), "«Volver a cotizaciones»").toBe(true);
+    expect(llevaMargenDeScroll(grupoDelDetalle()), "grupo «Detalle de la cotización»").toBe(true);
+  });
+});

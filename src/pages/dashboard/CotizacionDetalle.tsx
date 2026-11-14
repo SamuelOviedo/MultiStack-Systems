@@ -81,7 +81,7 @@ export default function CotizacionDetalle() {
   const volver = (
     <Link
       to="/dashboard/cotizaciones"
-      className="inline-flex items-center gap-1 rounded-sm text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+      className="inline-flex scroll-mt-16 items-center gap-1 rounded-sm text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
     >
       <ArrowLeft aria-hidden="true" className="size-3.5" />
       Volver a cotizaciones
@@ -166,7 +166,7 @@ export default function CotizacionDetalle() {
         tabIndex={-1}
         role="group"
         aria-label="Detalle de la cotización"
-        className="rounded-lg outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="scroll-mt-16 rounded-lg outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         {cuerpo}
       </div>
