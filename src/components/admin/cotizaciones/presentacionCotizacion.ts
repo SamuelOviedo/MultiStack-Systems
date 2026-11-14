@@ -33,7 +33,7 @@ const PRESENTACION_ESTADO: Record<EstadoCotizacion, PresentacionEstado> = {
   borrador: { label: "Borrador", tone: "neutral", hollow: true },
   emitida: { label: "Emitida", tone: "info" },
   aceptada_firmada: { label: "Aceptada y firmada", tone: "success" },
-  rechazada: { label: "Rechazada", tone: "destructive" },
+  rechazada: { label: "Rechazada", tone: "neutral" },
   cancelada: { label: "Cancelada", tone: "neutral" },
 };
 

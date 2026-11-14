@@ -197,6 +197,18 @@ function montar(ruta: string, { rutas = "completas", extra }: OpcionesDeMontaje 
 const RUTA_LISTA = "/dashboard/cotizaciones";
 const rutaDetalle = (id: string) => `/dashboard/cotizaciones/${id}`;
 
+/**
+ * Tono de la insignia de cada estado (`data-tone` de `StatusBadge`). El rojo queda para errores y condiciones
+ * críticas y el ámbar para lo que requiere atención: ninguna cotización, ni la rechazada, es ninguna de las dos.
+ */
+const TONOS_POR_ESTADO: Array<[EstadoCotizacion, string]> = [
+  ["borrador", "neutral"],
+  ["emitida", "info"],
+  ["aceptada_firmada", "success"],
+  ["rechazada", "neutral"],
+  ["cancelada", "neutral"],
+];
+
 /* ------------------------------------------------------------------------------------------------
  * Guardas globales: sin red, sin consulta directa a Supabase y sin avisos en la consola
  * ---------------------------------------------------------------------------------------------- */
@@ -544,6 +556,23 @@ describe("T013 · listado", () => {
     });
     // Nunca se pinta el valor guardado.
     expect(container.textContent).not.toContain("aceptada_firmada");
+  });
+
+  it("cada estado se pinta con su tono: «Rechazada» y «Cancelada» neutrales, y ninguno en rojo", async () => {
+    servirPaginas({ 1: pagina(TONOS_POR_ESTADO.map(([estado], i) => resumen(i + 1, { estado }))) });
+    montar(RUTA_LISTA);
+
+    const tabla = await screen.findByRole("table");
+    const filas = within(tabla).getAllByRole("row").slice(1);
+    expect(filas).toHaveLength(TONOS_POR_ESTADO.length);
+    TONOS_POR_ESTADO.forEach(([estado, tono], i) => {
+      const insignia = within(filas[i]).getAllByRole("cell")[2].querySelector("[data-tone]");
+      expect(insignia, `«${estado}» debe pintar una insignia con tono`).not.toBeNull();
+      expect(insignia, estado).toHaveAttribute("data-tone", tono);
+      // Lo que se ve, no solo el atributo: ninguna clase de rojo en la insignia.
+      expect(insignia?.className, estado).not.toMatch(/destructive/);
+    });
+    expect(tabla.querySelector('[data-tone="destructive"]')).toBeNull();
   });
 
   it("la fecha sale en el día comercial de Honduras, no en el de UTC ni el del navegador", async () => {
@@ -1134,6 +1163,20 @@ describe("T014 · detalle", () => {
       await screen.findByRole("heading", { level: 1, name: "Cotización BOR-7" });
       expect(valorDe("Estado").textContent).toBe(etiqueta);
       expect(container.textContent).not.toContain(estado);
+      unmount();
+    }
+  });
+
+  it("cada estado se pinta con su tono: «Rechazada» y «Cancelada» neutrales, y ninguno en rojo", async () => {
+    for (const [estado, tono] of TONOS_POR_ESTADO) {
+      lib.obtenerCotizacion.mockResolvedValue(cotizacion({ estado }));
+      const { container, unmount } = montar(rutaDetalle(ID_DETALLE), { rutas: "detalle" });
+      await screen.findByRole("heading", { level: 1, name: "Cotización BOR-7" });
+      const insignia = valorDe("Estado").querySelector("[data-tone]");
+      expect(insignia, `«${estado}» debe pintar una insignia con tono`).not.toBeNull();
+      expect(insignia, estado).toHaveAttribute("data-tone", tono);
+      expect(insignia?.className, estado).not.toMatch(/destructive/);
+      expect(container.querySelector('[data-tone="destructive"]'), estado).toBeNull();
       unmount();
     }
   });
