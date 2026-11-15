@@ -50,6 +50,8 @@ graph/
 email-previews/
 supabase/.branches/
 e2e-artifacts/
+test-results/
+playwright-report/
 *.bundle
 
 # Database dumps / backups (may contain personal data) — never commit
