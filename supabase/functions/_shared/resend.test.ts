@@ -1,8 +1,9 @@
 // @vitest-environment node
 /**
  * _shared/resend.ts (used by send-welcome-email and send-contact-email): rule 5 of CLAUDE.md, no recipient, sender,
- * subject, key or other personal data in the logs, and a redacted, structured error. The module reads Deno.env when it
- * loads, so every test stubs `Deno` and `fetch` and imports a fresh copy. Nothing reaches the network.
+ * subject, key or other personal data in the logs, a redacted, structured error, and the optional Idempotency-Key. The
+ * module reads Deno.env when it loads, so every test stubs `Deno` and `fetch` and imports a fresh copy. Nothing reaches
+ * the network.
  */
 import { inspect } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +17,7 @@ const SENDER = `Remitente Prueba <${SENDER_ADDRESS}>`;
 const VISITOR_REPLY_TO = "visitante@correo.example.test";
 const API_KEY = "re_test_key_abcdef123456";
 const VISITOR_NAME = "Ana Pérez Visitante";
+const USER_ID = "3f2c9a1e-5b7d-4c8e-9f01-23456789abcd";
 
 const CONSOLE_METHODS = ["log", "error", "warn", "info", "debug", "trace"] as const;
 type ConsoleMethod = (typeof CONSOLE_METHODS)[number];
@@ -267,6 +269,45 @@ describe("_shared/resend · the request", () => {
     await expect(mod.sendEmail(message)).resolves.toBeUndefined();
     expect(calls).toHaveLength(1);
     expect(logs.some((line) => line.includes("Sent. ID: unknown"))).toBe(true);
+  });
+});
+
+describe("_shared/resend · Idempotency-Key", () => {
+  it("sends the header when idempotencyKey is given", async () => {
+    const { mod, calls } = await loadResend(ok);
+    await mod.sendEmail({ ...message, idempotencyKey: `welcome/${USER_ID}` });
+    expect(headersOf(calls[0])["Idempotency-Key"]).toBe(`welcome/${USER_ID}`);
+    expect(headersOf(calls[0]).Authorization).toBe(`Bearer ${API_KEY}`);
+  });
+
+  it("without it the request is exactly as before (send-contact-email keeps working unchanged)", async () => {
+    const { mod, calls } = await loadResend(ok);
+    await mod.sendEmail({ ...message, from: mod.FROM_DEV, replyTo: "soporte@multistacksystems.com" });
+    expect(calls[0].url).toBe("https://api.resend.com/emails");
+    expect(calls[0].init.method).toBe("POST");
+    expect(Object.keys(headersOf(calls[0])).sort()).toEqual(["Authorization", "Content-Type"]);
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+      from: mod.FROM_DEV,
+      to: RECIPIENT,
+      subject: message.subject,
+      html: message.html,
+      reply_to: "soporte@multistacksystems.com",
+    });
+  });
+
+  it("refuses an unsafe key before sending, without echoing it", async () => {
+    for (const key of ["", `welcome/${RECIPIENT}`, "a".repeat(257), "welcome/x\r\nBcc: y", "tab\there"]) {
+      const { mod, calls, logs } = await loadResend(ok);
+      await expect(mod.sendEmail({ ...message, idempotencyKey: key })).rejects.toThrow("invalid idempotency key");
+      expect(calls).toHaveLength(0);
+      if (key) expect(logs.join("\n")).not.toContain(key);
+    }
+  });
+
+  it("accepts the 256-character limit", async () => {
+    const { mod, calls } = await loadResend(ok);
+    await mod.sendEmail({ ...message, idempotencyKey: "k".repeat(256) });
+    expect(calls).toHaveLength(1);
   });
 });
 
