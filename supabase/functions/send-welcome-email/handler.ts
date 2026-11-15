@@ -26,7 +26,7 @@
  *     the event and the user id, never the address, the IP or the token.
  *
  * Pure module (no Deno globals, no remote imports): index.ts wires the real
- * Supabase client and Resend; tests inject fakes.
+ * Supabase client (into reserveWelcome) and Resend; tests inject fakes.
  */
 import { isUuid, isValidEmail } from "../_shared/html.ts";
 import { WELCOME_SUBJECT, welcomeHtml } from "./templates.ts";
@@ -88,6 +88,47 @@ const fail = (status: number, code: string) => json(status, { error: code });
 
 /** Provider-side de-duplication key: the user's id, never the address. */
 export const welcomeIdempotencyKey = (userId: string) => `welcome/${userId}`;
+
+/**
+ * The slice of a supabase-js client the reservation uses. index.ts passes the real client, bound to the caller's JWT
+ * (RLS applies: own row only); the tests pass a fake that records every step.
+ */
+export interface ReservationClient {
+  from(table: "profiles"): {
+    update(values: { welcome_email_sent: true }): ReservationQuery;
+  };
+}
+
+export interface ReservationQuery {
+  eq(column: "id" | "welcome_email_sent", value: string | boolean): ReservationQuery;
+  select(columns: "id"): PromiseLike<{ data: unknown; error: unknown }>;
+}
+
+const RESERVATION_FAILED = "welcome reservation failed";
+
+/**
+ * The atomic reservation, as ONE statement under the caller's JWT:
+ *   UPDATE profiles SET welcome_email_sent = true WHERE id = <userId> AND welcome_email_sent = false RETURNING id
+ * The second filter is what makes it "at most once": without it a row that is already true matches again (true → true
+ * is still an updated row) and every call would reserve. 1 row → "reserved"; 0 rows → "already_sent" (already sent,
+ * or no profile row). A database or transport error, or an answer that is not a list, throws a generic Error: the
+ * database detail never leaves this function.
+ */
+export async function reserveWelcome(client: ReservationClient, userId: string): Promise<Reservation> {
+  let answer: { data: unknown; error: unknown };
+  try {
+    answer = await client
+      .from("profiles")
+      .update({ welcome_email_sent: true })
+      .eq("id", userId)
+      .eq("welcome_email_sent", false)
+      .select("id");
+  } catch {
+    throw new Error(RESERVATION_FAILED);
+  }
+  if (answer.error || !Array.isArray(answer.data)) throw new Error(RESERVATION_FAILED);
+  return answer.data.length > 0 ? "reserved" : "already_sent";
+}
 
 export function createWelcomeHandler(deps: WelcomeDeps) {
   const log = deps.log ?? (() => {});

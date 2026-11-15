@@ -1,8 +1,8 @@
 // Pinned on purpose, like send-notification and send-contact-email: an unpinned "@2" is resolved when the function is
-// DEPLOYED, and the reservation below reads the shape of supabase-js's update().select() answer.
+// DEPLOYED, and reserveWelcome (handler.ts) reads the shape of supabase-js's update().select() answer.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.5";
 import { sendEmail } from "../_shared/resend.ts";
-import { createWelcomeHandler, type WelcomeCaller, type WelcomeEmail } from "./handler.ts";
+import { createWelcomeHandler, reserveWelcome, type WelcomeCaller, type WelcomeEmail } from "./handler.ts";
 
 // Request contract, idempotency and security model: see handler.ts. This file only wires the runtime.
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -26,18 +26,8 @@ async function authenticate(accessToken: string): Promise<WelcomeCaller | null> 
       email: user.email ?? null,
       name: user.user_metadata?.full_name ?? user.user_metadata?.name,
     },
-    async reserve() {
-      // UPDATE … SET welcome_email_sent = true WHERE id = <caller> AND welcome_email_sent = false RETURNING id
-      const { data: rows, error: updateError } = await supabase
-        .from("profiles")
-        .update({ welcome_email_sent: true })
-        .eq("id", user.id)
-        .eq("welcome_email_sent", false)
-        .select("id");
-      // The database / PostgREST detail is never surfaced: the handler only sees "it failed".
-      if (updateError || !Array.isArray(rows)) throw new Error("welcome reservation failed");
-      return rows.length > 0 ? "reserved" : "already_sent";
-    },
+    // The statement and its outcomes live in handler.ts (reserveWelcome), where they are tested.
+    reserve: () => reserveWelcome(supabase, user.id),
   };
 }
 

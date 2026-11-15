@@ -6,8 +6,11 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   createWelcomeHandler,
+  reserveWelcome,
   welcomeIdempotencyKey,
   type Reservation,
+  type ReservationClient,
+  type ReservationQuery,
   type WelcomeCaller,
   type WelcomeDeps,
   type WelcomeEmail,
@@ -276,6 +279,118 @@ describe("send-welcome-email · atomic reservation", () => {
     const responses = await Promise.all(Array.from({ length: 10 }, () => handle(post(TOKEN))));
     expect(responses.every((r) => r.status === 200)).toBe(true);
     expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+});
+
+type Step = [method: string, ...args: unknown[]];
+type Answer = { data: unknown; error: unknown };
+
+/**
+ * Fake supabase-js client for reserveWelcome. It records every builder step and, when the chain ends in select(), runs
+ * it against an in-memory `profiles` table the way PostgREST would: UPDATE … SET <values> WHERE <every eq> RETURNING
+ * <columns>. A dropped filter therefore shows twice: in the recorded steps and in the outcome (a row that is already
+ * true matches again). `answer` replaces the table's answer (a PostgREST error, an odd body); `crash` rejects instead.
+ */
+function makeProfilesClient(rows: Record<string, boolean>, fault: { answer?: Answer; crash?: Error } = {}) {
+  const table = new Map(Object.entries(rows));
+  const steps: Step[] = [];
+  let executions = 0;
+  const client: ReservationClient = {
+    from(name) {
+      steps.push(["from", name]);
+      const filters: Array<[string, unknown]> = [];
+      let values: Record<string, unknown> = {};
+      const query: ReservationQuery = {
+        eq(column, value) {
+          steps.push(["eq", column, value]);
+          filters.push([column, value]);
+          return query;
+        },
+        async select(columns): Promise<Answer> {
+          steps.push(["select", columns]);
+          executions++;
+          if (fault.crash) throw fault.crash;
+          if (fault.answer) return fault.answer;
+          const updated: Array<Record<string, unknown>> = [];
+          for (const [id, flag] of table) {
+            const row: Record<string, unknown> = { id, welcome_email_sent: flag };
+            if (!filters.every(([column, value]) => row[column] === value)) continue;
+            Object.assign(row, values);
+            table.set(id, row.welcome_email_sent as boolean);
+            updated.push({ [columns]: row[columns] });
+          }
+          return { data: updated, error: null };
+        },
+      };
+      return {
+        update(newValues) {
+          steps.push(["update", newValues]);
+          values = newValues;
+          return query;
+        },
+      };
+    },
+  };
+  return { client, steps, table, executions: () => executions };
+}
+
+describe("send-welcome-email · reserveWelcome (the statement index.ts runs)", () => {
+  it("builds exactly UPDATE profiles SET welcome_email_sent = true WHERE id = <uid> AND welcome_email_sent = false RETURNING id", async () => {
+    const db = makeProfilesClient({ [USER_ID]: false });
+    await reserveWelcome(db.client, USER_ID);
+    expect(db.steps).toEqual([
+      ["from", "profiles"],
+      ["update", { welcome_email_sent: true }],
+      ["eq", "id", USER_ID],
+      ["eq", "welcome_email_sent", false],
+      ["select", "id"],
+    ]);
+    expect(db.executions()).toBe(1); // one statement, not a read followed by a write
+  });
+
+  it("1 row → reserved; the next call on the same row matches 0 rows → already_sent; other rows are untouched", async () => {
+    const db = makeProfilesClient({ [USER_ID]: false, [OTHER_ID]: false });
+    expect(await reserveWelcome(db.client, USER_ID)).toBe("reserved");
+    expect(db.table.get(USER_ID)).toBe(true);
+    expect(await reserveWelcome(db.client, USER_ID)).toBe("already_sent");
+    expect(await reserveWelcome(db.client, USER_ID)).toBe("already_sent");
+    expect(db.table.get(OTHER_ID)).toBe(false);
+  });
+
+  it("0 rows because the flag is already true, or because there is no profile row → already_sent", async () => {
+    expect(await reserveWelcome(makeProfilesClient({ [USER_ID]: true }).client, USER_ID)).toBe("already_sent");
+    expect(await reserveWelcome(makeProfilesClient({}).client, USER_ID)).toBe("already_sent");
+  });
+
+  it("a PostgREST error, a transport crash or an answer that is not a list throws a generic error, without the detail", async () => {
+    const detail = `permission denied for table profiles (${EMAIL})`;
+    for (const fault of [
+      { answer: { data: null, error: { code: "42501", message: detail } } },
+      { answer: { data: [{ id: USER_ID }], error: { code: "PGRST116", message: detail } } }, // error wins over rows
+      { answer: { data: null, error: null } },
+      { answer: { data: { id: USER_ID }, error: null } },
+      { crash: new Error(`fetch failed: ${detail}`) },
+    ]) {
+      const db = makeProfilesClient({ [USER_ID]: false }, fault);
+      const error = await reserveWelcome(db.client, USER_ID).then(() => null, (e: unknown) => e);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe("welcome reservation failed");
+      expect(db.executions()).toBe(1);
+    }
+  });
+
+  it("wired like index.ts (reserve = reserveWelcome(client, user.id)): one e-mail, then skipped", async () => {
+    const db = makeProfilesClient({ [USER_ID]: false });
+    const { deps, sendEmail } = makeDeps(USERS, makeDb({}), {
+      authenticate: async (token) => (token === TOKEN
+        ? { user: { id: USER_ID, email: EMAIL, name: "" }, reserve: () => reserveWelcome(db.client, USER_ID) }
+        : null),
+    });
+    const handle = createWelcomeHandler(deps);
+    expect(await (await handle(post(TOKEN))).json()).toEqual({ ok: true });
+    expect(await (await handle(post(TOKEN))).json()).toEqual({ ok: true, skipped: true });
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(db.table.get(USER_ID)).toBe(true);
   });
 });
 
