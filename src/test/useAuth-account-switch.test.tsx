@@ -226,14 +226,19 @@ describe("useAuth · cambio de cuenta sin cerrar sesión", () => {
     await waitFor(() => expect(state()).toBe("u-client:2"));
   });
 
-  it("send-welcome-email se invoca en SIGNED_IN (una vez por evento) y no en TOKEN_REFRESHED", async () => {
+  it("send-welcome-email ya no sale de los eventos de autenticación (SIGNED_IN, TOKEN_REFRESHED)", async () => {
+    // Antes salía una petición por cada SIGNED_IN, y SIGNED_IN llega en cada recarga, foco y pestaña (QA 2026-11-15,
+    // hallazgo 2). Ahora la pide applySession solo si el perfil vigente dice welcome_email_sent = false, y este
+    // simulacro no la devuelve. Los casos de la marca están en useAuth-welcome-email.test.tsx.
     await startAs(ADMIN, 0);
     h.invoke.mockClear();
     emitSync("TOKEN_REFRESHED", ADMIN);
-    expect(h.invoke).not.toHaveBeenCalled();
     emitSync("SIGNED_IN", COLAB);
-    expect(h.invoke).toHaveBeenCalledTimes(1);
-    expect(h.invoke).toHaveBeenCalledWith("send-welcome-email");
+    expect(h.invoke).not.toHaveBeenCalled();
+    await flushDeferred();
+    await act(async () => callsFor("u-colab").forEach((c) => c.resolve(1)));
+    await waitFor(() => expect(state()).toBe("u-colab:1"));
+    expect(h.invoke).not.toHaveBeenCalled();
   });
 
   it("la sesión inicial sigue resolviendo `loading` y el rol como antes", async () => {
