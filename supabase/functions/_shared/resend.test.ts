@@ -295,8 +295,21 @@ describe("_shared/resend · Idempotency-Key", () => {
     });
   });
 
-  it("refuses an unsafe key before sending, without echoing it", async () => {
-    for (const key of ["", `welcome/${RECIPIENT}`, "a".repeat(257), "welcome/x\r\nBcc: y", "tab\there"]) {
+  it("refuses any key outside the allowlist before sending, without echoing it", async () => {
+    for (const key of [
+      "",
+      `welcome/${RECIPIENT}`,
+      "+504 9876 5432", // a phone number: "+" and spaces
+      "welcome/+50498765432",
+      `welcome/${VISITOR_NAME}`, // a name: spaces and an accent
+      "welcome/José",
+      "welcome/x y",
+      "a".repeat(257),
+      "welcome/x\r\nBcc: y",
+      "tab\there",
+      "welcome/x\n",
+      "welcome/x\u0000",
+    ]) {
       const { mod, calls, logs } = await loadResend(ok);
       await expect(mod.sendEmail({ ...message, idempotencyKey: key })).rejects.toThrow("invalid idempotency key");
       expect(calls).toHaveLength(0);
@@ -304,10 +317,13 @@ describe("_shared/resend · Idempotency-Key", () => {
     }
   });
 
-  it("accepts the 256-character limit", async () => {
-    const { mod, calls } = await loadResend(ok);
-    await mod.sendEmail({ ...message, idempotencyKey: "k".repeat(256) });
-    expect(calls).toHaveLength(1);
+  it("accepts ids and the allowed separators (. _ : / -), up to the 256-character limit", async () => {
+    for (const key of [`welcome/${USER_ID}`, "k".repeat(256), "a", "notification:ticket_42/v1.2-x"]) {
+      const { mod, calls } = await loadResend(ok);
+      await mod.sendEmail({ ...message, idempotencyKey: key });
+      expect(calls).toHaveLength(1);
+      expect(headersOf(calls[0])["Idempotency-Key"]).toBe(key);
+    }
   });
 });
 
