@@ -3,7 +3,7 @@
  * send-welcome-email: the welcome e-mail goes out at most once per account, the function fails closed and nothing
  * personal reaches the response or the logs. Resend is a spy: no e-mail ever leaves the test.
  */
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   createWelcomeHandler,
   reserveWelcome,
@@ -420,37 +420,132 @@ describe("send-welcome-email · Resend failure after the reservation", () => {
   });
 });
 
-describe("send-welcome-email · logs", () => {
-  it("never log the address, the IP or the token, in any outcome", async () => {
+describe("send-welcome-email · one log event per outcome, without personal data", () => {
+  const NAME = "María Fernanda"; // USERS[TOKEN].name: it reaches the template, never the log
+  /** Thrown the way _shared/resend.ts's ResendError is: status and code as fields, a message that echoes it all. */
+  const providerError = (httpStatus: unknown, providerCode: unknown) =>
+    Object.assign(new Error(`Resend ${String(httpStatus)} — ${EMAIL} ${NAME} ${CLIENT_IP} ${TOKEN}`), { httpStatus, providerCode });
+  /** The caller, named and with an address, whose reservation behaves as given. */
+  const caller = (reserve: WelcomeCaller["reserve"], email: string | null = EMAIL): WelcomeDeps["authenticate"] =>
+    async () => ({ user: { id: USER_ID, email, name: NAME }, reserve });
+
+  const outcomes: Array<{
+    exit: string;
+    overrides?: Partial<WelcomeDeps>;
+    rows?: Record<string, boolean>;
+    request: () => Request;
+    status: number;
+    event: [string, Record<string, unknown>];
+  }> = [
+    { exit: "no Authorization header", request: () => post(), status: 401,
+      event: ["rejected", { reason: "missing_token" }] },
+    { exit: "not a Bearer session", request: () => post(TOKEN, { scheme: "Basic" }), status: 401,
+      event: ["rejected", { reason: "missing_token" }] },
+    { exit: "invalid or forged session", request: () => post("forged.jwt.value"), status: 401,
+      event: ["rejected", { reason: "invalid_session" }] },
+    { exit: "authenticate() crashed", overrides: { authenticate: async () => { throw new Error(`auth down for ${EMAIL}`); } },
+      request: () => post(TOKEN), status: 401, event: ["rejected", { reason: "invalid_session" }] },
+    { exit: "e-mail not configured", overrides: { emailConfigured: false }, request: () => post(TOKEN), status: 503,
+      event: ["misconfigured", { missing: "RESEND_API_KEY" }] },
+    { exit: "no usable address", overrides: { authenticate: caller(async () => "reserved", "sin-arroba") },
+      request: () => post(TOKEN), status: 422, event: ["rejected", { reason: "no_recipient", user: USER_ID }] },
+    { exit: "reservation error",
+      overrides: { authenticate: caller(async () => { throw new Error(`db error for ${EMAIL} ${NAME} from ${CLIENT_IP}`); }) },
+      request: () => post(TOKEN), status: 503, event: ["reserve_failed", { user: USER_ID }] },
+    { exit: "reservation matched 0 rows", rows: { [USER_ID]: true }, request: () => post(TOKEN), status: 200,
+      event: ["skipped", { user: USER_ID }] },
+    { exit: "Resend rejected the send after the reservation",
+      overrides: { sendEmail: async () => { throw providerError(403, "validation_error"); } },
+      request: () => post(TOKEN), status: 502,
+      event: ["welcome_send_failed_after_claim", { user: USER_ID, status: 403, code: "validation_error" }] },
+    { exit: "Resend unreachable after the reservation (no HTTP status)",
+      overrides: { sendEmail: async () => { throw new TypeError(`fetch failed: ${EMAIL} ${NAME}`); } },
+      request: () => post(TOKEN), status: 502,
+      event: ["welcome_send_failed_after_claim", { user: USER_ID, status: null, code: null }] },
+    { exit: "sent", request: () => post(TOKEN), status: 200, event: ["sent", { user: USER_ID }] },
+  ];
+
+  /** Runs one outcome against a fresh table; returns the response status and every log call. */
+  async function run({ overrides = {}, rows = { [USER_ID]: false }, request }: (typeof outcomes)[number]) {
     const log = vi.fn();
-    const scenarios: Array<[Partial<WelcomeDeps>, Record<string, boolean>, string | undefined]> = [
-      [{}, { [USER_ID]: false }, TOKEN], // sent
-      [{}, { [USER_ID]: true }, TOKEN], // skipped
-      [{}, { [USER_ID]: false }, "forged.jwt.value"], // rejected
-      [{}, { [USER_ID]: false }, undefined], // no Authorization
-      [{ emailConfigured: false }, { [USER_ID]: false }, TOKEN], // misconfigured
-      [{ sendEmail: async () => { throw new Error(`Resend 422 — ${EMAIL} ${CLIENT_IP} ${TOKEN}`); } }, { [USER_ID]: false }, TOKEN],
-      [{
-        authenticate: async () => ({
-          user: { id: USER_ID, email: EMAIL, name: "" },
-          reserve: async () => { throw new Error(`db error for ${EMAIL} from ${CLIENT_IP}`); },
-        }),
-      }, { [USER_ID]: false }, TOKEN],
-      [{ authenticate: async () => ({ user: { id: USER_ID, email: "", name: "" }, reserve: async () => "reserved" as const }) }, {}, TOKEN],
+    const { deps } = makeDeps(USERS, makeDb(rows), { ...overrides, log });
+    const res = await createWelcomeHandler(deps)(request());
+    return { status: res.status, calls: log.mock.calls };
+  }
+
+  it.each(outcomes.map((outcome) => [outcome.exit, outcome] as const))("%s → exactly one event", async (_exit, outcome) => {
+    const { status, calls } = await run(outcome);
+    expect(status).toBe(outcome.status);
+    expect(calls).toEqual([outcome.event]);
+  });
+
+  it("every kind of exit is told apart by its event (and reason); the lost welcome has a name of its own", () => {
+    const kinds = new Set(outcomes.map(({ event: [name, detail] }) => `${name}:${String(detail.reason ?? "")}`));
+    expect([...kinds].sort()).toEqual([
+      "misconfigured:", "rejected:invalid_session", "rejected:missing_token", "rejected:no_recipient",
+      "reserve_failed:", "sent:", "skipped:", "welcome_send_failed_after_claim:",
+    ]);
+  });
+
+  it("no event carries the address, the name, the IP, the token or the provider's message", async () => {
+    const logged = JSON.stringify(await Promise.all(outcomes.map(async (outcome) => (await run(outcome)).calls)));
+    for (const fragment of [
+      "@", EMAIL, EMAIL.split("@")[0], NAME, "María", "Fernanda", CLIENT_IP, TOKEN, "session-del-cliente",
+      "Resend", "fetch failed", "db error", "auth down",
+    ]) expect(logged).not.toContain(fragment);
+  });
+
+  it("the failure event keeps only a real HTTP status and a code-shaped Resend name; anything else is null", async () => {
+    const throwing = { get httpStatus(): number { throw new Error(EMAIL); }, providerCode: "validation_error" };
+    const cases: Array<[thrown: unknown, status: number | null, code: string | null]> = [
+      [providerError(429, "rate_limit_exceeded"), 429, "rate_limit_exceeded"],
+      [providerError(500, null), 500, null],
+      [providerError("403", EMAIL), null, null], // a status as text; an address as the code
+      [providerError(403.5, NAME), null, null], // not an integer; a name with a space and an accent
+      [providerError(99, "maria"), null, null], // out of range; one word (no "_"), as a first name would be
+      [providerError(600, `validation_error\n${EMAIL}`), null, null],
+      [providerError(502, `a_${"b".repeat(63)}`), 502, null], // longer than 64 characters
+      [new Error(`plain error ${EMAIL}`), null, null],
+      [`a string with ${EMAIL}`, null, null],
+      [null, null, null],
+      [throwing, null, null], // a getter that throws must not break the event
     ];
-    for (const [overrides, rows, token] of scenarios) {
-      const { deps } = makeDeps(USERS, makeDb(rows), { ...overrides, log });
-      await createWelcomeHandler(deps)(post(token));
+    for (const [thrown, status, code] of cases) {
+      const log = vi.fn();
+      const { deps } = makeDeps(USERS, makeDb({ [USER_ID]: false }), { log, sendEmail: async () => { throw thrown; } });
+      expect((await createWelcomeHandler(deps)(post(TOKEN))).status).toBe(502);
+      expect(log.mock.calls).toEqual([["welcome_send_failed_after_claim", { user: USER_ID, status, code }]]);
+      expect(JSON.stringify(log.mock.calls)).not.toMatch(/@|María|maria/);
     }
-    const events = log.mock.calls.map(([event]) => event);
-    expect(events).toEqual(expect.arrayContaining([
-      "sent", "skipped", "rejected", "misconfigured", "send_failed", "reserve_failed",
-    ]));
-    const logged = JSON.stringify(log.mock.calls);
-    expect(logged).not.toContain("@");
-    expect(logged).not.toContain(EMAIL.split("@")[0]);
-    expect(logged).not.toContain(CLIENT_IP);
-    expect(logged).not.toContain(TOKEN);
-    expect(logged).not.toContain("session-del-cliente");
+  });
+});
+
+describe("send-welcome-email · wired to the real _shared/resend.ts", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("a Resend rejection reaches the event as its status and code, never as the address it echoes", async () => {
+    vi.resetModules();
+    vi.stubGlobal("Deno", { env: { get: (name: string) => (name === "RESEND_API_KEY" ? "re_test_key_abcdef123456" : undefined) } });
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({
+      statusCode: 403,
+      name: "validation_error",
+      message: `You can only send testing emails to your own email address (${EMAIL}).`,
+    }), { status: 403 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { sendEmail } = await import("../_shared/resend.ts");
+
+    const db = makeDb({ [USER_ID]: false });
+    const { deps, log } = makeDeps(USERS, db, { sendEmail });
+    const res = await createWelcomeHandler(deps)(post(TOKEN));
+
+    expect(res.status).toBe(502);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls).toEqual([["welcome_send_failed_after_claim", { user: USER_ID, status: 403, code: "validation_error" }]]);
+    expect(db.flags.get(USER_ID)).toBe(true); // the reservation is spent: this is the case to recover by hand
   });
 });

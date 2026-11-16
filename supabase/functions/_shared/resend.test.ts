@@ -237,13 +237,21 @@ describe("_shared/resend · structured error (ResendError)", () => {
     }
   });
 
-  it("a refusal before any request (no RESEND_API_KEY) is a plain error: no HTTP status to report", async () => {
-    const { mod, calls } = await loadResend(ok, {});
-    const error = await mod.sendEmail(message).then(() => null, (e: unknown) => e);
-    expect(error).toBeInstanceOf(Error);
-    expect(error).not.toBeInstanceOf(mod.ResendError);
-    expect(error).not.toHaveProperty("httpStatus");
+  it("refusals before any request (no key, invalid idempotency key) are plain errors: no HTTP status to report", async () => {
+    const unconfigured = await loadResend(ok, {});
+    const noKey = await unconfigured.mod.sendEmail(message).then(() => null, (e: unknown) => e);
+    expect(noKey).not.toBeInstanceOf(unconfigured.mod.ResendError);
+    expect(unconfigured.calls).toHaveLength(0);
+
+    const { mod, calls } = await loadResend(ok);
+    const badKey = await mod.sendEmail({ ...message, idempotencyKey: "x y" }).then(() => null, (e: unknown) => e);
+    expect(badKey).not.toBeInstanceOf(mod.ResendError);
     expect(calls).toHaveLength(0);
+
+    for (const error of [noKey, badKey]) {
+      expect(error).toBeInstanceOf(Error);
+      expect(error).not.toHaveProperty("httpStatus");
+    }
   });
 });
 

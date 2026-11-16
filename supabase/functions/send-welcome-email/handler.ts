@@ -22,8 +22,17 @@
  *     welcome is preferred over a duplicate one.
  *   · Resend Idempotency-Key "welcome/<user uuid>" (never the address) also
  *     de-duplicates on the provider's side for 24 h.
- *   · Responses carry codes only, never provider or database detail; logs carry
- *     the event and the user id, never the address, the IP or the token.
+ *   · Responses carry codes only, never provider or database detail. Every POST
+ *     outcome leaves ONE log event; its only identifier is the user id, never
+ *     the address, the name, the IP or the token:
+ *       rejected {reason: missing_token | invalid_session}       401
+ *       misconfigured {missing: RESEND_API_KEY}                   503, flag untouched
+ *       rejected {reason: no_recipient, user}                     422, flag untouched
+ *       reserve_failed {user}                                     503, flag untouched
+ *       skipped {user}                                            200, 0 rows
+ *       welcome_send_failed_after_claim {user, status, code}      502, flag spent:
+ *         the welcome is LOST, this is the event to recover from
+ *       sent {user}                                               200
  *
  * Pure module (no Deno globals, no remote imports): index.ts wires the real
  * Supabase client (into reserveWelcome) and Resend; tests inject fakes.
@@ -65,6 +74,7 @@ export interface WelcomeEmail {
 export interface WelcomeDeps {
   /** Resolves a user from a bearer token; null when the token is not a valid session. */
   authenticate(accessToken: string): Promise<WelcomeCaller | null>;
+  /** Rejects on failure; _shared/resend.ts's ResendError adds `httpStatus` and `providerCode` (see sendFailureOf). */
   sendEmail(email: WelcomeEmail): Promise<void>;
   /** False when RESEND_API_KEY is missing: fail closed WITHOUT spending the reservation. */
   emailConfigured: boolean;
@@ -130,6 +140,37 @@ export async function reserveWelcome(client: ReservationClient, userId: string):
   return answer.data.length > 0 ? "reserved" : "already_sent";
 }
 
+/** What the failure event may say about a failed send: the HTTP status and Resend's error code, or null. */
+export interface SendFailure {
+  status: number | null;
+  code: string | null;
+}
+
+// Same shape _shared/resend.ts keeps (snake_case words, at most 64 characters), re-checked here: this module is pure and
+// cannot import it, and whatever sendEmail throws must not decide what reaches the log.
+const PROVIDER_CODE_RE = /^[a-z]+(?:_[a-z]+)+$/;
+
+/**
+ * Reads ONLY `httpStatus` and `providerCode` from whatever sendEmail threw (_shared/resend.ts's ResendError) and keeps
+ * them only if they are an HTTP status and a code-shaped string. Never the message, which can echo the recipient. A
+ * transport error, another shape or a throwing getter gives nulls.
+ */
+export function sendFailureOf(error: unknown): SendFailure {
+  try {
+    const o = (typeof error === "object" && error !== null ? error : {}) as { httpStatus?: unknown; providerCode?: unknown };
+    const { httpStatus, providerCode } = o;
+    const status = typeof httpStatus === "number" && Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599
+      ? httpStatus
+      : null;
+    const code = typeof providerCode === "string" && providerCode.length <= 64 && PROVIDER_CODE_RE.test(providerCode)
+      ? providerCode
+      : null;
+    return { status, code };
+  } catch {
+    return { status: null, code: null };
+  }
+}
+
 export function createWelcomeHandler(deps: WelcomeDeps) {
   const log = deps.log ?? (() => {});
 
@@ -140,7 +181,10 @@ export function createWelcomeHandler(deps: WelcomeDeps) {
     // ── Authentication ──────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = /^Bearer\s+(\S+)$/i.exec(authHeader)?.[1];
-    if (!token) return fail(401, "unauthorized");
+    if (!token) {
+      log("rejected", { reason: "missing_token" });
+      return fail(401, "unauthorized");
+    }
 
     let caller: WelcomeCaller | null;
     try {
@@ -188,9 +232,10 @@ export function createWelcomeHandler(deps: WelcomeDeps) {
         html: welcomeHtml(recipient, user.name),
         idempotencyKey: welcomeIdempotencyKey(user.id),
       });
-    } catch {
-      // The flag stays reserved: no retry (at most once). See the header.
-      log("send_failed", { user: user.id });
+    } catch (error) {
+      // The flag stays reserved: no retry (at most once), so this welcome is lost until the owner recovers it by hand.
+      // The event name is unique on purpose: it is what the logs are searched for. See the header.
+      log("welcome_send_failed_after_claim", { user: user.id, ...sendFailureOf(error) });
       return fail(502, "send_failed");
     }
 
