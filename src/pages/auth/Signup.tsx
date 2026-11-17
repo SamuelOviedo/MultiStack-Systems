@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import AuthBrandPanel from "@/components/auth/AuthBrandPanel";
 import PackageIntentNotice from "@/components/auth/PackageIntentNotice";
+import { readPackageIntent } from "@/lib/packageIntent";
 
 const GoogleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -52,7 +53,9 @@ const Signup = () => {
 
     setLoading(true);
     try {
-      await signUpWithEmail(email, password);
+      // El paquete pedido viaja en el enlace de confirmación (que puede abrirse en otro dispositivo); la intención
+      // guardada no se borra: la sigue usando Mis solicitudes en este navegador.
+      await signUpWithEmail(email, password, readPackageIntent() ?? undefined);
       toast({
         title: "¡Cuenta creada!",
         description: "Revisa tu email para confirmar tu cuenta.",

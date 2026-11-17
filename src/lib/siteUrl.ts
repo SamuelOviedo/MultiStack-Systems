@@ -1,3 +1,6 @@
+import { SIGNUP_CONFIRMATION_PATH } from "@/lib/authRedirect";
+import { isPackageId, packageRequestPath } from "@/lib/packageIntent";
+
 // Con www: host canónico (Vercel redirige el dominio sin www desde la configuración de Dominios) y el que
 // está en las Redirect URLs de Supabase.
 const PRODUCTION_ORIGIN = "https://www.multistacksystems.com";
@@ -26,8 +29,13 @@ export function getSiteOrigin(): string {
   return PRODUCTION_ORIGIN;
 }
 
-export function getAuthEmailRedirectUrl(): string {
-  const base = getSiteOrigin();
-  if (!base) return "/solicitudes";
-  return `${base}/solicitudes`;
+/**
+ * Destino del enlace de confirmación de registro: `/solicitudes` en el origen canónico. Con el id de un paquete
+ * de la lista blanca (isPackageId) añade `?paquete=<id>`, para que el formulario del paquete se abra también
+ * si el enlace se abre en otro dispositivo (la intención guardada vive en el localStorage del navegador que se
+ * registró). Cualquier otro valor se ignora: ni la ruta ni otros parámetros salen de la entrada.
+ */
+export function getAuthEmailRedirectUrl(packageId?: string): string {
+  const path = isPackageId(packageId) ? packageRequestPath(packageId) : SIGNUP_CONFIRMATION_PATH;
+  return `${getSiteOrigin()}${path}`;
 }

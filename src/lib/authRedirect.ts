@@ -11,6 +11,15 @@
  */
 const RECOVERY_KEY = "ms:auth:recovery-pending";
 const LINK_ERROR_KEY = "ms:auth:link-error";
+const CONFIRMATION_ERROR_KEY = "ms:auth:confirmation-link-error";
+
+/**
+ * Where sign-up confirmation links come back (emailRedirectTo, see lib/siteUrl).
+ * A rejected link carries no `type`, so the landing path is the only way to tell
+ * a confirmation link from a recovery one (those return to /auth/callback or to
+ * the Site URL).
+ */
+export const SIGNUP_CONFIRMATION_PATH = "/solicitudes";
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -32,7 +41,7 @@ function safe<T>(fn: () => T, fallback: T): T {
 
 /** Reads the auth redirect from the current URL (hash first, then query). */
 export function captureAuthRedirect(
-  location: Pick<Location, "hash" | "search"> = window.location,
+  location: Pick<Location, "hash" | "search"> & { pathname?: string } = window.location,
   storage: StorageLike | null = store(),
 ): void {
   if (!storage) return;
@@ -47,7 +56,9 @@ export function captureAuthRedirect(
   const code = hash.get("error_code") ?? query.get("error_code") ?? hash.get("error") ?? query.get("error");
   const described = hash.get("error_description") ?? query.get("error_description");
   if (code && described) {
-    safe(() => storage.setItem(LINK_ERROR_KEY, code.slice(0, 64)), undefined);
+    // Only the code is kept: error_description never leaves the URL.
+    const confirmation = location.pathname?.replace(/\/+$/, "") === SIGNUP_CONFIRMATION_PATH;
+    safe(() => storage.setItem(confirmation ? CONFIRMATION_ERROR_KEY : LINK_ERROR_KEY, code.slice(0, 64)), undefined);
   }
 }
 
@@ -102,4 +113,17 @@ export function peekAuthLinkError(storage: StorageLike | null = store()): string
 
 export function clearAuthLinkError(storage: StorageLike | null = store()): void {
   if (storage) safe(() => storage.removeItem(LINK_ERROR_KEY), undefined);
+}
+
+/**
+ * Error code of a rejected sign-up confirmation link, if one was captured. Kept
+ * apart from the recovery error above: /login explains it, and RecoveryRedirect
+ * must not send it to the new-password screen.
+ */
+export function peekConfirmationLinkError(storage: StorageLike | null = store()): string | null {
+  return storage ? safe(() => storage.getItem(CONFIRMATION_ERROR_KEY), null) : null;
+}
+
+export function clearConfirmationLinkError(storage: StorageLike | null = store()): void {
+  if (storage) safe(() => storage.removeItem(CONFIRMATION_ERROR_KEY), undefined);
 }
