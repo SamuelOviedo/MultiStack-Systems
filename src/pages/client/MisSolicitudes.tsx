@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Plus, X, ChevronDown, ChevronUp } from "lucide-react";
 import BrandLoader from "@/components/common/BrandLoader";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +7,15 @@ import { createSolicitud, getSolicitudesByEmail } from "@/lib/tickets";
 import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/common/Navbar";
 import Logo from "@/components/common/Logo";
+import PackageRequestForm, { type PackageRequestValues } from "@/components/client/PackageRequestForm";
+import {
+  PACKAGE_INTENT_PARAM,
+  clearPackageIntent,
+  readPackageIntent,
+  type PackageIntentId,
+} from "@/lib/packageIntent";
+import { buildPackageRequest } from "@/lib/packageRequest";
+import { PACKAGES } from "@/lib/webPackages";
 import {
   TICKET_STATUS_CONFIG,
   type Ticket,
@@ -28,9 +38,17 @@ const SERVICE_OPTIONS = [
 export default function MisSolicitudes() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Paquete elegido en /paginas-web: primero `?paquete=<id>`, si no lo guardado (sobrevive al login y al registro).
+  // Se lee una sola vez, al montar; si hay paquete, el formulario se abre en «modo paquete».
+  // El h1 recibe el foco cuando desaparece el control que lo tenía (formulario de paquete cerrado o paquete quitado).
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const [packageId, setPackageId] = useState<PackageIntentId | null>(() => readPackageIntent(location.search));
+  const selectedPackage = PACKAGES.find((p) => p.id === packageId);
   const [solicitudes, setSolicitudes] = useState<(Ticket & { message_count: number })[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(() => packageId !== null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
@@ -51,6 +69,49 @@ export default function MisSolicitudes() {
   };
 
   useEffect(() => { load(); }, [user]);
+
+  /** Quita `?paquete` de la URL (reemplaza la entrada: no deja un paso extra en el historial). */
+  const stripPackageParam = () => {
+    const params = new URLSearchParams(location.search);
+    if (!params.has(PACKAGE_INTENT_PARAM)) return;
+    params.delete(PACKAGE_INTENT_PARAM);
+    const search = params.toString();
+    navigate({ pathname: location.pathname, search: search ? `?${search}` : "", hash: location.hash }, { replace: true });
+  };
+
+  const handleRemovePackage = () => {
+    headingRef.current?.focus();
+    clearPackageIntent();
+    setPackageId(null);
+    stripPackageParam();
+  };
+
+  /** Envío en modo paquete. La intención solo se borra si la solicitud se creó; si falla, el paquete sigue elegido. */
+  const handlePackageSubmit = async (values: PackageRequestValues) => {
+    if (!user?.email || !selectedPackage) return;
+    setSubmitting(true);
+    try {
+      const { title: requestTitle, description: requestDescription } = buildPackageRequest(selectedPackage, values);
+      await createSolicitud(user.email, user.email, requestTitle, requestDescription);
+      // El botón que tenía el foco desaparece con el formulario: el foco pasa antes a un elemento estable.
+      headingRef.current?.focus();
+      clearPackageIntent();
+      setPackageId(null);
+      stripPackageParam();
+      toast({ title: "Solicitud enviada", description: "Nos pondremos en contacto pronto." });
+      setShowForm(false);
+      load();
+    } catch {
+      // El detalle técnico no se muestra: el paquete sigue elegido y se puede reintentar.
+      toast({
+        title: "No se pudo enviar tu solicitud",
+        description: "Inténtalo de nuevo en unos minutos. Tu paquete sigue seleccionado.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +146,11 @@ export default function MisSolicitudes() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Logo className="h-5" />
-            <h1 className="font-display text-lg font-semibold tracking-tight text-foreground">
+            <h1
+              ref={headingRef}
+              tabIndex={-1}
+              className="font-display text-lg font-semibold tracking-tight text-foreground focus:outline-none"
+            >
               MIS SOLICITUDES
             </h1>
           </div>
@@ -99,7 +164,15 @@ export default function MisSolicitudes() {
         </div>
 
         {/* Form */}
-        {showForm && (
+        {showForm && selectedPackage && (
+          <PackageRequestForm
+            pkg={selectedPackage}
+            submitting={submitting}
+            onSubmit={handlePackageSubmit}
+            onRemove={handleRemovePackage}
+          />
+        )}
+        {showForm && !selectedPackage && (
           <form
             onSubmit={handleSubmit}
             className="border border-primary/30 rounded bg-primary/5 p-6 space-y-4"

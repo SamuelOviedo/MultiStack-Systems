@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { postLoginTarget } from "@/lib/roleRoutes";
 import AuthBrandPanel from "@/components/auth/AuthBrandPanel";
+import PackageIntentNotice from "@/components/auth/PackageIntentNotice";
 import Logo from "@/components/common/Logo";
 
 const GoogleIcon = () => (
@@ -155,6 +156,8 @@ const Login = () => {
           <p className="text-sm text-[hsl(var(--body-foreground))] leading-relaxed mb-8">
             Bienvenido de vuelta. Continúa con tu cuenta.
           </p>
+
+          <PackageIntentNotice variant="login" />
 
           {/* SSO */}
           <div className="grid grid-cols-2 gap-2.5 mb-6">
