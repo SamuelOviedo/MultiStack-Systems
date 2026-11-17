@@ -282,7 +282,7 @@ const perfilesPedidos = (cuenta: Cuenta) => h.calls.filter((c) => c.userId === i
 /** ¿Hay algo del panel en pantalla? La barra lateral o el contenido del armazón. */
 const panelVisible = () => document.querySelector("#admin-sidebar") !== null || document.querySelector("#contenido") !== null;
 /** El cargador de marca que pinta `ProtectedRoute` mientras no sabe quién es la cuenta. */
-const cargadorVisible = () => screen.queryAllByAltText("MultiStack Systems Logo").length > 0;
+const cargadorVisible = () => screen.queryAllByRole("img", { name: "MultiStack Systems" }).length > 0;
 
 /** Ninguna confirmación posterior a `desde` mostró algo del prospecto `n`. */
 const sinFiltracionesDesde = (instantaneas: string[], desde: number, n: number) =>

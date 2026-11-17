@@ -283,20 +283,10 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
         <Link
           to="/"
           onClick={handleLogoClick}
-          style={{ display: "flex", alignItems: "center", gap: "11px", textDecoration: "none", flex: "none" }}
+          style={{ display: "flex", alignItems: "center", textDecoration: "none", flex: "none" }}
         >
-          <Logo className="h-7" tone={overCinematic && cineTheme === "dark" ? "light" : "auto"} />
-          <span
-            style={{
-              fontFamily: "'Sora', sans-serif",
-              fontWeight: 700,
-              fontSize: "16.5px",
-              letterSpacing: "-0.02em",
-              color: "var(--text)",
-            }}
-          >
-            MultiStack <span style={{ color: "var(--text2)", fontWeight: 600 }}>Systems</span>
-          </span>
+          {/* Isotipo + rótulo oficiales (el rótulo ya dice «MultiStack SYSTEMS»: no se repite como texto). */}
+          <Logo priority className="h-7" tone={overCinematic && cineTheme === "dark" ? "light" : "auto"} />
         </Link>
 
         {/* Enlaces de sección: solo landing, solo ≥ 1024px */}

@@ -23,8 +23,8 @@ describe("welcome e-mail — corporate design", () => {
   it("uses the shared light layout, not the old terminal design", () => {
     expect(html).toContain(`background-color:${COLORS.page}`);
     expect(html).toContain(`background-color:${COLORS.card}`);
-    expect(html).toContain("logo-black.png");
-    expect(html).not.toMatch(/#0a0e14|#0f1419|Consolas|logo-white/i);
+    expect(html).toContain("/brand/email-logo-v2.png");
+    expect(html).not.toMatch(/#0a0e14|#0f1419|Consolas|logo-white|logo-black/i);
   });
 
   it("links only to the platform and the support mailbox", () => {

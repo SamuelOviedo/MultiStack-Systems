@@ -121,8 +121,8 @@ const callsFor = (userId: string) => h.calls.filter((c) => c.userId === userId);
 const panelVisible = () =>
   document.querySelector("#admin-sidebar") !== null ||
   document.querySelector("#contenido") !== null ||
-  Array.from(document.querySelectorAll("h1")).some((el) => el.textContent?.trim() === "$ tickets");
-const loaderVisible = () => screen.queryAllByAltText("MultiStack Systems Logo").length > 0;
+  Array.from(document.querySelectorAll("h1")).some((el) => el.textContent?.trim() === "Tickets");
+const loaderVisible = () => screen.queryAllByRole("img", { name: "MultiStack Systems" }).length > 0;
 
 function expectNoAdminQueries() {
   for (const [name, fn] of Object.entries(libs)) expect(fn, name).not.toHaveBeenCalled();

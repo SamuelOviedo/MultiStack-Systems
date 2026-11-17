@@ -1,12 +1,15 @@
 /**
  * Generate the Open Graph / Twitter share image for the AI-services pivot.
  *
- * Output : public/assets/images/og/og-ai.1200x630.png   (og:image — PNG for
+ * Output : public/assets/images/og/og-ai.v2.1200x630.png   (og:image — PNG for
  *          crawlers that reject WebP)
- *          public/assets/images/og/og-ai.1200x630.webp  (lighter variant)
+ *          public/assets/images/og/og-ai.v2.1200x630.webp  (lighter variant)
  *
- * Composition: hero first frame (cover-cropped) + white mark + headline.
+ * Composition: hero first frame (cover-cropped) + official isotipo ("oscuro", for dark backgrounds) + headline.
+ * The v1 files (og-ai.1200x630.*, previous mark) stay on disk: shared links may still point to them.
  * Re-run after replacing the hero frames with the final art.
+ *
+ * Source of the mark: src/assets/brand/isotipo-oscuro-2x.png (official isotipo, real proportions, ~56 px tall).
  *
  * Run: node scripts/generate-og-image.mjs
  */
@@ -41,7 +44,9 @@ const overlay = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}
   <text x="72" y="560" font-family="${MONO}" font-size="20" fill="#94a3b8">multistacksystems.com</text>
 </svg>`);
 
-const logo = await sharp(resolve(pub, "logo-white.png")).trim().resize({ height: 54 }).toBuffer();
+const logo = await sharp(resolve(__dirname, "..", "src", "assets", "brand", "isotipo-oscuro-2x.png"))
+  .resize({ height: 56 })
+  .toBuffer();
 
 await mkdir(OUT, { recursive: true });
 
@@ -52,7 +57,7 @@ const base = sharp(resolve(pub, "assets", "scenes", "hero", "hero-dark-1.webp"))
     { input: logo, top: 72, left: 72 },
   ]);
 
-const png = await base.clone().png({ compressionLevel: 9 }).toFile(resolve(OUT, "og-ai.1200x630.png"));
-const webp = await base.clone().webp({ quality: 82 }).toFile(resolve(OUT, "og-ai.1200x630.webp"));
-console.log(`og-ai.1200x630.png  ${(png.size / 1024).toFixed(1)} KB`);
-console.log(`og-ai.1200x630.webp ${(webp.size / 1024).toFixed(1)} KB`);
+const png = await base.clone().png({ compressionLevel: 9 }).toFile(resolve(OUT, "og-ai.v2.1200x630.png"));
+const webp = await base.clone().webp({ quality: 82 }).toFile(resolve(OUT, "og-ai.v2.1200x630.webp"));
+console.log(`og-ai.v2.1200x630.png  ${(png.size / 1024).toFixed(1)} KB`);
+console.log(`og-ai.v2.1200x630.webp ${(webp.size / 1024).toFixed(1)} KB`);

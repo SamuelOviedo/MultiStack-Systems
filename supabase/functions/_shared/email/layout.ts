@@ -23,8 +23,20 @@ export const BRAND = {
   siteLabel: "multistacksystems.com",
   /** Public mailbox with MX records (the mail. sending subdomain has none). */
   supportEmail: "soporte@multistacksystems.com",
-  /** Dark mark on transparent background — readable on white. */
-  logoUrl: "https://www.multistacksystems.com/logo-black.png",
+  /**
+   * Official full-colour logo (mark + wordmark) at 2x: 264x189 px, flat white
+   * background with padding, so it stays legible even if a client darkens the
+   * page. Shown at 132x95 (public/brand/email-logo-v2.png). Never overwrite it:
+   * e-mails already sent keep pointing at their own image URL.
+   */
+  logoUrl: "https://www.multistacksystems.com/brand/email-logo-v2.png",
+  /**
+   * Display size of the logo in the header (CSS px); the file is 2x. Set both as
+   * attributes (Outlook for Windows sizes images from them) and in the inline
+   * style; 95 rounds 94.5, a 0.5 px difference nobody sees.
+   */
+  logoWidth: 132,
+  logoHeight: 95,
 } as const;
 
 export const COLORS = {
@@ -188,14 +200,7 @@ export function renderEmail(content: EmailContent): string {
           <!-- Header -->
           <tr>
             <td style="padding:0 4px 20px;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                <tr>
-                  <td valign="middle" style="padding-right:10px;">
-                    <img src="${BRAND.logoUrl}" width="24" height="28" alt="" style="display:block;width:24px;height:28px;border:0;" />
-                  </td>
-                  <td valign="middle" style="font-family:${FONT};font-size:16px;font-weight:600;letter-spacing:-0.01em;color:${COLORS.title};">${BRAND.name}</td>
-                </tr>
-              </table>
+              <img src="${BRAND.logoUrl}" width="${BRAND.logoWidth}" height="${BRAND.logoHeight}" alt="${BRAND.name}" style="display:block;width:${BRAND.logoWidth}px;height:${BRAND.logoHeight}px;border:0;outline:none;text-decoration:none;font-family:${FONT};font-size:14px;line-height:18px;font-weight:600;color:${COLORS.title};" />
             </td>
           </tr>
           <!-- Card -->

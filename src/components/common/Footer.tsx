@@ -49,18 +49,8 @@ const Footer = () => {
       >
         {/* Col 1 — brand */}
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "11px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", marginBottom: "16px" }}>
             <Logo className="h-[26px]" />
-            <span
-              style={{
-                fontFamily: "'Sora', sans-serif",
-                fontWeight: 700,
-                fontSize: "16px",
-                color: "var(--text)",
-              }}
-            >
-              MultiStack Systems
-            </span>
           </div>
           <div
             style={{ fontFamily: MONO, fontSize: "12.5px", lineHeight: 1.7, color: "var(--muted)" }}

@@ -205,7 +205,7 @@ describe.each(PANEL_ROUTES)("%s", (path, adminQuery) => {
     const { rerender } = goTo(path);
     // Se da tiempo a que resuelvan las rutas perezosas: si el panel se hubiera montado, ya habría consultado.
     await settle(300);
-    expect(screen.getAllByAltText("MultiStack Systems Logo").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("img", { name: "MultiStack Systems" }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("main")).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Principal" })).toBeNull();
     expect(window.location.pathname).toBe(path);

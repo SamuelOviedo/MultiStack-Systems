@@ -1,6 +1,8 @@
 # TL;DR — One-Page Overview
 
 > Quick brief for Claude Design. Full detail follows below; **copy this whole file**, this section is just the map.
+>
+> **Brand note:** the logo, icon and asset descriptions in this file reflect the current official identity (see `docs/brand/BRAND_MANUAL.md`). The rest is the original redesign brief and may predate later work.
 
 **What:** Rebuild & re-style the entire MultiStack Systems site (Vite + React + TS SPA, shadcn/ui, Tailwind, Supabase) into a **dual-mode Notion (Light) + Kiro.dev (Dark) hybrid** with a working theme toggle. Site language is **Spanish (es-HN)** — never translate or invent copy; reuse every string verbatim (accents, `…`, `“ ”`, `—`, `[ … ]` bracket buttons, `$`/`>` prompts).
 
@@ -17,7 +19,7 @@
 **Universal layouts:** landing shell · auth split (`AuthBrandPanel` left + form right) · dashboard shell · legal article shell · client portal (no navbar).
 
 **3 must-do gotchas:**
-1. **Logo:** `logo-white.png` is invisible on white — swap to `logo-black.png` in light mode.
+1. **Logo:** the official identity (isotipo `M` with a `>_` prompt, "MultiStack SYSTEMS" wordmark, full logo) comes from `Logo` (site) or `BrandMark` (admin), each in a light and a dark version picked by the `dark` class. Never recolor, redraw or add effects to it; the old chevron-stack mark (`logo-white.png`, `logo-black.png`) is obsolete. See `docs/brand/BRAND_MANUAL.md` §2.
 2. **Overlay:** ClientPortal uses `bg-black/70` — change to `bg-background/80` (system rule).
 3. **Brand panel:** keep `AuthBrandPanel` dark in **both** modes (dark column beside white form = clean Notion split).
 
@@ -147,7 +149,7 @@ Shared (mode-agnostic): radii `sm 4 / md 8 / lg 12 / xl 16`; motion `--ease-bran
 ### Navbar (`src/components/Navbar.tsx`)
 - Fixed top, full width. Transparent at scroll top → on scroll (`scrollY > 20`) becomes `bg-background/60 backdrop-blur-md` + hairline bottom border.
   - Light: blurred white; Dark: blurred navy glass.
-- Left: `logo-white.png` (h-7) + wordmark "MultiStack Systems" (display font). **Light mode needs a dark logo** — use `logo-black.png` (already in `public/`) via a mode swap, since `logo-white.png` is invisible on white.
+- Left: the official lockup (`<Logo className="h-7" />`: isotipo + "MultiStack SYSTEMS" wordmark side by side; light or dark version by the `dark` class). The wordmark already carries the name, so no extra text next to it.
 - Center (home only): section nav buttons — **Inicio / Servicios / Stack / Contacto** (scroll to `#hero / #servicios / #stack / #footer`).
 - Right: **theme toggle** + auth-state command buttons (bracketed mono):
   - Logged out: `[ ACCEDER ]` → /login, `[ REGISTRARSE ]` → /signup.
@@ -293,7 +295,7 @@ Roles: `0`/`1` = team/admin → /dashboard; `2` = client → /solicitudes.
 - Bottom bar: `© {año} MultiStack Systems. Todos los derechos reservados.` (blinking `_`)
 - Validation: email regex + message ≥ 5 chars; posts to Supabase function `send-contact-email`.
 
-**Light vs dark:** Light → white, hairline top border, dark logo swap, muted column labels, blue links on hover ink. Dark → navy, `border-foreground/5`, glow on WhatsApp/contact buttons.
+**Light vs dark:** Light → white, hairline top border, light/dark logo version, muted column labels, blue links on hover ink. Dark → navy, `border-foreground/5`, glow on WhatsApp/contact buttons.
 
 ---
 
@@ -361,7 +363,7 @@ Same split shell + `AuthBrandPanel`. Two states.
 
 ## 2.9 `/auth/callback` (`AuthCallback.tsx`)
 
-**Blocks:** full-screen centered → `<BrandLoader />` only. No copy. Exchanges OAuth code → routes to /login, /dashboard, or /solicitudes. **Light vs dark:** centered pulsing logo (swap to dark logo in light mode).
+**Blocks:** full-screen centered → `<BrandLoader />` only. No copy. Exchanges OAuth code → routes to /login, /dashboard, or /solicitudes. **Light vs dark:** centered pulsing logo (official lockup, light version in light mode).
 
 ---
 
@@ -426,7 +428,7 @@ Same split shell + `AuthBrandPanel`. Two states.
 **Blocks:** Navbar → `max-w-3xl pt-28` → header (logo + H1 | toggle button) → collapsible new-request form → list (loading / empty / accordion rows).
 
 **Copy:**
-- H1: `MIS SOLICITUDES` (logo alt `MultiStack Systems Logo`)
+- H1: `MIS SOLICITUDES` (isotipo-only `Logo` with `decorative`: the accessible name `MultiStack Systems` comes from the navbar logo)
 - Toggle button: `[ NUEVA SOLICITUD ]` (Plus) / open `[ CANCELAR ]` (X)
 - Form heading: `> Nueva solicitud de desarrollo`
 - Field `Tipo de servicio` (select, required)
@@ -464,7 +466,7 @@ Same split shell + `AuthBrandPanel`. Two states.
 ## 2.15 `*` NotFound (`NotFound.tsx`)
 
 **Blocks:** full-screen centered → logo → mono prompt → H1 → subtext → home link.
-**Copy:** prompt `multistack@secure:~$ cd {pathname}` · H1 `404` · subtext `bash: ruta no encontrada` · link `[ VOLVER AL INICIO ]` (→ /). Logo swap for light mode.
+**Copy:** prompt `multistack@secure:~$ cd {pathname}` · H1 `404` · subtext `bash: ruta no encontrada` · link `[ VOLVER AL INICIO ]` (→ /). Full logo (`<Logo variant="full" />`, h-16), light or dark version by theme.
 
 ---
 
@@ -608,15 +610,14 @@ React 18 + TypeScript + **Vite** SPA (not Next.js). Routing `react-router-dom` v
 
 | Asset | Purpose | Notes for redesign |
 | --- | --- | --- |
-| `logo-white.png` | Primary logo (Navbar, Footer, auth, loaders, 404, MisSolicitudes) | White glyph — **invisible on white**; in light mode swap to `logo-black.png` |
-| `logo-black.png` | Social/OG card image | Reuse as the **light-mode logo** |
-| `favicon.svg` | Browser favicon (primary) | — |
-| `favicon.ico` | Legacy favicon fallback | — |
-| `logo-black.png` | Variante clara del logo oficial | Reusar en superficies blancas y OG/social |
+| `src/assets/brand/*` | Official identity: isotipo, wordmark and full logo, light and dark, at 1x / 2x / 4x | Bundled by Vite; use `Logo` (site) or `BrandMark` (admin), never the files directly |
+| `logo-white.png`, `logo-black.png` | Obsolete mark, kept only because e-mails already sent load them | Do not use in new work |
+| `favicon.ico`, `favicon-48x48.png`, `favicon-96x96.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | Tab, iOS and PWA icons | Official isotipo on midnight blue `#080C13` |
+| `assets/images/og/*.v2.*` | Social images (home and `/paginas-web`) | Official isotipo; the v1 files stay on disk |
 | `robots.txt` | Crawler directives | — |
 | `sitemap.xml` | SEO sitemap | Update if routes/URLs change |
 
-Logo lockup (from LOGIN-SPEC): square mark 28×28, radius 6, gradient `linear-gradient(135deg,#0EA5E9,#06B6D4)`, letter "M" in `#080F1E` JetBrains Mono 700; wordmark "MultiStack." Sora/display 700, final `.` in primary. (In light mode the wordmark ink → `#191919`.)
+Logo lockup: the official isotipo and wordmark at the same height, gap about 0.28 of that height (`docs/brand/BRAND_MANUAL.md` §2). Do not redraw it or approximate it with a gradient square and text.
 
 ## 3.3 UI states (define for every interactive element, both modes)
 
@@ -680,4 +681,4 @@ Logo lockup (from LOGIN-SPEC): square mark 28×28, radius 6, gradient `linear-gr
 | Tailwind | `tailwind.config.ts` |
 | Auth/state | `src/hooks/useAuth.tsx`, `src/integrations/supabase/client.ts` |
 | Existing dark spec | `claude_design/REDISE_O.md`, `claude_design/globals.css`, `claude_design/tailwind.config.snippet.ts`, `claude_design/LOGIN-SPEC.md` |
-| Assets | `public/logo-white.png`, `public/logo-black.png`, `public/favicon.svg`, `public/favicon.ico`, `public/robots.txt`, `public/sitemap.xml` |
+| Assets | `src/assets/brand/` (official identity), `public/favicon.ico`, `public/icon-*.png`, `public/robots.txt`, `public/sitemap.xml` |

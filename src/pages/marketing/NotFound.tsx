@@ -12,7 +12,7 @@ const NotFound = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="text-center space-y-6">
-        <Logo className="h-10 mx-auto" />
+        <Logo variant="full" className="h-16 mx-auto" />
         <div className="space-y-2">
           <p className="font-mono text-[11px] text-muted-foreground tracking-[0.1em]">
             multistack@secure:~$ cd {location.pathname}

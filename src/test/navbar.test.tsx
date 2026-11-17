@@ -105,13 +105,14 @@ describe("Navbar", () => {
 
     const dark = renderAt("/", "overlay");
     expect(dark.container.querySelector("nav")!.style.background).toBe("rgba(8, 15, 30, 0.3)");
-    expect(dark.container.querySelectorAll("nav img")).toHaveLength(1); // solo logo blanco
+    expect(dark.container.querySelectorAll("nav img")).toHaveLength(2); // solo la versión «oscuro»: isotipo + rótulo
+    expect(dark.container.querySelectorAll('nav img[data-brand-theme="claro"]')).toHaveLength(0);
     dark.unmount();
 
     themeState.resolvedTheme = "light";
     const light = renderAt("/", "overlay");
     expect(light.container.querySelector("nav")!.style.background).toBe("rgba(255, 255, 255, 0.5)");
-    expect(light.container.querySelectorAll("nav img")).toHaveLength(2); // logo según tema (negro en claro)
+    expect(light.container.querySelectorAll("nav img")).toHaveLength(4); // logo según tema: isotipo + rótulo, claro y oscuro
   });
 
   it("fuera de la landing ignora variant='overlay' y no muestra enlaces de sección", () => {
@@ -123,7 +124,7 @@ describe("Navbar", () => {
     const { container } = renderAt("/dashboard", "overlay");
     const nav = container.querySelector("nav")!;
     expect(nav.style.background).not.toBe("rgba(8, 15, 30, 0.3)");
-    expect(container.querySelectorAll("nav img")).toHaveLength(2); // logo con tema
+    expect(container.querySelectorAll("nav img")).toHaveLength(4); // logo con tema: isotipo + rótulo, claro y oscuro
     expect(screen.queryByRole("button", { name: "Servicios" })).toBeNull();
   });
 });

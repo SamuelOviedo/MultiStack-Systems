@@ -217,7 +217,7 @@ export async function sampleDom(page: Page, marks: readonly ContentMark[], durat
             ),
           )
           .map((mark) => mark.name);
-        return { marks: present, logo: document.querySelector('img[alt="MultiStack Systems Logo"]') !== null };
+        return { marks: present, logo: document.querySelector('[role="img"][data-brand-variant="lockup"]') !== null };
       }, marks),
     );
     await page.waitForTimeout(100);

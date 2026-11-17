@@ -74,7 +74,7 @@ test.describe("Dashboard is administrator-only (UI)", () => {
               const sidebar = document.querySelector("#admin-sidebar") ? "panel" : "";
               const content = document.querySelector("#contenido") ? "panel" : "";
               const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "Tickets") ? "panel" : "";
-              const logo = document.querySelector('img[alt="MultiStack Systems Logo"]') ? "logo" : "";
+              const logo = document.querySelector('[role="img"][data-brand-variant="lockup"]') ? "logo" : "";
               return [sidebar, content, tickets, logo].filter(Boolean).join("+") || "vacío";
             }),
           );
@@ -128,7 +128,7 @@ test.describe("Dashboard is administrator-only (UI)", () => {
               const sidebar = document.querySelector("#admin-sidebar") ? "panel" : "";
               const content = document.querySelector("#contenido") ? "panel" : "";
               const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "Tickets") ? "panel" : "";
-              const logo = document.querySelector('img[alt="MultiStack Systems Logo"]') ? "logo" : "";
+              const logo = document.querySelector('[role="img"][data-brand-variant="lockup"]') ? "logo" : "";
               return [sidebar, content, tickets, logo].filter(Boolean).join("+") || "vacío";
             }),
           );

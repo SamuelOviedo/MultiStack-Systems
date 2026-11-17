@@ -143,9 +143,9 @@ export default function MisSolicitudes() {
       <div className="container mx-auto px-6 pt-28 pb-16 max-w-3xl space-y-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo className="h-5" />
+        <div data-testid="solicitudes-header" className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Logo variant="isotipo" decorative className="h-4" />
             <h1
               ref={headingRef}
               tabIndex={-1}
@@ -237,7 +237,7 @@ export default function MisSolicitudes() {
         {/* List */}
         {loading ? (
           <div className="flex justify-center py-16">
-            <BrandLoader className="h-6" />
+            <BrandLoader variant="isotipo" className="h-6" />
           </div>
         ) : solicitudes.length === 0 ? (
           <div className="border border-border rounded p-10 text-center space-y-2">

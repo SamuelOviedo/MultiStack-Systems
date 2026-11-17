@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import Logo from "@/components/common/Logo";
 
 const FEATURES = [
   "Gestiona pipelines y entregas en tiempo real",
@@ -27,16 +28,8 @@ export default function AuthBrandPanel() {
 
       {/* Header: logo + status pill */}
       <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <img
-            src="/logo-white.png"
-            alt="MultiStack Systems Logo"
-            className="h-7 w-auto object-contain shrink-0"
-          />
-          <span className="font-display font-bold text-[18px] tracking-[-0.01em] text-foreground">
-            MultiStack Systems
-          </span>
-        </div>
+        {/* Panel siempre oscuro (`dark` en el contenedor): logotipo completo, versión «oscuro», con 64 px de alto. */}
+        <Logo variant="full" tone="light" className="h-16" />
         <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-sm border border-success/30 bg-success/12 text-success text-[10px] font-mono font-medium uppercase tracking-[0.05em]">
           <span className="w-1.5 h-1.5 rounded-full bg-current animate-blink" />
           v2.4 · ESTABLE

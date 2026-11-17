@@ -19,11 +19,11 @@ export interface OgImages {
 
 export const OG_IMAGES: OgImages = {
   default: {
-    path: "/assets/images/og/og-ai.1200x630.png",
+    path: "/assets/images/og/og-ai.v2.1200x630.png",
     alt: "MultiStack Systems — Tu operación, en piloto automático. Servicios productizados de IA y automatización.",
   },
   paginasWeb: {
-    path: "/assets/images/og/og-paginas-web.png",
+    path: "/assets/images/og/og-paginas-web.v2.png",
     alt: "MultiStack Systems — Páginas web para negocios de Honduras. Diseño a medida, código propio y precio claro antes de empezar.",
   },
 };

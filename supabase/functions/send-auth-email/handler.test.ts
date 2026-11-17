@@ -73,7 +73,7 @@ describe("send-auth-email · signed requests (legit Supabase Auth)", () => {
     // Template preserved: brand markers + escaped verify link
     expect(sent[0].html).toContain("Confirma tu correo electrónico");
     expect(sent[0].html).toContain(">Confirmar mi cuenta</a>");
-    expect(sent[0].html).toContain("https://www.multistacksystems.com/logo-black.png");
+    expect(sent[0].html).toContain("https://www.multistacksystems.com/brand/email-logo-v2.png");
     expect(sent[0].html).toContain(
       'href="https://ckyqrdemgssbrqfnkxsr.supabase.co/auth/v1/verify?token=pkce_4f0e2b9c1a&amp;type=signup&amp;redirect_to=https%3A%2F%2Fwww.multistacksystems.com%2Fauth%2Fcallback"',
     );
