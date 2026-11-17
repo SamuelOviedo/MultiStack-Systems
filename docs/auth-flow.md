@@ -147,7 +147,7 @@ src/pages/Signup.tsx
 6. Login normal desde ese punto
 ```
 
-`getAuthEmailRedirectUrl()` retorna `${VITE_SITE_URL}/solicitudes`. Solo aplica al flujo email/password.
+`getAuthEmailRedirectUrl(packageId?)` retorna `${VITE_SITE_URL}/solicitudes` y, si hay un paquete elegido (id de la lista blanca), `${VITE_SITE_URL}/solicitudes?paquete=<id>`. Solo aplica al flujo email/password. Para que Supabase respete ese destino, su Site URL debe tener el mismo host (o debe existir una entrada de Redirect URLs que cubra también la query). Un enlace caducado o ya usado que llega a `/solicitudes` se avisa en `/login`.
 
 ---
 

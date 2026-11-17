@@ -32,11 +32,16 @@ export async function signInWithOAuth(provider: OAuthProvider): Promise<void> {
   if (error) throw error;
 }
 
-export async function signUpWithEmail(email: string, password: string): Promise<void> {
+/**
+ * `packageId` (optional) is the package the visitor asked for: when it is a known
+ * id, the confirmation link returns to /solicitudes?paquete=<id>, so the request
+ * form opens even if the link is opened on another device.
+ */
+export async function signUpWithEmail(email: string, password: string, packageId?: string): Promise<void> {
   const { error } = await supabase.auth.signUp({
     email: email.trim(),
     password,
-    options: { emailRedirectTo: getAuthEmailRedirectUrl() },
+    options: { emailRedirectTo: getAuthEmailRedirectUrl(packageId) },
   });
   if (error) throw error;
 }
@@ -86,12 +91,12 @@ export function validateNewPassword(password: string, confirmation: string): str
   return null;
 }
 
-/** Re-sends the sign-up confirmation link (needed once "Confirm email" is on). */
-export async function resendSignupConfirmation(email: string): Promise<void> {
+/** Re-sends the sign-up confirmation link (needed once "Confirm email" is on). `packageId`: see signUpWithEmail. */
+export async function resendSignupConfirmation(email: string, packageId?: string): Promise<void> {
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email: email.trim(),
-    options: { emailRedirectTo: getAuthEmailRedirectUrl() },
+    options: { emailRedirectTo: getAuthEmailRedirectUrl(packageId) },
   });
   if (error) throw error;
 }

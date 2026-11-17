@@ -136,6 +136,36 @@ describe("supabase client startup — expired / invalid link (#error=…&error_c
     expect(data.session).toBeNull();
     expect(requested).toEqual([]);
   });
+
+  it("a rejected sign-up confirmation link (lands on /solicitudes) is recorded apart from recovery and keeps ?paquete=", async () => {
+    supabase = await bootAt(`/solicitudes?paquete=combo-emprendedor${EXPIRED_LINK_HASH}`);
+
+    expect(replaceState).toHaveBeenCalledWith(null, "", "/solicitudes?paquete=combo-emprendedor");
+    expect(window.location.href).not.toMatch(/error_code|error_description|access_denied/);
+    // /login explains it; the recovery marker stays empty so RecoveryRedirect does not open the new-password screen.
+    expect(sessionStorage.getItem("ms:auth:confirmation-link-error")).toBe("otp_expired");
+    expect(sessionStorage.getItem("ms:auth:link-error")).toBeNull();
+
+    const { data } = await supabase.auth.getSession();
+    expect(data.session).toBeNull();
+    expect(requested).toEqual([]);
+  });
+});
+
+describe("supabase client startup — sign-up confirmation link with the requested package", () => {
+  it("creates the session and leaves /solicitudes?paquete=<id> in the URL, without the tokens", async () => {
+    const hash = `#access_token=${fakeAccessToken}&refresh_token=x&expires_in=3600&token_type=bearer&type=signup`;
+    supabase = await bootAt(`/solicitudes?paquete=combo-emprendedor${hash}`);
+
+    expect(replaceState).toHaveBeenCalledWith(null, "", "/solicitudes?paquete=combo-emprendedor");
+    expect(window.location.search).toBe("?paquete=combo-emprendedor");
+    expect(window.location.href).not.toMatch(/access_token|refresh_token/);
+    expect(sessionStorage.length).toBe(0);
+
+    const { data, error } = await supabase.auth.getSession();
+    expect(error).toBeNull();
+    expect(data.session?.user.id).toBe(USER.id);
+  });
 });
 
 describe("supabase client startup — pages that are not auth redirects", () => {

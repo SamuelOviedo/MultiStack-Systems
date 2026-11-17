@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
-  authErrorCode, describeAuthError, resendSignupConfirmation, signInWithOAuth, signInWithPassword,
+  authErrorCode, describeAuthError, INVALID_LINK_CODES, resendSignupConfirmation, signInWithOAuth, signInWithPassword,
 } from "@/lib/auth";
+import { clearConfirmationLinkError, peekConfirmationLinkError } from "@/lib/authRedirect";
+import { readPackageIntent } from "@/lib/packageIntent";
 import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
@@ -43,6 +45,30 @@ const AuthLoadingScreen = () => (
   </div>
 );
 
+/** Valor de `?error=` con el que AuthCallback vuelve aquí cuando falla el canje de OAuth. */
+const AUTH_FAILED_PARAM = "auth_failed";
+
+/**
+ * Avisos de por qué la persona acabó en /login. El texto es fijo: del enlace solo se usa el código de error
+ * (nunca error_description ni tokens). El enlace caducado o ya usado es informativo (status) y no afirma de
+ * qué tipo era: un enlace de recuperación caducado también puede llegar a /solicitudes. El fallo de OAuth es
+ * un error (alert).
+ */
+const LOGIN_NOTICES = {
+  "confirmation-link": {
+    role: "status",
+    tone: "border-warning/40 bg-warning/5",
+    text: "El enlace caducó o ya se usó. Inicia sesión: si tu correo aún no está confirmado, podrás pedir un enlace nuevo.",
+  },
+  "auth-failed": {
+    role: "alert",
+    tone: "border-destructive/40 bg-destructive/5",
+    text: "No pudimos completar el inicio de sesión. Inténtalo de nuevo.",
+  },
+} as const;
+
+type LoginNotice = keyof typeof LOGIN_NOTICES;
+
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,6 +79,22 @@ const Login = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { user, userType, loading: authLoading, recoveryPending } = useAuth();
+
+  // Se lee una sola vez al montar y se consume enseguida: el aviso vive en el estado de esta pantalla y
+  // desaparece al intentar entrar de nuevo, al recargar o al salir de /login.
+  const [notice, setNotice] = useState<LoginNotice | null>(() => {
+    const linkError = peekConfirmationLinkError();
+    if (linkError && INVALID_LINK_CODES.has(linkError)) return "confirmation-link";
+    return new URLSearchParams(location.search).get("error") === AUTH_FAILED_PARAM ? "auth-failed" : null;
+  });
+  useEffect(() => { clearConfirmationLinkError(); }, []);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("error") !== AUTH_FAILED_PARAM) return;
+    // Junto con el marcador se van el código y la descripción del error, si alguien los añadió a la query.
+    for (const key of ["error", "error_code", "error_description"]) params.delete(key);
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+  }, [location.pathname, location.search, navigate]);
 
   useEffect(() => {
     // A recovery-link session must set a new password first (RecoveryRedirect).
@@ -69,6 +111,7 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) return;
+    setNotice(null);
     setLoading(true);
     try {
       await signInWithPassword(email, password);
@@ -92,7 +135,8 @@ const Login = () => {
 
   const handleResendConfirmation = async () => {
     try {
-      await resendSignupConfirmation(email);
+      // Con el paquete pedido, si hay intención guardada (no se borra): el enlace nuevo vuelve con ?paquete=.
+      await resendSignupConfirmation(email, readPackageIntent() ?? undefined);
       toast({ title: "Enlace enviado", description: "Revisa tu bandeja de entrada (y la carpeta de spam)." });
     } catch (error) {
       toast({ title: "No se pudo reenviar", description: describeAuthError(error), variant: "destructive" });
@@ -100,6 +144,7 @@ const Login = () => {
   };
 
   const handleOAuth = async (provider: "google" | "github") => {
+    setNotice(null);
     setOauthLoading(provider);
     try {
       await signInWithOAuth(provider);
@@ -153,6 +198,15 @@ const Login = () => {
           <p className="text-sm text-[hsl(var(--body-foreground))] leading-relaxed mb-8">
             Bienvenido de vuelta. Continúa con tu cuenta.
           </p>
+
+          {notice && (
+            <div
+              role={LOGIN_NOTICES[notice].role}
+              className={`mb-6 rounded-md border px-4 py-3 text-sm text-foreground ${LOGIN_NOTICES[notice].tone}`}
+            >
+              {LOGIN_NOTICES[notice].text}
+            </div>
+          )}
 
           <PackageIntentNotice variant="login" />
 
