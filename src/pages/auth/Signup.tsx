@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import AuthBrandPanel from "@/components/auth/AuthBrandPanel";
+import PackageIntentNotice from "@/components/auth/PackageIntentNotice";
 
 const GoogleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -95,6 +96,8 @@ const Signup = () => {
           <p className="text-sm text-[hsl(var(--body-foreground))] leading-relaxed mb-8">
             Únete a la plataforma MultiStack.
           </p>
+
+          <PackageIntentNotice variant="signup" />
 
           {/* SSO */}
           <div className="grid grid-cols-2 gap-2.5 mb-6">

@@ -4,6 +4,7 @@ import Navbar from "@/components/common/Navbar";
 import Footer from "@/components/common/Footer";
 import type { ContactPrefill } from "@/components/marketing/ContactForm";
 import PwChannels from "@/components/marketing/paginas-web/PwChannels";
+import PwCombo from "@/components/marketing/paginas-web/PwCombo";
 import PwContact from "@/components/marketing/paginas-web/PwContact";
 import PwEngineering from "@/components/marketing/paginas-web/PwEngineering";
 import PwFaq from "@/components/marketing/paginas-web/PwFaq";
@@ -79,6 +80,7 @@ const PaginasWeb = () => {
       >
         <main>
           <PwHero hero={CONTENT.hero} onContact={requestQuote} />
+          <PwCombo combo={CONTENT.combo} />
           <PwIncludes includes={CONTENT.includes} />
           <PwPrice price={CONTENT.price} onContact={requestQuote} />
           <PwTimeline timeline={CONTENT.timeline} onContact={requestQuote} />
