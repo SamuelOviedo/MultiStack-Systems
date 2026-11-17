@@ -6,8 +6,8 @@ import PwSectionHead from "./PwSectionHead";
  * Preguntas frecuentes con <details>/<summary> nativos (teclado y lectores de pantalla de serie, sin
  * JavaScript). El marcador y el foco se dibujan en CSS (.ms-pw-faq__q).
  */
-const PwFaq = ({ faq }: { faq: PaginasWebFaq }) => (
-  <PwSection head={faq}>
+const PwFaq = ({ faq, alt }: { faq: PaginasWebFaq; /** Fondo alterno entre secciones contiguas. */ alt?: boolean }) => (
+  <PwSection head={faq} alt={alt}>
     <PwSectionHead head={faq} />
     <div className="ms-pw-faq">
       {faq.items.map((item) => (

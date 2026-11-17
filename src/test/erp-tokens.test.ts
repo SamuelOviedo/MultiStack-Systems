@@ -529,12 +529,9 @@ describe("aislamiento del ámbito .erp", () => {
       const hasScoped = rule.nodes?.some((n) => n.type === "decl" && SCOPED_TOKENS.includes(n.prop));
       if (!hasScoped) return;
       const selector = rule.selector.replace(/\s+/g, " ").trim();
-      // `.ms-chat-panel` ya redefinía estos tokens antes de este cambio (panel del chat de la landing).
       const ok =
         selector === ":root" ||
         selector === ".dark" ||
-        selector === ".ms-chat-panel" ||
-        selector === ".dark .ms-chat-panel" ||
         /(^|\s)\.erp(\s|\[|$|,)/.test(selector);
       if (!ok) offenders.push(selector);
     });

@@ -38,7 +38,7 @@ export default tseslint.config(
             {
               name: "framer-motion",
               importNames: ["motion"],
-              message: "Usa `m` dentro de <LazyMotion> (ver CinematicChapters) para no cargar todas las features.",
+              message: "Usa `m` dentro de <LazyMotion> para no cargar todas las features.",
             },
           ],
         },

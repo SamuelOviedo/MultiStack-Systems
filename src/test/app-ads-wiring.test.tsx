@@ -163,7 +163,8 @@ async function mountApp(url: string, { clientStartup = false }: MountOptions = {
   });
 }
 
-const findHome = () => screen.findByRole("heading", { level: 1, name: /Tu operación/ }, WAIT);
+// El h1 de la home web-first (HOME_CONTENT.hero.title).
+const findHome = () => screen.findByRole("heading", { level: 1, name: "Páginas web para negocios en Honduras" }, WAIT);
 const findLanding = () => screen.findByRole("heading", { level: 1, name: "Páginas web en Honduras" }, WAIT);
 const findPrivacy = () => screen.findByRole("heading", { level: 1, name: "Política de Privacidad" }, WAIT);
 const findTerms = () => screen.findByRole("heading", { level: 1, name: "Términos del Servicio" }, WAIT);

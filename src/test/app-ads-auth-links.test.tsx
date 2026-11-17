@@ -230,7 +230,8 @@ async function mountApp(url: string): Promise<void> {
   });
 }
 
-const findHome = () => screen.findByRole("heading", { level: 1, name: /Tu operación/ }, WAIT);
+// El h1 de la home web-first (HOME_CONTENT.hero.title).
+const findHome = () => screen.findByRole("heading", { level: 1, name: "Páginas web para negocios en Honduras" }, WAIT);
 const findLanding = () => screen.findByRole("heading", { level: 1, name: "Páginas web en Honduras" }, WAIT);
 const findLogin = () => screen.findByRole("heading", { level: 2, name: "Iniciar sesión" }, WAIT);
 /** /auth/update-password con una recuperación pendiente: el formulario para elegir la contraseña nueva. */

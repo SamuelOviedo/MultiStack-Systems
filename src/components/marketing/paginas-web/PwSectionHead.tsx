@@ -6,8 +6,8 @@ import { titleId } from "./ids";
  * Rótulo «// …» en mono y color acento. El prefijo es decorativo (aria-hidden) y la minúscula la
  * aplica el CSS: el texto del DOM es exactamente el eyebrow del contenido.
  */
-export const PwEyebrow = ({ children }: { children: string }) => (
-  <p className="ms-pw-eyebrow">
+export const PwEyebrow = ({ children, className }: { children: string; className?: string }) => (
+  <p className={className ? `ms-pw-eyebrow ${className}` : "ms-pw-eyebrow"}>
     <span aria-hidden="true">{"// "}</span>
     {children}
   </p>

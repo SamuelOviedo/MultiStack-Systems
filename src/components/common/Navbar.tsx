@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,6 +7,8 @@ import { getOpenTicketsCount } from "@/lib/tickets";
 import Logo from "@/components/common/Logo";
 import { cinematicToken, cinematicVars, useMsThemeVars } from "@/lib/msTokens";
 import { useCinematicTheme } from "@/hooks/useCinematicTheme";
+import { rememberPackageIntent } from "@/lib/packageIntent";
+import type { HomeNav } from "@/pages/marketing/homeContent";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -68,18 +70,23 @@ const mobileLink: CSSProperties = {
   gap: "8px",
 };
 
+interface SectionLink {
+  label: string;
+  id: string;
+}
+
 /**
- * Anchors of the public landing ("/"). Rendered ONLY when `isHome`: the
- * dashboard, client and legal pages never show them, so marketing copy can
- * change here without touching the internal app's navigation.
+ * Anchors of the public landing ("/"), taken from the `homeNav` prop (the
+ * page owns its copy: `HOME_CONTENT.nav`). Rendered ONLY when `isHome` and the
+ * page passes it: the dashboard, client and legal pages never show them, so
+ * marketing copy can change without touching the internal app's navigation.
  */
-const MARKETING_SECTIONS = [
-  { label: "Servicios", id: "productos" },
-  { label: "Engineering", id: "stack" },
-  { label: "Empresa", id: "empresa" },
-  { label: "Contacto", id: "contacto" },
-] as const;
-const MARKETING_IDS: readonly string[] = MARKETING_SECTIONS.map((s) => s.id);
+const NO_SECTIONS: readonly SectionLink[] = [];
+
+function sectionLinks(nav: HomeNav | undefined): readonly SectionLink[] {
+  if (!nav) return NO_SECTIONS;
+  return nav.items.map((item) => ({ label: item.label, id: item.href.replace(/^#/, "") }));
+}
 
 const NAV_HEIGHT = 72;
 /** Desktop navigation from Tailwind `lg` (1024px) up; below it, only the drawer. */
@@ -150,12 +157,20 @@ function useOverCinematic(enabled: boolean): boolean {
 const prefersReducedMotion = () =>
   typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+interface NavbarProps {
+  variant?: "default" | "overlay";
+  /** Section links and primary CTA of the home. Only shown at "/". */
+  homeNav?: HomeNav;
+  /** Called with the section id when a home link scrolls to it (the page can prepare that section). */
+  onHomeNavigate?: (id: string) => void;
+}
+
 /**
  * @param variant "overlay": translucent glass bar that wears the cinematic
  * scene tokens (light or dark, like the imagery) while over the scenes. Only
  * honored on "/"; every other route always renders the solid themed bar.
  */
-const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) => {
+const Navbar = ({ variant = "default", homeNav, onHomeNavigate }: NavbarProps) => {
   const [openTickets, setOpenTickets] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [drawerArmed, setDrawerArmed] = useState(false);
@@ -171,10 +186,15 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
   const overCinematic = useOverCinematic(variant === "overlay" && isHome);
-  const activeSection = useScrollSpy(MARKETING_IDS, isHome);
+  const sections = useMemo(() => sectionLinks(homeNav), [homeNav]);
+  const sectionIds = useMemo(() => sections.map((s) => s.id), [sections]);
+  const showHomeNav = isHome && sections.length > 0;
+  const activeSection = useScrollSpy(sectionIds, showHomeNav);
 
   const cineTheme = useCinematicTheme();
-  const navVars: CSSProperties = overCinematic ? cinematicVars(cineTheme) : msVars;
+  // The home's solid bar wears the AA-checked tones of the landing (as /paginas-web does):
+  // the primary button on the bar needs 4.5:1 in light mode.
+  const navVars: CSSProperties = overCinematic || showHomeNav ? cinematicVars(cineTheme) : msVars;
 
   useEffect(() => {
     if (!user || !isAdmin) return;
@@ -199,6 +219,9 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
   }, [mobileOpen]);
 
   /** Navega a una sección de la landing (desde cualquier ruta) y cierra el drawer. */
+  const scrollToY = (top: number) =>
+    window.scrollTo({ top: Math.max(0, top), behavior: prefersReducedMotion() ? "auto" : "smooth" });
+
   const goToSection = (id: string) => {
     setMobileOpen(false);
     if (!isHome) {
@@ -207,16 +230,16 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
     }
     const el = document.getElementById(id);
     if (!el) return;
+    onHomeNavigate?.(id);
     // Rect-based: correct inside positioned containers and lands exactly below
     // the fixed bar (the old `offsetTop - 60` hid 12px of the section).
-    const top = id === "hero" ? 0 : el.getBoundingClientRect().top + window.scrollY - NAV_HEIGHT;
-    window.scrollTo({ top: Math.max(0, top), behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    scrollToY(el.getBoundingClientRect().top + window.scrollY - NAV_HEIGHT);
   };
 
   const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (isHome) {
       e.preventDefault();
-      goToSection("hero");
+      scrollToY(0);
     }
   };
 
@@ -290,9 +313,9 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
         </Link>
 
         {/* Enlaces de sección: solo landing, solo ≥ 1024px */}
-        {isHome && (
+        {showHomeNav && (
           <ul role="list" className="m-0 hidden list-none items-center gap-0.5 p-0 lg:flex">
-            {MARKETING_SECTIONS.map((item) => (
+            {sections.map((item) => (
               <li key={item.id}>
                 <button
                   type="button"
@@ -343,6 +366,24 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
               }}
             />
           </button>
+
+          {/* Primary CTA of the home, only without a session (clients and admins already have their own links;
+              with the admin's [ TICKETS ] and [ SALIR ] it would clip the bar at 1120-1155px). From 1120px: at 1024px
+              it would push the auth buttons out (measured). Below 1024px it is the first item of the drawer; in
+              between the hero carries it. */}
+          {showHomeNav && homeNav && !user && (
+            <Link
+              to={homeNav.cta.href}
+              aria-label={homeNav.cta.ariaLabel}
+              className="ms-home-navcta hidden min-[1120px]:inline-flex"
+              onClick={() => rememberPackageIntent(homeNav.packageId)}
+              onAuxClick={(e) => {
+                if (e.button === 1) rememberPackageIntent(homeNav.packageId);
+              }}
+            >
+              {homeNav.cta.label}
+            </Link>
+          )}
 
           {/* Auth desktop (≥ 1024px); debajo vive en el drawer */}
           <div className="hidden items-center lg:flex">
@@ -400,11 +441,27 @@ const Navbar = ({ variant = "default" }: { variant?: "default" | "overlay" }) =>
           </button>
           {(drawerArmed || mobileOpen) && (
             <Suspense fallback={null}>
-              <MobileNavDrawer open={mobileOpen} onOpenChange={setMobileOpen} returnFocusRef={burgerRef} vars={msVars}>
-                {isHome && (
+              <MobileNavDrawer open={mobileOpen} onOpenChange={setMobileOpen} returnFocusRef={burgerRef} vars={navVars}>
+                {showHomeNav && homeNav && (
                   <>
+                    {!user && (
+                      <>
+                        <Link
+                          to={homeNav.cta.href}
+                          aria-label={homeNav.cta.ariaLabel}
+                          className="ms-home-navcta ms-home-navcta--block"
+                          onClick={() => {
+                            rememberPackageIntent(homeNav.packageId);
+                            setMobileOpen(false);
+                          }}
+                        >
+                          {homeNav.cta.label}
+                        </Link>
+                        <div aria-hidden="true" style={{ height: "1px", background: "var(--border-soft)", margin: "14px 0" }} />
+                      </>
+                    )}
                     <ul role="list" className="m-0 flex list-none flex-col gap-1 p-0">
-                      {MARKETING_SECTIONS.map((item) => (
+                      {sections.map((item) => (
                         <li key={item.id}>
                           <button
                             type="button"

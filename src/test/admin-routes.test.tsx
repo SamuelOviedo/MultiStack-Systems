@@ -393,7 +393,9 @@ describe("Dashboard dentro del shell", () => {
     signIn(1);
     goTo("/dashboard");
     await waitFor(() => expect(window.location.pathname).toBe("/"), WAIT);
-    expect(screen.queryByRole("main")).toBeNull();
+    // La home pública tiene su propio <main>: lo que no debe existir es el contenido del panel.
+    expect(document.querySelector("#contenido")).toBeNull();
+    expect(document.querySelector("#admin-sidebar")).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Principal" })?.querySelector('a[href="/dashboard"]') ?? null).toBeNull();
     for (const fn of [libs.getProjects, libs.getProjectRequests, libs.getUpcomingRenewals, libs.getAllTickets]) expect(fn).not.toHaveBeenCalled();
   });
@@ -505,7 +507,8 @@ describe("Tickets dentro del shell", () => {
     signIn(1);
     goTo("/dashboard/tickets");
     await waitFor(() => expect(window.location.pathname).toBe("/"), WAIT);
-    expect(screen.queryByRole("main")).toBeNull();
+    expect(document.querySelector("#contenido")).toBeNull();
+    expect(document.querySelector("#admin-sidebar")).toBeNull();
     expect(libs.getAllTickets).not.toHaveBeenCalled();
   });
 
