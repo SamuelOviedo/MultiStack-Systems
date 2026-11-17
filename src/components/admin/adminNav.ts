@@ -1,4 +1,5 @@
 import {
+  FileText,
   FolderKanban,
   LayoutDashboard,
   LifeBuoy,
@@ -53,6 +54,12 @@ export interface NavItem {
    * dicen las migas; el menú lateral sigue agrupado por `NavGroup.label`.
    */
   readonly breadcrumbRoot?: { readonly label: string; readonly href: string };
+  /**
+   * Pantallas fijas de esta entrada que no son un detalle (`/dashboard/cotizaciones/catalogo`). Solo cambian las migas:
+   * la última dice la etiqueta de la subpágina en lugar de «Detalle». No añade entradas al menú, y la ruta debe caer
+   * también dentro de `match` para que la entrada sea la página actual.
+   */
+  readonly subpages?: readonly { readonly path: string; readonly label: string }[];
 }
 
 export interface NavGroup {
@@ -94,6 +101,20 @@ export function buildAdminNavGroups(): readonly NavGroup[] {
           roles: SOLO_ADMIN,
           // El detalle de un proyecto (`/dashboard/project/:id`) también pertenece a esta entrada.
           match: { exact: ["/dashboard/proyectos"], prefix: ["/dashboard/project/"] },
+        },
+        {
+          id: "cotizaciones",
+          label: "Cotizaciones",
+          icon: FileText,
+          status: "funcional",
+          href: "/dashboard/cotizaciones",
+          roles: SOLO_ADMIN,
+          // La lista, el catálogo y el detalle (`/dashboard/cotizaciones/:id`) pertenecen a esta única entrada.
+          match: {
+            exact: ["/dashboard/cotizaciones", "/dashboard/cotizaciones/catalogo"],
+            prefix: ["/dashboard/cotizaciones/"],
+          },
+          subpages: [{ path: "/dashboard/cotizaciones/catalogo", label: "Catálogo" }],
         },
         { id: "clientes", label: "Clientes", icon: Users, status: "proximamente", roles: SOLO_ADMIN },
         {
@@ -222,15 +243,21 @@ const SHORT_LABELS: Readonly<Record<string, string>> = {
   servicios: "Servicios",
 };
 
-/** Migas simples a partir de la configuración: Grupo (o `breadcrumbRoot`) / Entrada (/ Detalle). */
+/**
+ * Migas simples a partir de la configuración: Grupo (o `breadcrumbRoot`) / Entrada (/ Subpágina o Detalle). Una ruta
+ * que coincide con `subpages` usa su etiqueta; cualquier otra ruta distinta del `href` de la entrada es un «Detalle».
+ */
 export function breadcrumbsFor(pathname: string, groups: readonly NavGroup[] = ADMIN_NAV_GROUPS): Crumb[] {
   for (const group of groups) {
     for (const item of group.items) {
       if (!isNavItemCurrent(item, pathname)) continue;
       const short = SHORT_LABELS[item.id];
       const shortLabel = short ? { shortLabel: short } : {};
-      const isDetail = trimSlash(pathname) !== trimSlash(item.href ?? "");
+      const path = trimSlash(pathname);
+      const isDetail = path !== trimSlash(item.href ?? "");
       const root: Crumb = item.breadcrumbRoot ?? { label: group.label };
+      const subpage = item.subpages?.find((sub) => trimSlash(sub.path) === path);
+      if (subpage) return [root, { label: item.label, ...shortLabel, href: item.href }, { label: subpage.label }];
       return isDetail
         ? [root, { label: item.label, ...shortLabel, href: item.href }, { label: "Detalle" }]
         : [root, { label: item.label, ...shortLabel }];

@@ -60,11 +60,17 @@ describe("adminNav · estructura", () => {
   });
 
   // «Proyectos» pasó de compartir /dashboard con «Resumen» a tener su ruta propia, /dashboard/proyectos.
-  it("solo las 3 pantallas existentes son funcionales y no hay rutas inventadas", () => {
+  // Por la entrada «Cotizaciones» (solo administrador): ahora son 4 pantallas funcionales y su ruta es una más.
+  it("solo las 4 pantallas del panel son funcionales y no hay rutas inventadas", () => {
     const funcionales = allItems().filter((i) => i.status === "funcional");
-    expect(funcionales.map((i) => i.label).sort()).toEqual(["Proyectos", "Resumen", "Tickets"]);
+    expect(funcionales.map((i) => i.label).sort()).toEqual(["Cotizaciones", "Proyectos", "Resumen", "Tickets"]);
     const hrefs = new Set(funcionales.map((i) => i.href));
-    expect([...hrefs].sort()).toEqual(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"]);
+    expect([...hrefs].sort()).toEqual([
+      "/dashboard",
+      "/dashboard/cotizaciones",
+      "/dashboard/proyectos",
+      "/dashboard/tickets",
+    ]);
   });
 
   it("cada entrada funcional tiene su propia ruta (Resumen y Proyectos ya no comparten /dashboard)", () => {
@@ -98,8 +104,11 @@ describe("adminNav · estructura", () => {
 });
 
 describe("adminNav · visibilidad por rol (solo presentación)", () => {
-  it("el administrador ve las 11 entradas", () => {
+  // Por la entrada «Cotizaciones»: el menú completo pasa de 11 a 12 entradas.
+  it("el administrador ve las 12 entradas", () => {
     expect(labels(0)).toHaveLength(allItems().length);
+    expect(labels(0)).toHaveLength(12);
+    expect(labels(0)).toContain("Cotizaciones");
     expect(labels(0)).toContain("Cobros y comprobantes");
     expect(labels(0)).toContain("Equipo y roles");
   });
@@ -221,7 +230,8 @@ describe("adminNav · disponibles y próximamente", () => {
   it("el administrador ve primero lo disponible, sin grupos vacíos: Inicio, Gestión comercial y Soporte", () => {
     expect(names(availableNavGroups(0))).toEqual([
       ["Inicio", ["Resumen"]],
-      ["Gestión comercial", ["Proyectos"]],
+      // Por la entrada «Cotizaciones»: queda después de Proyectos.
+      ["Gestión comercial", ["Proyectos", "Cotizaciones"]],
       ["Soporte", ["Tickets"]],
     ]);
     for (const item of availableNavGroups(0).flatMap((g) => g.items)) {
@@ -250,8 +260,8 @@ describe("adminNav · disponibles y próximamente", () => {
       const partidas = [...availableNavGroups(role), ...upcomingNavGroups(role)].flatMap((g) => g.items.map((i) => i.id));
       expect([...partidas].sort(), String(role)).toEqual([...todas].sort());
     }
-    // Las definiciones siguen completas en la configuración: nada se borró.
-    expect(allItems()).toHaveLength(11);
+    // Las definiciones siguen completas en la configuración: nada se borró. Son 12 por la entrada «Cotizaciones».
+    expect(allItems()).toHaveLength(12);
   });
 
   it("colaborador, rol sin resolver y cliente no ven «Próximamente» (todo lo pendiente es solo del administrador)", () => {
@@ -267,5 +277,120 @@ describe("adminNav · disponibles y próximamente", () => {
     availableNavGroups(0);
     upcomingNavGroups(0);
     expect(ADMIN_NAV_GROUPS.map((g) => g.items.length)).toEqual(antes);
+  });
+});
+
+// Entrada «Cotizaciones» (módulo de cotizaciones): una sola entrada del menú cubre la lista, el catálogo y el detalle.
+describe("adminNav · Cotizaciones", () => {
+  // UUID sintético: la navegación no valida el identificador, solo ve que la ruta cuelga de /dashboard/cotizaciones/.
+  const COTIZACION_ID = "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b";
+  const LISTA = "/dashboard/cotizaciones";
+  const CATALOGO = "/dashboard/cotizaciones/catalogo";
+  const cotizaciones = () => allItems().find((i) => i.label === "Cotizaciones")!;
+  const actuales = (path: string) => allItems().filter((i) => isNavItemCurrent(i, path)).map((i) => i.label);
+  const etiquetas = (groups: readonly NavGroup[]) => groups.flatMap((g) => g.items.map((i) => i.label));
+
+  it("es una sola entrada funcional, solo del administrador, en Gestión comercial entre Proyectos y Clientes", () => {
+    expect(allItems().filter((i) => i.label === "Cotizaciones")).toHaveLength(1);
+    // El catálogo y el detalle no añaden entradas: ninguna otra apunta a una ruta de cotizaciones.
+    expect(allItems().filter((i) => i.href?.startsWith(LISTA))).toHaveLength(1);
+    const item = cotizaciones();
+    expect(item.status).toBe("funcional");
+    expect(item.href).toBe(LISTA);
+    expect([...item.roles]).toEqual([0]);
+    const grupo = ADMIN_NAV_GROUPS.find((g) => g.label === "Gestión comercial")!;
+    expect(grupo.items.map((i) => i.label)).toEqual(["Proyectos", "Cotizaciones", "Clientes", "Servicios y renovaciones"]);
+  });
+
+  describe("entrada actual (aria-current)", () => {
+    it.each([
+      ["la lista", LISTA],
+      ["la lista con barra final", `${LISTA}/`],
+      ["el catálogo", CATALOGO],
+      ["el catálogo con barra final", `${CATALOGO}/`],
+      ["el detalle de una cotización", `${LISTA}/${COTIZACION_ID}`],
+    ])("en %s la entrada actual es Cotizaciones y solo ella", (_n, path) => {
+      expect(isNavItemCurrent(cotizaciones(), path)).toBe(true);
+      expect(actuales(path)).toEqual(["Cotizaciones"]);
+    });
+
+    it.each([
+      "/dashboard",
+      "/dashboard/proyectos",
+      "/dashboard/project/abc",
+      "/dashboard/tickets",
+      "/dashboard/cotizacion",
+      "/dashboard/cotizacionesx",
+      "/dashboard/cotizacion/abc",
+      "/cotizaciones",
+    ])("en %s Cotizaciones no es la entrada actual", (path) => {
+      expect(isNavItemCurrent(cotizaciones(), path)).toBe(false);
+      expect(actuales(path)).not.toContain("Cotizaciones");
+    });
+  });
+
+  describe("migas", () => {
+    it("lista: Gestión comercial / Cotizaciones, con o sin barra final y sin enlace en la miga actual", () => {
+      for (const path of [LISTA, `${LISTA}/`]) {
+        const crumbs = breadcrumbsFor(path);
+        expect(crumbs.map((c) => c.label), path).toEqual(["Gestión comercial", "Cotizaciones"]);
+        expect(crumbs[0].href, path).toBeUndefined();
+        expect(crumbs[1].href, path).toBeUndefined();
+      }
+    });
+
+    it("catálogo: Gestión comercial / Cotizaciones (enlace a la lista) / Catálogo, y no «Detalle»", () => {
+      for (const path of [CATALOGO, `${CATALOGO}/`]) {
+        const crumbs = breadcrumbsFor(path);
+        expect(crumbs.map((c) => c.label), path).toEqual(["Gestión comercial", "Cotizaciones", "Catálogo"]);
+        expect(crumbs[1].href, path).toBe(LISTA);
+        expect(crumbs[2].href, path).toBeUndefined();
+      }
+    });
+
+    it.each([
+      ["un UUID", COTIZACION_ID],
+      ["un texto que no es UUID", "xyz"],
+      ["un texto que solo empieza igual que el catálogo", "catalogos"],
+    ])("detalle con %s: Gestión comercial / Cotizaciones (enlace a la lista) / Detalle", (_n, id) => {
+      const crumbs = breadcrumbsFor(`${LISTA}/${id}`);
+      expect(crumbs.map((c) => c.label)).toEqual(["Gestión comercial", "Cotizaciones", "Detalle"]);
+      expect(crumbs[1].href).toBe(LISTA);
+      expect(crumbs[2].href).toBeUndefined();
+    });
+
+    it("las migas de las demás entradas y de las rutas vecinas no cambian con la entrada nueva", () => {
+      expect(breadcrumbsFor("/dashboard")).toEqual([{ label: "Inicio" }, { label: "Resumen" }]);
+      expect(breadcrumbsFor("/dashboard/proyectos")).toEqual([{ label: "Gestión comercial" }, { label: "Proyectos" }]);
+      expect(breadcrumbsFor("/dashboard/project/abc")).toEqual([
+        { label: "Gestión comercial" },
+        { label: "Proyectos", href: "/dashboard/proyectos" },
+        { label: "Detalle" },
+      ]);
+      expect(breadcrumbsFor("/dashboard/tickets")).toEqual([{ label: "Panel", href: "/dashboard" }, { label: "Tickets" }]);
+      for (const path of ["/otra", "/dashboard/cotizacion", "/dashboard/cotizacionesx", "/dashboard/cotizacion/abc"]) {
+        expect(breadcrumbsFor(path), path).toEqual([]);
+      }
+    });
+  });
+
+  describe("visibilidad por rol (solo presentación)", () => {
+    it("el administrador (0) la ve entre las disponibles, con su ruta, y no entre las «proximamente»", () => {
+      expect(labels(0)).toContain("Cotizaciones");
+      const disponible = availableNavGroups(0).flatMap((g) => g.items).find((i) => i.label === "Cotizaciones");
+      expect(disponible?.href).toBe(LISTA);
+      expect(etiquetas(upcomingNavGroups(0))).not.toContain("Cotizaciones");
+    });
+
+    it.each([
+      ["colaborador (1)", 1],
+      ["cliente (2)", 2],
+      ["sin sesión (null)", null],
+    ])("%s no la ve en ninguna lista del menú", (_n, role) => {
+      expect(labels(role)).not.toContain("Cotizaciones");
+      for (const groups of [navGroupsForRole(role), availableNavGroups(role), upcomingNavGroups(role)]) {
+        expect(etiquetas(groups)).not.toContain("Cotizaciones");
+      }
+    });
   });
 });

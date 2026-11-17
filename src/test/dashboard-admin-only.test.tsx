@@ -40,6 +40,13 @@ const libs = vi.hoisted(() => ({
   getProjectTokens: vi.fn(),
   getOpenTicketsCount: vi.fn(),
   getTeamMembers: vi.fn(),
+  listarPaginaCotizaciones: vi.fn<typeof import("@/lib/cotizaciones").listarPaginaCotizaciones>(),
+  obtenerCotizacion: vi.fn<typeof import("@/lib/cotizaciones").obtenerCotizacion>(),
+}));
+vi.mock("@/lib/cotizaciones", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/cotizaciones")>()),
+  listarPaginaCotizaciones: libs.listarPaginaCotizaciones,
+  obtenerCotizacion: libs.obtenerCotizacion,
 }));
 vi.mock("@/lib/projects", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/projects")>()),
@@ -79,12 +86,21 @@ const TICKET = {
   updated_at: NOW, resolved_at: null, assigned_to: null, assignee_email: null, nombre_proyecto: "Tienda Demo", message_count: 0,
 };
 
-/** Las 4 rutas del panel y la consulta que cada una dispara al montarse con un administrador. */
+const ID_COTIZACION = "0a1b2c3d-0007-4000-8000-000000000007";
+
+/**
+ * Las 7 rutas del panel (las 4 de siempre y las 3 de Cotizaciones) y la consulta que cada una dispara al montarse con
+ * un administrador. El catálogo de Cotizaciones no carga datos en esta fase: lo único que consulta es lo del armazón
+ * (el conteo de tickets abiertos), que tampoco debe correr con otro rol.
+ */
 const PANEL_ROUTES: ReadonlyArray<readonly [string, keyof typeof libs]> = [
   ["/dashboard", "getProjects"],
   ["/dashboard/proyectos", "getProjects"],
   ["/dashboard/project/p1", "getProject"],
   ["/dashboard/tickets", "getAllTickets"],
+  ["/dashboard/cotizaciones", "listarPaginaCotizaciones"],
+  ["/dashboard/cotizaciones/catalogo", "getOpenTicketsCount"],
+  [`/dashboard/cotizaciones/${ID_COTIZACION}`, "obtenerCotizacion"],
 ];
 
 function signIn(userType: number | null) {
@@ -139,6 +155,8 @@ beforeEach(() => {
   libs.getProjectTokens.mockReset().mockResolvedValue([]);
   libs.getOpenTicketsCount.mockReset().mockResolvedValue(1);
   libs.getTeamMembers.mockReset().mockResolvedValue([]);
+  libs.listarPaginaCotizaciones.mockReset().mockResolvedValue({ cotizaciones: [], haySiguiente: false });
+  libs.obtenerCotizacion.mockReset().mockResolvedValue(null);
 });
 
 afterEach(() => {
