@@ -1504,7 +1504,7 @@ describe("/paginas-web · metas de la ruta (ROUTE_META)", () => {
 
   it("PAGINAS_WEB_OG es la imagen propia de la landing (OG_IMAGES.paginasWeb), no la de la home", () => {
     expect(PAGINAS_WEB_OG).toBe(OG_IMAGES.paginasWeb);
-    expect(PAGINAS_WEB_OG.path).toBe("/assets/images/og/og-paginas-web.png");
+    expect(PAGINAS_WEB_OG.path).toBe("/assets/images/og/og-paginas-web.v2.png");
     expect(PAGINAS_WEB_OG.path).not.toBe(OG_IMAGES.default.path);
   });
 

@@ -10,7 +10,7 @@
 ## Table of contents
 
 1. [Brand strategy & voice](#1--brand-strategy--voice)
-2. [Logo & isotype](#2--logo--isotype) — *corrected against the official asset*
+2. [Logo & isotype](#2--logo--isotype) — *official isotipo and full logo*
 3. [Color system & UI states](#3--color-system--ui-states)
 4. [Theme support — dark & light](#4--theme-support--dark--light)
 5. [Accessibility — WCAG 2.1 AA](#5--accessibility--wcag-21-aa)
@@ -87,61 +87,73 @@ The voice is **technical but accessible** — an engineer who explains clearly, 
 
 ## 2 — Logo & isotype
 
-> ### ⚠️ CORRECTION — official isotype
-> Earlier generated documentation rendered the mark as a **generic placeholder**. That is **wrong**. The description below reflects the **official MultiStack Systems isotype** (reference: `image_9efd26.jpg`) and the production asset shipped in this repo.
+> ### Current identity
+> The official identity is the **isotipo** (an angular "M" with a terminal prompt `>_`) and the **full logo** (isotipo above the "MultiStack SYSTEMS" wordmark), each in a **light** and a **dark** version. The earlier mark described in previous revisions of this manual (a three-layer isometric chevron stack, shipped as `public/logo-white.png` and `public/logo-black.png`) is **obsolete**. It must not be used in new work. The two files stay in `public/` only because e-mails already sent load them from there; No site code, script or page metadata references them. Only e-mail still does: the transactional layout (`supabase/functions/_shared/email/layout.ts`, pending migration to the official mark) and the contingency templates under `supabase/email-templates/` (used only if the Send Email Hook is disabled).
 
-### The official isotype — isometric layer stack
+### Versions
 
-The MultiStack mark is a **3D isometric stack of three overlapping diamond/rhombus layers**. The layers are stacked **vertically**, reading as a *stack* of technology layers — the literal meaning of the brand name.
+| Version | When | Colors | Where it lives |
+|---|---|---|---|
+| **Isotipo** | Small boxes, under 24px tall | Light: full color. Dark: teal and white | `src/assets/brand/isotipo-{claro,oscuro}*.png` |
+| **Lockup** (isotipo + "MultiStack SYSTEMS" wordmark, side by side) | Site navigation bar, footer, sign-in loader: from 24px tall | Same two versions | `isotipo-*-2x.png` + `wordmark-*-2x.png` |
+| **Full logo** (isotipo above the wordmark) | Boxes at least 64px tall: sign-in brand panel, 404 | Same two versions | `src/assets/brand/logo-completo-{claro,oscuro}*.png` |
 
-- **Three layers**, each a flattened rhombus (isometric diamond) seen in 3D perspective, overlapping front-to-back as they descend.
-- A **smooth cyan-to-blue gradient** runs through the stack. The **top layer is the brightest** (luminous cyan), each lower layer steps down in luminosity toward a deeper blue — giving the depth/elevation read.
-- The vertical stacking gives the official asset a **portrait aspect ratio** (the production source `public/logo-white.png` is `727 × 845`), distinct from a flat square icon.
+- **Light** (`claro`) is for a light interface (dark ink on a light background). **Dark** (`oscuro`) is for a dark interface (teal and white on a dark background). Pick the version that matches the surface behind it.
+- The wordmark alone is not shown as a standalone asset in the official manual. It is used only as part of the lockup next to the isotipo, which the owner approved for the site navigation bar.
+- Official midnight blue (the solid behind the app icon and the dark brand surfaces) is `#080C13`.
 
-**Do not** describe this as a generic "cube", "folder", or single shape. It is specifically a **three-layer isometric rhombus stack with a top-bright cyan→blue gradient.**
+### Size rule
+
+| Box height | Variant |
+|---|---|
+| under 24px (e.g. `h-4` next to a heading) | Isotipo only |
+| 24px and up (navbar `h-7`, footer `h-[26px]`, sign-in loader `h-9`) | Lockup (the default) |
+| 64px and up (sign-in brand panel, 404) | Full logo |
+
+At 28px tall the "MultiStack" line of the wordmark reads at about 16–17px; the "SYSTEMS" line is about 6.5px and works as texture, not as readable text. That is why the lockup starts at 24px and never goes below.
 
 ### Production assets (this repo)
 
-The logo is implemented as a theme-aware raster asset, not redrawn inline:
+All files are derived from the official masters with a single resample (Lanczos), transparent PNG, tight crop (no margin), true proportions (no stretching). The masters themselves are **not** in this repository.
 
-| Asset | Path | Use |
+| Asset | Path | Size (px) | Use |
+|---|---|---|---|
+| Isotipo, light / dark | `src/assets/brand/isotipo-claro.png`, `isotipo-oscuro.png` | 121×96 | Admin panel (`BrandMark`) |
+| Full logo, light / dark | `src/assets/brand/logo-completo-claro.png`, `logo-completo-oscuro.png` | 290×200 | Admin panel (`BrandMark`) |
+| Isotipo @2x, light / dark | `src/assets/brand/isotipo-claro-2x.png`, `isotipo-oscuro-2x.png` | 242×191 | Site `Logo` (isotipo and lockup) |
+| Wordmark @2x, light / dark | `src/assets/brand/wordmark-claro-2x.png`, `wordmark-oscuro-2x.png` | 580×141 | Site `Logo` (lockup) |
+| Full logo @2x, light / dark | `src/assets/brand/logo-completo-claro-2x.png`, `logo-completo-oscuro-2x.png` | 580×400 | Site `Logo` (`variant="full"`) |
+| Isotipo @4x, dark | `src/assets/brand/isotipo-oscuro-4x.png` | 484×382 | Source of the icon and social-image generators (not bundled) |
+
+Vite imports them with a content hash. The admin panel's four 1x files are canonical and are not replaced by the 2x ones.
+
+**Which official master each one comes from** (checked by cropping the master to its content and resampling it to the derivative's size; mean absolute difference under 0.4 out of 255, i.e. the same pixels):
+
+| Derivative | Official master version | Crop of the master |
 |---|---|---|
-| White mark | `public/logo-white.png` | Shown on **dark** UI; source for the generated favicon/app-icon set |
-| Black mark | `public/logo-black.png` | Shown on **light** UI; also the OG/Twitter share image |
+| `isotipo-claro*`, `logo-completo-claro*`, `wordmark-claro*` | Full color, transparent | Isotipo / full logo: content box. Wordmark: the two text lines of the full logo (isotipo excluded) |
+| `isotipo-oscuro*`, `logo-completo-oscuro*`, `wordmark-oscuro*` | Teal and white, transparent | Same crops |
+| Icons in `public/` | Isotipo on midnight blue (`#080C13`) | Isotipo content box, placed as described in §10 |
 
-Rendered through the shared component **`src/components/Logo.tsx`**, which swaps the mark by theme using Tailwind's `dark:` class strategy and sizes by height (`className="h-7"`, width auto-tracks aspect ratio):
+### Components
 
-```tsx
-// src/components/Logo.tsx
-<img src="/logo-white.png" className="hidden h-full w-auto object-contain dark:block" />  // dark UI
-<img src="/logo-black.png" className="block  h-full w-auto object-contain dark:hidden" />  // light UI
-```
+- **`src/components/common/Logo.tsx`**: the site (landing, sign-in, client portal, loaders). Props: `className` (set the height, e.g. `h-7`; width follows the files), `alt` (the one accessible name, default "MultiStack Systems"), `tone` (`"light"` forces the dark version for dark scenes in a light theme), `variant` (`"lockup"` default, `"isotipo"`, `"full"`), `priority` (above-the-fold logo: the active theme's version loads eagerly), `decorative` (hides the mark from screen readers; use it only when another element on the same screen already gives the name, e.g. the isotipo next to the heading of `/solicitudes`).
+- **`src/components/admin/BrandMark.tsx`**: the admin panel only (`logo` and `isotipo` variants).
 
-### Wordmark lockup
+Both pick the version with the `dark` class on `<html>` (no state, no flash) and render the hidden version with `display: none` and `loading="lazy"`, so the browser only downloads the active one. The container is `role="img"` with a single `aria-label`; the images are decorative (`alt=""`, `aria-hidden`), so the name exists in both themes and text is never repeated next to the logo. Exception: with `decorative` the container has no `role="img"` and no name (it is `aria-hidden`, and `alt` is ignored).
 
-When paired with type, the wordmark is set in **Sora 700** with `"Systems"` in **Sora 600 / Slate** (`#94a3b8`), gap ≈ 13–14px from the mark:
+### Clear space & lockup spacing
 
-> **MultiStack** Systems
-
-### Clear space & minimum sizes
-
-- **Clear space:** keep a free margin of `x` on all four sides, where `x = round(mark_height / 3)` (≈ one layer of the stack). No text, borders, or imagery inside it.
-- **Minimum sizes:**
-
-| Size | Use | Note |
-|---|---|---|
-| 16px | Favicon / mark in browser tab | Absolute minimum |
-| 24–28px | Mark in navbar (lockup) | Standard height |
-| 120px | Horizontal lockup, legible | Minimum width |
+The official manual does not fix a clear space or a minimum size. Project conventions: keep other text and borders at least one wordmark cap height away from the logo, and in the lockup keep the gap between isotipo and wordmark at about 0.28 of the box height (8px at 28px, `gap-2` in `Logo`).
 
 ### Misuse — never
 
-- Don't recolor the layers or alter the cyan→blue gradient / layer opacities.
-- Don't stretch, compress, or change the mark's aspect ratio.
-- Don't rotate or skew the isometric stack.
-- Don't add shadows, extra gradients, or bevels beyond the asset's own.
+- Don't recolor the logo or use a version that does not match its background.
+- Don't stretch, compress, or change the aspect ratio (always size by one dimension).
+- Don't add shadows, glows, filters or outlines to the mark. The loader pulse is the one exception, and it only fades the whole mark.
+- Don't change the composition (e.g. move the wordmark, or set the lockup's pieces at different heights).
 - Don't place it on low-contrast backgrounds or busy imagery without a protection layer.
-- Don't shrink below 16px or change the mark↔wordmark gap.
+- Don't use the obsolete chevron-stack mark (`logo-white.png`, `logo-black.png`).
 
 ---
 
@@ -243,7 +255,7 @@ All text and UI pairings target **WCAG 2.1 AA** (≥ 4.5:1 for body text, ≥ 3:
 
 - Focus is always visible: `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2` on interactive components (`button.tsx`, `input.tsx`).
 - Disabled controls keep shape but drop to `opacity-50` and `cursor-not-allowed`.
-- The logo carries a real `alt`; decorative theme-twin uses `aria-hidden`.
+- The logo's accessible name is the `aria-label` of its `role="img"` container; the images inside (including the theme twin) are decorative and use `aria-hidden`.
 - The grid/scan-line decoration is `pointer-events:none` and purely cosmetic.
 
 ---
@@ -323,7 +335,7 @@ The product is built on **shadcn/ui** primitives (Radix + CVA + `tailwind-merge`
 
 | Manual element | Component file | Notes |
 |---|---|---|
-| **Brand logo / lockup** | `src/components/Logo.tsx` | Theme-aware official mark (`logo-white/black.png`). |
+| **Brand logo / lockup** | `src/components/common/Logo.tsx` (site), `src/components/admin/BrandMark.tsx` (admin) | Theme-aware official isotipo, lockup and full logo (see §2). |
 | **Buttons & states** | `src/components/ui/button.tsx` | CVA variants: `default` (solid primary), `outline`, `secondary`, `ghost`, `link`, `destructive`. Sizes `sm/default/lg/icon`. Focus ring + `disabled:opacity-50` built in. |
 | **Inputs** | `src/components/ui/input.tsx` | `h-10`, `rounded-md`, `border-input`, `bg-background`, focus-visible ring, `disabled` states. |
 | **Textarea / Select / Checkbox / Radio / Switch** | `src/components/ui/{textarea,select,checkbox,radio-group,switch}.tsx` | Same token + focus conventions. |
@@ -349,7 +361,7 @@ The product is built on **shadcn/ui** primitives (Radix + CVA + `tailwind-merge`
 - Library: **Lucide** (`lucide-react`) — line icons.
 - Spec: `viewBox 24×24`, stroke style (no fill), `stroke-width 2`, `currentColor`, `linecap/linejoin: round`.
 - Render: 22px glyph inside a 46–48px chip, radius 11px, accent-tinted background (`bg-primary/10 text-primary`).
-- **Rule:** uniform line icons only. The **isometric stack mark is the *only* filled brand shape.** Never mix filled + line icons, mismatched stroke widths, or emoji as UI icons.
+- **Rule:** uniform line icons only. The **official isotipo is the *only* filled brand shape.** Never mix filled + line icons, mismatched stroke widths, or emoji as UI icons.
 
 ### Radius scale
 
@@ -381,26 +393,30 @@ The product is built on **shadcn/ui** primitives (Radix + CVA + `tailwind-merge`
 
 ## 10 — Favicon & app icons
 
-The favicon and PWA/app-icon set are **generated from the official logo**, not hand-drawn — guaranteeing the isometric stack mark is always the icon.
+The favicon and PWA/app-icon set are **generated from the official isotipo**, not hand-drawn.
 
-- **Generator:** `scripts/generate-favicons.mjs` (`npm run favicons`). Uses `sharp` + `png-to-ico`.
-- **Source:** `public/logo-white.png` (white isometric stack, 727×845, transparent).
-- **Treatment:** the trimmed white mark is centered, with 16% padding, on a solid **brand-navy `#080F1E`** square (matches `<meta name="theme-color">`) so it stays visible on light *and* dark browser chrome.
+- **Generator:** `scripts/generate-favicons.mjs` (`node scripts/generate-favicons.mjs`, optional `--out <dir>`). Uses `sharp` + `png-to-ico`.
+- **Source:** `src/assets/brand/isotipo-oscuro-4x.png` (official isotipo, dark version, 484×382, transparent).
+- **Treatment:** the isotipo is centered, undistorted, on a solid square of official midnight blue `#080C13`. Margin: standard icons use 17% per side (isotipo = 66% of the side), maskable uses 20% (60%, inside the circular safe zone), and the browser-tab sizes use 8% per side (84%) for better legibility at 16px.
+- **Files in `public/`:** they are the master derivatives, resampled once from the official file. The generator starts from the 4x isotipo, so its output differs slightly from them (mean absolute difference 0.2–0.8 out of 255 from 96px up, 1.4 at 48px, 5.0–5.6 at the 32/16px sizes of the `.ico`; edges only). If you need the exact file, the one in `public/` wins.
 
 **Output set** (in `public/`, wired in `index.html` + `site.webmanifest`):
 
-| File | Size(s) | Purpose |
-|---|---|---|
-| `favicon.ico` | 16 / 32 / 48 | Legacy multi-res |
-| `favicon-48x48.png` | 48 | Modern tab (Google reads sizes in multiples of 48) |
-| `favicon-96x96.png` | 96 | High-DPI tab |
-| `apple-touch-icon.png` | 180 | iOS home screen |
-| `icon-192.png` | 192 | PWA (any) |
-| `icon-512.png` | 512 | PWA (any + **maskable**) |
+| File | Size(s) | Treatment | Purpose |
+|---|---|---|---|
+| `favicon.ico` | 16 / 32 / 48 | tab (8% margin) | Legacy multi-res |
+| `favicon-48x48.png` | 48 | tab (8% margin) | Modern tab (Google reads sizes in multiples of 48) |
+| `favicon-96x96.png` | 96 | standard (17%) | High-DPI tab |
+| `apple-touch-icon.png` | 180 | standard (17%) | iOS home screen |
+| `icon-192.png` | 192 | standard (17%) | PWA (any) |
+| `icon-512.png` | 512 | standard (17%) | PWA (any) |
+| `icon-maskable-512.png` | 512 | maskable (20%) | PWA (maskable) |
 
-**Manifest** (`site.webmanifest`): name "MultiStack Systems", short name "MultiStack", `display: standalone`, `background_color` / `theme_color: #080F1E`.
+**Manifest** (`site.webmanifest`): name "MultiStack Systems", short name "MultiStack", `display: standalone`, `background_color` / `theme_color: #080F1E`. By decision of the owner these two stay on the site navy `#080F1E` (the app icons are on official midnight blue `#080C13`).
 
-> **Favicon minimum:** 16px. Below that the three-layer stack loses legibility — see [§2 minimum sizes](#2--logo--isotype).
+**Social images** (`public/assets/images/og/`): `og-ai.v2.1200x630.png` / `.webp` (home, generated by `scripts/generate-og-image.mjs`) and `og-paginas-web.v2.png` (`/paginas-web`, generated by `scripts/generate-og-paginas-web.mjs`). Both carry the official isotipo (dark version); the file names are versioned (`v2`) so that platforms that cached the old image fetch the new one. The v1 files stay on disk for links already shared.
+
+> **Favicon minimum:** 16px, see the [§2 size rule](#2--logo--isotype).
 
 ---
 
@@ -411,8 +427,8 @@ The favicon and PWA/app-icon set are **generated from the official logo**, not h
 | Visual spec (this manual's parent) | `MultiStack Systems - Brand & UI Manual.dc.html` (Claude Design project `b7ec8bb4…`) |
 | Color / radius / glow / motion tokens | `src/index.css` |
 | Tailwind token & font mapping | `tailwind.config.ts` |
-| Logo component | `src/components/Logo.tsx` |
-| Logo assets | `public/logo-white.png`, `public/logo-black.png` |
+| Logo component | `src/components/common/Logo.tsx`, `src/components/admin/BrandMark.tsx` |
+| Logo assets | `src/assets/brand/` (see §2) |
 | Favicon generation | `scripts/generate-favicons.mjs` → `public/` |
 | UI components | `src/components/ui/` (shadcn/ui) |
 | Brand/business metadata | `index.html` (schema.org), `site.webmanifest`, `README.md` |

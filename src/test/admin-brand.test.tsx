@@ -68,6 +68,17 @@ describe("BrandMark: variante por tema", () => {
   });
 });
 
+describe("BrandMark: orden de atributos", () => {
+  it("`loading` se asigna antes que `src` (si no, React crea el <img> ya pidiendo la variante oculta aunque sea lazy)", () => {
+    const { container } = render(<BrandMark variant="logo" className="h-20" />);
+    for (const img of imgs(container)) {
+      const names = img.getAttributeNames();
+      expect(names.indexOf("loading"), img.dataset.brandTheme).toBeGreaterThan(-1);
+      expect(names.indexOf("loading")).toBeLessThan(names.indexOf("src"));
+    }
+  });
+});
+
 describe("BrandMark: nombre accesible", () => {
   it("expone un único nombre «MultiStack Systems» por defecto", () => {
     render(<BrandMark variant="logo" className="h-20" />);
@@ -149,8 +160,9 @@ describe("derivados de marca: archivos y referencias", () => {
     expect(statSync(file).size).toBeLessThan(30 * 1024);
   });
 
-  it("la carpeta solo contiene esos cuatro derivados", () => {
-    expect(readdirSync(BRAND_DIR).sort()).toEqual(Object.keys(FILES).sort());
+  it("la carpeta contiene esos cuatro derivados y, aparte, los del sitio (sufijo -2x / -4x, ver brand-identity.test)", () => {
+    const own = readdirSync(BRAND_DIR).filter((name) => !/-[24]x\.png$/.test(name));
+    expect(own.sort()).toEqual(Object.keys(FILES).sort());
   });
 
   it("son 2× o más de la altura mostrada (logo a 80 px, isotipo a 32 px)", () => {

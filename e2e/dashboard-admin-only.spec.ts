@@ -120,7 +120,7 @@ async function watchForAdminContent(page: Page) {
       // Marcas propias del panel: la barra lateral y el contenido del shell, y el título de la pantalla de tickets.
       if (document.querySelector("#admin-sidebar")) w.__panelSeen.push("#admin-sidebar");
       if (document.querySelector("#contenido")) w.__panelSeen.push("#contenido");
-      if (Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "$ tickets")) w.__panelSeen.push("$ tickets");
+      if (Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "Tickets")) w.__panelSeen.push("Tickets");
     };
     new MutationObserver(check).observe(document, { childList: true, subtree: true, characterData: true });
     check();
@@ -143,7 +143,7 @@ const PANEL_PATHS = ["/dashboard", "/dashboard/tickets"] as const;
 
 /** Lo que solo existe cuando el panel está montado, por ruta. */
 const panelReady = (page: Page, path: (typeof PANEL_PATHS)[number]) =>
-  path === "/dashboard" ? page.locator("#contenido") : page.getByRole("heading", { level: 1, name: "$ tickets" });
+  path === "/dashboard" ? page.locator("#contenido") : page.getByRole("heading", { level: 1, name: "Tickets", exact: true });
 const DENIED: ReadonlyArray<readonly [Role, string]> = [
   [1, "/"],
   [2, "/solicitudes"],
@@ -206,8 +206,8 @@ test.describe("Dashboard is administrator-only (UI)", () => {
             await page.evaluate(() => {
               const sidebar = document.querySelector("#admin-sidebar") ? "panel" : "";
               const content = document.querySelector("#contenido") ? "panel" : "";
-              const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "$ tickets") ? "panel" : "";
-              const logo = document.querySelector('img[alt="MultiStack Systems Logo"]') ? "logo" : "";
+              const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "Tickets") ? "panel" : "";
+              const logo = document.querySelector('[role="img"][data-brand-variant="lockup"]') ? "logo" : "";
               return [sidebar, content, tickets, logo].filter(Boolean).join("+") || "vacío";
             }),
           );
@@ -260,8 +260,8 @@ test.describe("Dashboard is administrator-only (UI)", () => {
             await page.evaluate(() => {
               const sidebar = document.querySelector("#admin-sidebar") ? "panel" : "";
               const content = document.querySelector("#contenido") ? "panel" : "";
-              const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "$ tickets") ? "panel" : "";
-              const logo = document.querySelector('img[alt="MultiStack Systems Logo"]') ? "logo" : "";
+              const tickets = Array.from(document.querySelectorAll("h1")).some((h) => h.textContent?.trim() === "Tickets") ? "panel" : "";
+              const logo = document.querySelector('[role="img"][data-brand-variant="lockup"]') ? "logo" : "";
               return [sidebar, content, tickets, logo].filter(Boolean).join("+") || "vacío";
             }),
           );

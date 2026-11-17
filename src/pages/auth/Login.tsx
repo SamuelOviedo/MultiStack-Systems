@@ -37,9 +37,6 @@ const AuthLoadingScreen = () => (
         <p className="font-mono text-[11px] text-muted-foreground tracking-[0.1em]">
           multistack-auth@secure:~$
         </p>
-        <p className="text-[17px] font-semibold text-foreground tracking-tight">
-          MultiStack Systems
-        </p>
       </div>
     </div>
     <div className="h-5 w-5 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />

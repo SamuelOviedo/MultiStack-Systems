@@ -406,7 +406,7 @@ describe("public/robots.txt", () => {
       "/terminos-del-servicio",
       "/sitemap.xml",
       "/assets/index-abc123.js",
-      "/assets/images/og/og-ai.1200x630.png",
+      "/assets/images/og/og-ai.v2.1200x630.png",
     ]) {
       expect(robots.blocks(urlPath), urlPath).toBe(false);
     }

@@ -111,7 +111,7 @@ describe("Navbar · variant", () => {
     // jsdom descarta `var(--nav-bg)` en el shorthand; basta con verificar que
     // no aplica el vidrio del overlay ni fuerza el logo blanco.
     expect(nav.style.background).not.toBe("rgba(8, 15, 30, 0.3)");
-    expect(container.querySelectorAll("nav img")).toHaveLength(2); // logo blanco + negro (auto)
+    expect(container.querySelectorAll("nav img")).toHaveLength(4); // isotipo + rótulo, claro y oscuro (auto)
   });
 
   it("overlay usa vidrio oscuro y logo blanco mientras hay escena cinemática debajo", () => {
@@ -124,7 +124,7 @@ describe("Navbar · variant", () => {
     const nav = container.querySelector("nav")!;
     expect(nav.style.background).toBe("rgba(8, 15, 30, 0.3)");
     const logos = container.querySelectorAll("nav img");
-    expect(logos).toHaveLength(1);
-    expect(logos[0]).toHaveAttribute("src", "/logo-white.png");
+    expect(logos).toHaveLength(2); // isotipo + rótulo, solo la versión «oscuro»
+    for (const logo of logos) expect(logo).toHaveAttribute("data-brand-theme", "oscuro");
   });
 });

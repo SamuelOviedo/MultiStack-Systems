@@ -177,7 +177,7 @@ describe("ProtectedRoute — session with an unknown role (userType null)", () =
     signedIn(null);
     renderProtected(types);
 
-    expect(screen.getAllByAltText("MultiStack Systems Logo").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("img", { name: "MultiStack Systems" }).length).toBeGreaterThan(0);
     expect(screen.queryByText("Protected Content")).toBeNull();
     expect(screen.queryByText("Login Page")).toBeNull();
     expect(screen.queryByText("Landing Page")).toBeNull();

@@ -38,8 +38,9 @@ export default function BrandMark({ variant, className, label = "MultiStack Syst
   const { claro, oscuro, width, height } = VARIANTS[variant];
   return (
     <span role="img" aria-label={label} data-brand-variant={variant} className={cn("inline-flex shrink-0", className)}>
+      {/* `loading` va ANTES que `src`: React asigna los atributos en el orden de las props y, si `src` llega primero a un
+          <img> recién creado, el navegador ya lo pide aunque luego se aplique `lazy` (se bajaría también la variante oculta). */}
       <img
-        src={claro}
         alt=""
         aria-hidden="true"
         width={width}
@@ -49,9 +50,9 @@ export default function BrandMark({ variant, className, label = "MultiStack Syst
         draggable={false}
         data-brand-theme="claro"
         className="block h-full w-auto max-w-none object-contain dark:hidden"
+        src={claro}
       />
       <img
-        src={oscuro}
         alt=""
         aria-hidden="true"
         width={width}
@@ -61,6 +62,7 @@ export default function BrandMark({ variant, className, label = "MultiStack Syst
         draggable={false}
         data-brand-theme="oscuro"
         className="hidden h-full w-auto max-w-none object-contain dark:block"
+        src={oscuro}
       />
     </span>
   );

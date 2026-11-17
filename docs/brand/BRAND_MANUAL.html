@@ -57,29 +57,6 @@
 </head>
 <body class="font-sans text-frost antialiased">
 
-<!-- ============================================================
-     OFFICIAL ISOTYPE — 3D isometric stack of three rhombus plates.
-     Defined once as a <symbol>; reused everywhere via <use>.
-     Per-layer gradient: top plate = brightest cyan, each descending
-     plate deepens into rich dark blue. Portrait aspect (56:64).
-     ============================================================ -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="ms-mark" viewBox="0 0 56 64">
-    <!-- bottom plate — deep blue (drawn first, sits behind) -->
-    <path d="M28 34.5 L49 45 L28 55.5 L7 45 Z" fill="#0a619f"/>
-    <path d="M7 45 L28 55.5 L28 61.5 L7 51 Z" fill="#084f84"/>
-    <path d="M49 45 L28 55.5 L28 61.5 L49 51 Z" fill="#05335a"/>
-    <!-- middle plate — sky -->
-    <path d="M28 18.5 L49 29 L28 39.5 L7 29 Z" fill="#0ea5e9"/>
-    <path d="M7 29 L28 39.5 L28 45.5 L7 35 Z" fill="#0b87c0"/>
-    <path d="M49 29 L28 39.5 L28 45.5 L49 35 Z" fill="#086a99"/>
-    <!-- top plate — brightest cyan (drawn last, fully visible) -->
-    <path d="M28 2.5 L49 13 L28 23.5 L7 13 Z" fill="#38e1f2"/>
-    <path d="M7 13 L28 23.5 L28 29.5 L7 19 Z" fill="#18c2dd"/>
-    <path d="M49 13 L28 23.5 L28 29.5 L49 19 Z" fill="#0ea5e9"/>
-  </symbol>
-</svg>
-
 <!-- decorative grid backdrop -->
 <div class="pointer-events-none fixed inset-0 z-0 opacity-[0.5]"
      style="background-image:linear-gradient(rgba(255,255,255,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.035) 1px,transparent 1px);background-size:46px 46px;-webkit-mask:radial-gradient(circle at 30% 0%,black,transparent 70%);mask:radial-gradient(circle at 30% 0%,black,transparent 70%);"></div>
@@ -90,8 +67,7 @@
   <aside class="sticky top-0 hidden h-screen w-[270px] flex-none flex-col border-r border-white/10 bg-ink2/70 px-5 py-7 backdrop-blur lg:flex">
     <!-- brand lockup -->
     <a href="#top" class="mb-7 flex items-center gap-3">
-      <svg width="30" height="34" aria-hidden="true"><use href="#ms-mark"/></svg>
-      <span class="font-display text-[17px] font-bold tracking-tight">MultiStack <span class="font-semibold text-slate4">Systems</span></span>
+      <span role="img" aria-label="MultiStack Systems" class="inline-flex h-7 gap-2 items-center"><img src="../../src/assets/brand/isotipo-oscuro-2x.png" alt="" aria-hidden="true" width="242" height="191" class="h-full w-auto max-w-none"><img src="../../src/assets/brand/wordmark-oscuro-2x.png" alt="" aria-hidden="true" width="580" height="141" class="h-full w-auto max-w-none"></span>
     </a>
     <div class="mb-5 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan">Brand &amp; Product Manual</div>
     <nav id="nav" class="flex flex-col gap-0.5 overflow-y-auto pr-1 text-[14px]">
@@ -103,8 +79,7 @@
   <!-- ============ MOBILE TOP BAR ============ -->
   <header class="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-white/10 bg-ink2/90 px-4 py-3 backdrop-blur lg:hidden">
     <div class="flex items-center gap-2">
-      <svg width="22" height="25" aria-hidden="true"><use href="#ms-mark"/></svg>
-      <span class="font-display text-sm font-bold">MultiStack <span class="font-semibold text-slate4">Systems</span></span>
+      <span role="img" aria-label="MultiStack Systems" class="inline-flex h-6 gap-1.5 items-center"><img src="../../src/assets/brand/isotipo-oscuro-2x.png" alt="" aria-hidden="true" width="242" height="191" class="h-full w-auto max-w-none"><img src="../../src/assets/brand/wordmark-oscuro-2x.png" alt="" aria-hidden="true" width="580" height="141" class="h-full w-auto max-w-none"></span>
     </div>
     <select onchange="if(this.value)location.hash=this.value" class="rounded-md border border-line bg-surface px-2 py-1 font-mono text-xs text-slate4">
       <option value="">Saltar a…</option>
@@ -197,31 +172,37 @@
     <!-- 02 LOGO -->
     <section id="logo" class="border-b border-white/10 py-14">
       <div class="mb-3 font-mono text-[13px] tracking-[0.1em] text-cyan">// 02 — logotipo &amp; favicon</div>
-      <h2 class="font-display text-3xl font-semibold tracking-[-0.025em] sm:text-4xl">El isotipo apilado y su lockup.</h2>
+      <h2 class="font-display text-3xl font-semibold tracking-[-0.025em] sm:text-4xl">El isotipo oficial y su logotipo.</h2>
 
-      <!-- corrected isotype callout, prominent -->
-      <div class="mt-7 overflow-hidden rounded-2xl border border-sky/40 bg-gradient-to-br from-sky/[0.10] to-cyan/[0.04]"
-           style="box-shadow:0 0 40px rgba(14,165,233,0.16)">
+      <!-- official identity callout -->
+      <div class="mt-7 overflow-hidden rounded-2xl border border-sky/40 bg-gradient-to-br from-sky/[0.10] to-cyan/[0.04]">
         <div class="grid gap-0 md:grid-cols-[1fr_1.3fr]">
-          <!-- the featured mark -->
-          <div class="flex flex-col items-center justify-center gap-5 border-b border-white/10 p-10 md:border-b-0 md:border-r">
-            <svg width="150" height="172" aria-label="MultiStack Systems isotype" style="filter:drop-shadow(0 16px 40px rgba(14,165,233,0.35))"><use href="#ms-mark"/></svg>
-            <div class="font-mono text-[11px] uppercase tracking-[0.1em] text-slate5">isotipo · stack isométrico</div>
+          <!-- the official marks: dark version on the page, light version on white (versions, not recolors) -->
+          <div class="flex flex-col items-center justify-center gap-5 border-b border-white/10 p-8 md:border-b-0 md:border-r">
+            <div class="grid w-full max-w-[340px] grid-cols-2 gap-3">
+              <div class="flex items-center justify-center rounded-xl border border-line bg-ink p-5">
+                <img src="../../src/assets/brand/logo-completo-oscuro-2x.png" alt="Logotipo completo de MultiStack Systems, versión oscura" width="580" height="400" class="h-24 w-auto max-w-none">
+              </div>
+              <div class="flex items-center justify-center rounded-xl border border-line bg-white p-5">
+                <img src="../../src/assets/brand/logo-completo-claro-2x.png" alt="Logotipo completo de MultiStack Systems, versión clara" width="580" height="400" class="h-24 w-auto max-w-none">
+              </div>
+            </div>
+            <div class="font-mono text-[11px] uppercase tracking-[0.1em] text-slate5">logotipo completo · versión oscura y clara</div>
           </div>
           <!-- description -->
           <div class="p-8">
             <div class="mb-2 inline-flex items-center gap-2 rounded-md bg-sky/15 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-sky">★ marca oficial</div>
-            <h3 class="font-display text-xl font-semibold">Stack isométrico de tres láminas</h3>
+            <h3 class="font-display text-xl font-semibold">Isotipo «M» con prompt y logotipo completo</h3>
             <p class="mt-3 text-[15px] leading-[1.65] text-slate4">
-              La marca es un <strong class="text-frost">stack 3D isométrico de tres láminas rómbicas superpuestas</strong>, apiladas <strong class="text-frost">verticalmente</strong> — leyendo como un <em>stack</em> de capas tecnológicas, el significado literal del nombre.
+              La identidad es el <strong class="text-frost">isotipo</strong> (una «M» angular con un prompt de terminal <code class="font-mono text-cyan">&gt;_</code>) y el <strong class="text-frost">logotipo completo</strong>, que lo coloca sobre el rótulo «MultiStack SYSTEMS». Cada pieza existe en dos versiones.
             </p>
             <ul class="mt-4 space-y-2.5 text-[14px] leading-[1.55] text-slate4">
-              <li class="flex gap-2.5"><span class="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky"></span><strong class="text-frost">Tres láminas</strong> rómbicas isométricas en perspectiva 3D, superpuestas al descender.</li>
-              <li class="flex gap-2.5"><span class="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky"></span>Un <strong class="text-frost">gradiente cian→azul</strong> recorre el stack. La <strong class="text-frost">lámina superior es la más brillante</strong> (cian luminoso); cada capa inferior baja en luminosidad hacia azul profundo.</li>
-              <li class="flex gap-2.5"><span class="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky"></span>El apilado vertical da al asset una <strong class="text-frost">relación de aspecto vertical</strong> (fuente <code class="font-mono text-cyan">logo-white.png</code> = 727×845).</li>
+              <li class="flex gap-2.5"><span class="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky"></span><span><strong class="text-frost">Clara</strong> (a todo color) para interfaz clara; <strong class="text-frost">oscura</strong> (teal y blanco) para interfaz oscura. Se elige la que corresponde al fondo.</span></li>
+              <li class="flex gap-2.5"><span class="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky"></span><span><strong class="text-frost">Lockup</strong> (isotipo + rótulo en línea) desde 24px de alto; <strong class="text-frost">isotipo solo</strong> por debajo de 24px; <strong class="text-frost">logotipo completo</strong> desde 64px.</span></li>
+              <li class="flex gap-2.5"><span class="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky"></span><span>Azul medianoche oficial <code class="font-mono text-cyan">#080C13</code>: el fondo de los iconos de aplicación y de las superficies oscuras de marca.</span></li>
             </ul>
             <div class="mt-5 rounded-lg border border-err/30 bg-err/[0.06] p-3 text-[13px] leading-[1.5] text-slate4">
-              <span class="font-semibold text-err">No</span> es un cubo, carpeta o forma genérica. Es específicamente un <strong class="text-frost">stack rómbico isométrico de tres capas con gradiente cian→azul (tope más brillante)</strong>.
+              <span class="font-semibold text-err">Obsoleta:</span> la marca anterior (stack isométrico de tres láminas, <code class="font-mono text-cyan">logo-white.png</code> y <code class="font-mono text-cyan">logo-black.png</code>) no se usa en trabajo nuevo. Los archivos siguen en <code class="font-mono text-cyan">public/</code> solo porque los correos ya enviados los cargan desde ahí.
             </div>
           </div>
         </div>
@@ -230,46 +211,55 @@
       <!-- assets + component -->
       <div class="mt-5 grid gap-4 md:grid-cols-2">
         <div class="rounded-2xl border border-line bg-surface/50 p-7">
-          <div class="mb-3 font-mono text-[11px] uppercase tracking-[0.1em] text-slate5">Assets de producción</div>
+          <div class="mb-3 font-mono text-[11px] uppercase tracking-[0.1em] text-slate5">Assets de producción · src/assets/brand/</div>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-[13px]">
               <thead class="font-mono text-[10px] uppercase tracking-wider text-slate5">
-                <tr><th class="pb-2 pr-3">Asset</th><th class="pb-2 pr-3">Ruta</th><th class="pb-2">Uso</th></tr>
+                <tr><th class="pb-2 pr-3">Asset (claro / oscuro)</th><th class="pb-2 pr-3">px</th><th class="pb-2">Uso</th></tr>
               </thead>
               <tbody class="divide-y divide-white/[0.06] text-slate4">
-                <tr><td class="py-2 pr-3 text-frost">Marca blanca</td><td class="py-2 pr-3 font-mono text-cyan">public/logo-white.png</td><td class="py-2">UI oscura · fuente de favicons · <span class="text-frost">727×845 (vertical)</span></td></tr>
-                <tr><td class="py-2 pr-3 text-frost">Marca negra</td><td class="py-2 pr-3 font-mono text-cyan">public/logo-black.png</td><td class="py-2">UI clara · imagen OG / Twitter</td></tr>
+                <tr><td class="py-2 pr-3 font-mono text-cyan">isotipo-*.png</td><td class="py-2 pr-3">121×96</td><td class="py-2">Panel de administración (<code class="font-mono text-cyan">BrandMark</code>)</td></tr>
+                <tr><td class="py-2 pr-3 font-mono text-cyan">logo-completo-*.png</td><td class="py-2 pr-3">290×200</td><td class="py-2">Panel de administración (<code class="font-mono text-cyan">BrandMark</code>)</td></tr>
+                <tr><td class="py-2 pr-3 font-mono text-cyan">isotipo-*-2x.png</td><td class="py-2 pr-3">242×191</td><td class="py-2">Sitio (<code class="font-mono text-cyan">Logo</code>: isotipo y lockup)</td></tr>
+                <tr><td class="py-2 pr-3 font-mono text-cyan">wordmark-*-2x.png</td><td class="py-2 pr-3">580×141</td><td class="py-2">Sitio (<code class="font-mono text-cyan">Logo</code>: lockup)</td></tr>
+                <tr><td class="py-2 pr-3 font-mono text-cyan">logo-completo-*-2x.png</td><td class="py-2 pr-3">580×400</td><td class="py-2">Sitio (<code class="font-mono text-cyan">Logo variant="full"</code>)</td></tr>
+                <tr><td class="py-2 pr-3 font-mono text-cyan">isotipo-oscuro-4x.png</td><td class="py-2 pr-3">484×382</td><td class="py-2">Fuente de iconos e imágenes sociales (no se empaqueta)</td></tr>
               </tbody>
             </table>
           </div>
+          <p class="mt-3 text-[12.5px] leading-[1.55] text-slate5">Todos derivan de los maestros oficiales con un solo remuestreo, recorte ajustado y proporciones reales. Los maestros no están en este repositorio.</p>
         </div>
         <div class="rounded-2xl border border-line bg-surface/50 p-7">
-          <div class="mb-3 font-mono text-[11px] uppercase tracking-[0.1em] text-slate5">Componente · src/components/Logo.tsx</div>
-          <pre class="overflow-x-auto rounded-lg border border-white/10 bg-ink p-4 font-mono text-[12px] leading-[1.7] text-slate4"><code><span class="text-slate5">// theme-aware · swap por clase dark</span>
-&lt;img src=<span class="text-ok">"/logo-white.png"</span> class=<span class="text-ok">"hidden ... dark:block"</span> /&gt;
-&lt;img src=<span class="text-ok">"/logo-black.png"</span> aria-hidden class=<span class="text-ok">"block ... dark:hidden"</span> /&gt;</code></pre>
+          <div class="mb-3 font-mono text-[11px] uppercase tracking-[0.1em] text-slate5">Componente · src/components/common/Logo.tsx</div>
+          <pre class="overflow-x-auto rounded-lg border border-white/10 bg-ink p-4 font-mono text-[12px] leading-[1.7] text-slate4"><code><span class="text-slate5">// la clase dark de &lt;html&gt; elige la versión</span>
+&lt;Logo className=<span class="text-ok">"h-7"</span> /&gt;                    <span class="text-slate5">// lockup</span>
+&lt;Logo variant=<span class="text-ok">"isotipo"</span> className=<span class="text-ok">"h-5"</span> /&gt;
+&lt;Logo variant=<span class="text-ok">"full"</span> className=<span class="text-ok">"h-16"</span> /&gt;
+&lt;Logo priority className=<span class="text-ok">"h-7"</span> /&gt;        <span class="text-slate5">// sobre el pliegue</span></code></pre>
+          <p class="mt-3 text-[12.5px] leading-[1.55] text-slate5">Un único nombre accesible (<code class="font-mono text-cyan">role="img"</code>); las imágenes son decorativas. El panel de administración usa <code class="font-mono text-cyan">admin/BrandMark</code>.</p>
         </div>
       </div>
 
       <!-- clear space / min sizes / misuse -->
       <div class="mt-5 grid gap-4 lg:grid-cols-2">
         <div class="rounded-2xl border border-line bg-surface/50 p-7">
-          <div class="mb-3 font-mono text-[11px] uppercase tracking-[0.1em] text-slate5">Zona de seguridad &amp; tamaños mínimos</div>
-          <p class="text-[14px] leading-[1.6] text-slate4">Margen libre <strong class="text-frost">x</strong> en los 4 lados, donde <code class="font-mono text-cyan">x = round(mark_height / 3)</code> (≈ una lámina del stack).</p>
+          <div class="mb-3 font-mono text-[11px] uppercase tracking-[0.1em] text-slate5">Zona de seguridad &amp; tamaños</div>
+          <p class="text-[14px] leading-[1.6] text-slate4">El manual oficial no fija zona de seguridad ni tamaño mínimo. Convención del proyecto: dejar entre la marca y otro texto o borde al menos la altura de las mayúsculas del rótulo; en el lockup, separar isotipo y rótulo ≈ 0,28 de la altura (8px a 28px).</p>
           <ul class="mt-4 space-y-2 font-mono text-[12.5px] text-slate4">
-            <li><span class="text-sky">16px</span> — favicon / mark en tab · mínimo absoluto</li>
-            <li><span class="text-sky">24–28px</span> — mark en navbar (lockup)</li>
-            <li><span class="text-sky">120px</span> — lockup horizontal legible · ancho mínimo</li>
+            <li><span class="text-sky">&lt; 24px</span> — isotipo solo</li>
+            <li><span class="text-sky">24px y más</span> — lockup (barra de navegación 28px)</li>
+            <li><span class="text-sky">64px y más</span> — logotipo completo</li>
           </ul>
         </div>
         <div class="rounded-2xl border border-line bg-surface/50 p-7">
           <div class="mb-3 font-mono text-[11px] uppercase tracking-[0.1em] text-err">✕ Usos incorrectos</div>
           <ul class="space-y-2 text-[13.5px] leading-[1.5] text-slate4">
-            <li class="flex gap-2"><span class="text-err">✕</span> Recolorear las láminas o alterar el gradiente cian→azul.</li>
-            <li class="flex gap-2"><span class="text-err">✕</span> Estirar, comprimir o cambiar la relación de aspecto.</li>
-            <li class="flex gap-2"><span class="text-err">✕</span> Rotar o inclinar la estructura isométrica.</li>
-            <li class="flex gap-2"><span class="text-err">✕</span> Añadir sombras, gradientes o biseles extra.</li>
-            <li class="flex gap-2"><span class="text-err">✕</span> Reducir por debajo de 16px.</li>
+            <li class="flex gap-2"><span class="text-err">✕</span><span>Recolorear la marca o usar una versión que no corresponde al fondo.</span></li>
+            <li class="flex gap-2"><span class="text-err">✕</span><span>Estirar, comprimir o cambiar la relación de aspecto.</span></li>
+            <li class="flex gap-2"><span class="text-err">✕</span><span>Añadir sombras, brillos, filtros o contornos.</span></li>
+            <li class="flex gap-2"><span class="text-err">✕</span><span>Cambiar la composición (mover el rótulo, piezas de distinta altura).</span></li>
+            <li class="flex gap-2"><span class="text-err">✕</span><span>Ponerla sobre fondos de bajo contraste o imágenes cargadas sin capa de protección.</span></li>
+            <li class="flex gap-2"><span class="text-err">✕</span><span>Usar la marca anterior (<code class="font-mono text-cyan">logo-white.png</code>, <code class="font-mono text-cyan">logo-black.png</code>).</span></li>
           </ul>
         </div>
       </div>
@@ -475,7 +465,7 @@ borderRadius: { xl: <span class="text-frost">16px</span>, lg: <span class="text-
             <tr><th class="px-5 py-3">Elemento</th><th class="px-5 py-3">Archivo</th><th class="px-5 py-3">Notas</th></tr>
           </thead>
           <tbody class="divide-y divide-white/[0.06] text-slate4">
-            <tr><td class="px-5 py-2.5 text-frost">Logo / lockup</td><td class="px-5 py-2.5 font-mono text-cyan">components/Logo.tsx</td><td class="px-5 py-2.5">Marca oficial theme-aware.</td></tr>
+            <tr><td class="px-5 py-2.5 text-frost">Logo / lockup</td><td class="px-5 py-2.5 font-mono text-cyan">components/common/Logo.tsx · components/admin/BrandMark.tsx</td><td class="px-5 py-2.5">Isotipo, lockup y logotipo completo oficiales, según el tema.</td></tr>
             <tr><td class="px-5 py-2.5 text-frost">Botones &amp; estados</td><td class="px-5 py-2.5 font-mono text-cyan">ui/button.tsx</td><td class="px-5 py-2.5">CVA: default/outline/secondary/ghost/link/destructive · sm/default/lg/icon.</td></tr>
             <tr><td class="px-5 py-2.5 text-frost">Inputs</td><td class="px-5 py-2.5 font-mono text-cyan">ui/input.tsx</td><td class="px-5 py-2.5">h-10 · rounded-md · border-input · focus ring.</td></tr>
             <tr><td class="px-5 py-2.5 text-frost">Forms</td><td class="px-5 py-2.5 font-mono text-cyan">ui/form.tsx</td><td class="px-5 py-2.5">react-hook-form + zod.</td></tr>
@@ -527,7 +517,7 @@ borderRadius: { xl: <span class="text-frost">16px</span>, lg: <span class="text-
             <div><span class="text-slate5">stroke-width</span> 2 · currentColor · linecap round</div>
             <div><span class="text-slate5">render</span> 22px en chip 48px / radio 11px</div>
           </div>
-          <p class="mt-4 text-[13px] leading-[1.55] text-slate4">El <strong class="text-frost">stack isométrico es la única forma de marca rellena.</strong> Nunca mezclar iconos rellenos con lineales ni usar emoji como UI.</p>
+          <p class="mt-4 text-[13px] leading-[1.55] text-slate4">El <strong class="text-frost">isotipo oficial es la única forma de marca rellena.</strong> Nunca mezclar iconos rellenos con lineales ni usar emoji como UI.</p>
         </div>
         <div class="rounded-2xl border border-line bg-surface/50 p-7">
           <div class="mb-4 font-mono text-[11px] uppercase tracking-wider text-slate5">Motion &amp; profundidad</div>
@@ -548,16 +538,14 @@ borderRadius: { xl: <span class="text-frost">16px</span>, lg: <span class="text-
     <!-- 10 ICONS -->
     <section id="icons" class="py-14">
       <div class="mb-3 font-mono text-[13px] tracking-[0.1em] text-cyan">// 10 — favicon &amp; app icons</div>
-      <h2 class="font-display text-3xl font-semibold tracking-[-0.025em] sm:text-4xl">Generados desde el logo oficial.</h2>
-      <p class="mt-4 max-w-[60ch] text-slate4 leading-[1.65]">El set de favicons/PWA se <strong class="text-frost">genera desde el logo</strong> — garantizando que el stack isométrico es siempre el icono. Script: <code class="font-mono text-cyan">scripts/generate-favicons.mjs</code> (<code class="font-mono text-cyan">npm run favicons</code>), con <code class="font-mono text-cyan">sharp</code> + <code class="font-mono text-cyan">png-to-ico</code>.</p>
+      <h2 class="font-display text-3xl font-semibold tracking-[-0.025em] sm:text-4xl">Generados desde el isotipo oficial.</h2>
+      <p class="mt-4 max-w-[60ch] text-slate4 leading-[1.65]">El set de favicons/PWA se <strong class="text-frost">genera desde el isotipo oficial</strong> (versión oscura), centrado y sin deformar sobre azul medianoche <code class="font-mono text-cyan">#080C13</code>. Script: <code class="font-mono text-cyan">scripts/generate-favicons.mjs</code> (<code class="font-mono text-cyan">npm run favicons</code>), con <code class="font-mono text-cyan">sharp</code> + <code class="font-mono text-cyan">png-to-ico</code>.</p>
 
       <div class="mt-6 grid gap-4 md:grid-cols-[0.9fr_1.4fr]">
         <!-- icon preview on brand navy -->
         <div class="flex flex-col items-center justify-center gap-4 rounded-2xl border border-line bg-surface/50 p-8">
-          <div class="flex items-center justify-center rounded-2xl" style="width:120px;height:120px;background:#080F1E;padding:19px">
-            <svg width="72" height="82" aria-hidden="true"><use href="#ms-mark"/></svg>
-          </div>
-          <div class="font-mono text-[11px] text-slate5">marca blanca · 16% padding · fondo #080F1E</div>
+          <img src="../../public/icon-192.png" alt="Icono de aplicación: isotipo oficial sobre azul medianoche" width="192" height="192" class="h-[120px] w-[120px] rounded-2xl">
+          <div class="font-mono text-[11px] text-slate5">isotipo oscuro · 17% de margen · fondo #080C13</div>
         </div>
         <div class="overflow-x-auto rounded-2xl border border-line">
           <table class="w-full text-left text-[13px]">
@@ -568,21 +556,21 @@ borderRadius: { xl: <span class="text-frost">16px</span>, lg: <span class="text-
               <tr><td class="px-5 py-2.5 font-mono text-cyan">favicon-96x96.png</td><td class="px-5 py-2.5">96</td><td class="px-5 py-2.5">Tab high-DPI</td></tr>
               <tr><td class="px-5 py-2.5 font-mono text-cyan">apple-touch-icon.png</td><td class="px-5 py-2.5">180</td><td class="px-5 py-2.5">iOS home screen</td></tr>
               <tr><td class="px-5 py-2.5 font-mono text-cyan">icon-192.png</td><td class="px-5 py-2.5">192</td><td class="px-5 py-2.5">PWA (any)</td></tr>
-              <tr><td class="px-5 py-2.5 font-mono text-cyan">icon-512.png</td><td class="px-5 py-2.5">512</td><td class="px-5 py-2.5">PWA (any + maskable)</td></tr>
+              <tr><td class="px-5 py-2.5 font-mono text-cyan">icon-512.png</td><td class="px-5 py-2.5">512</td><td class="px-5 py-2.5">PWA (any)</td></tr>
+              <tr><td class="px-5 py-2.5 font-mono text-cyan">icon-maskable-512.png</td><td class="px-5 py-2.5">512</td><td class="px-5 py-2.5">PWA (maskable, 20% de margen)</td></tr>
             </tbody>
           </table>
         </div>
       </div>
       <blockquote class="mt-4 rounded-r-xl border-l-[3px] border-cyan bg-cyan/[0.06] px-5 py-4 text-[14px] leading-[1.6] text-slate4">
-        <strong class="text-cyan">Manifest:</strong> <code class="font-mono text-cyan">site.webmanifest</code> — "MultiStack Systems" / short "MultiStack", display standalone, theme &amp; background <code class="font-mono text-cyan">#080F1E</code>.
+        <strong class="text-cyan">Manifest:</strong> <code class="font-mono text-cyan">site.webmanifest</code> — "MultiStack Systems" / short "MultiStack", display standalone, theme &amp; background <code class="font-mono text-cyan">#080F1E</code> (por decisión del propietario se conservan; los iconos van sobre <code class="font-mono text-cyan">#080C13</code>). Imágenes sociales: <code class="font-mono text-cyan">og-ai.v2.1200x630.png</code> y <code class="font-mono text-cyan">og-paginas-web.v2.png</code>, con el isotipo oficial.
       </blockquote>
     </section>
 
     <!-- FOOTER -->
     <footer class="mt-10 flex flex-wrap items-center justify-between gap-5 border-t border-white/10 pt-8">
       <div class="flex items-center gap-3">
-        <svg width="22" height="25" aria-hidden="true"><use href="#ms-mark"/></svg>
-        <span class="font-display text-[15px] font-bold">MultiStack <span class="font-semibold text-slate4">Systems</span></span>
+        <span role="img" aria-label="MultiStack Systems" class="inline-flex h-6 gap-1.5 items-center"><img src="../../src/assets/brand/isotipo-oscuro-2x.png" alt="" aria-hidden="true" width="242" height="191" class="h-full w-auto max-w-none"><img src="../../src/assets/brand/wordmark-oscuro-2x.png" alt="" aria-hidden="true" width="580" height="141" class="h-full w-auto max-w-none"></span>
       </div>
       <div class="font-mono text-[12px] text-slate5">Manual de marca · v1.0 · © 2026 multistacksystems.com<span class="cursor"></span></div>
     </footer>
