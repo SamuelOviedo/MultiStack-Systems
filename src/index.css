@@ -1318,28 +1318,54 @@
   color: var(--text2);
 }
 
-/* Precio: el monto es lo más grande de la página; debajo, incluye y no incluye. */
-.ms-pw-amount {
-  margin: 40px 0 0;
-  line-height: 1;
-  color: var(--text);
+/* Precio: dos tarjetas de paquete con el monto a gran tamaño; debajo, incluye y no incluye. */
+.ms-pw-plans {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+  margin-top: 48px;
 }
-.ms-pw-amount__prefix {
-  margin-right: 6px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text2);
+.ms-pw-nowrap {
+  white-space: nowrap;
 }
-.ms-pw-amount__value {
+.ms-pw-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 30px 28px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.ms-pw-plan__amount {
+  margin: 0;
   font-family: 'Sora', sans-serif;
   font-weight: 600;
-  font-size: clamp(56px, 9vw, 104px);
-  letter-spacing: -0.045em;
+  font-size: clamp(44px, 5.4vw, 64px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--text);
 }
-.ms-pw-amount + .ms-pw-note {
-  margin-top: 12px;
+.ms-pw-plan__extras {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
+}
+.ms-pw-plan__extras-title {
+  margin: 0;
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: 15.5px;
+  line-height: 1.3;
+  color: var(--text);
+}
+.ms-pw-plan__extras .ms-pw-checks {
+  gap: 12px;
+  margin-top: 16px;
+}
+.ms-pw-plans + .ms-pw-intro {
+  margin-top: 32px;
 }
 .ms-pw-ledger {
   display: grid;
@@ -1556,6 +1582,7 @@
   .ms-pw-split,
   .ms-pw-contact,
   .ms-pw-points,
+  .ms-pw-plans,
   .ms-pw-ledger {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1601,7 +1628,8 @@
   .ms-pw-wrap {
     padding: 0 20px;
   }
-  .ms-pw-card {
+  .ms-pw-card,
+  .ms-pw-plan {
     padding: 22px 18px;
   }
   .ms-pw-actions > * {

@@ -26,22 +26,25 @@ vi.mock("@/lib/analytics", async (importOriginal) => ({
   trackContactConversion: vi.fn(),
 }));
 
-// El contenido de la página se puede cambiar por otro construido con compromisos distintos para
-// comprobar que los números llegan a la pantalla desde COMMITMENTS y no están escritos en los componentes.
+// El contenido de la página se puede cambiar por otro construido con compromisos y precios distintos para
+// comprobar que los números llegan a la pantalla desde COMMITMENTS y PACKAGES y no están escritos en los
+// componentes. Ninguna cifra distinta (ni los dígitos de un precio como «5,100») repite una de las reales.
 const contentSwitch = vi.hoisted(() => ({
   distinct: false,
   commitments: {
-    priceFromUsd: 777,
     maxSections: 9,
-    revisionRounds: 3,
-    deliveryBusinessDays: 12,
+    revisionRounds: 4,
+    deliveryBusinessDays: 15,
     responseBusinessHours: 48,
+    domainHostingMonths: 7,
   },
+  prices: { estandar: 5100, "combo-emprendedor": 8800 } as Record<string, number>,
 }));
 const DISTINCT_COMMITMENTS = contentSwitch.commitments;
 vi.mock("@/pages/marketing/paginasWebContent", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/pages/marketing/paginasWebContent")>();
-  const distinct = actual.buildPaginasWebContent(contentSwitch.commitments);
+  const distinctPackages = actual.PACKAGES.map((pkg) => ({ ...pkg, priceLempiras: contentSwitch.prices[pkg.id] }));
+  const distinct = actual.buildPaginasWebContent(contentSwitch.commitments, distinctPackages);
   return {
     ...actual,
     get PAGINAS_WEB_CONTENT() {
@@ -58,10 +61,16 @@ import PaginasWeb from "@/pages/marketing/PaginasWeb";
 import {
   CHANNELS,
   COMMITMENTS,
+  PACKAGES,
   PAGINAS_WEB_CONTENT,
   SECTION_IDS,
   buildPaginasWebContent,
+  type Commitments,
+  type PaginasWebPackage,
 } from "@/pages/marketing/paginasWebContent";
+
+/** Los mismos paquetes con otros precios: para comprobar que los precios también salen de los datos. */
+const DISTINCT_PACKAGES = PACKAGES.map((pkg) => ({ ...pkg, priceLempiras: contentSwitch.prices[pkg.id] }));
 
 // ---------------------------------------------------------------------------
 // Utilidades
@@ -405,7 +414,7 @@ describe("/paginas-web · la velocidad se cuenta como proceso, no como promesa",
   });
 
   it("PAGINAS_WEB_CONTENT no promete rapidez, ni con los compromisos reales ni con otros", () => {
-    for (const content of [PAGINAS_WEB_CONTENT, buildPaginasWebContent(DISTINCT_COMMITMENTS)]) {
+    for (const content of [PAGINAS_WEB_CONTENT, buildPaginasWebContent(DISTINCT_COMMITMENTS, DISTINCT_PACKAGES)]) {
       const json = JSON.stringify(content);
       expect(json).toContain("Lighthouse"); // el texto de la velocidad sí está
       expect(speedClaimIn(json)).toBeNull();
@@ -455,41 +464,66 @@ describe("/paginas-web · la velocidad se cuenta como proceso, no como promesa",
     expect(point!.text).toMatch(/Lighthouse/);
   });
 
-  it("los conteos de ítems se conservan: 7 incluidos (los mismos 7 en el precio), 5 que no incluye y 3 puntos de ingeniería", () => {
+  it("los conteos de ítems se conservan: 9 incluidos (los mismos 9 en el precio), 3 que no incluye y 3 puntos de ingeniería", () => {
     const { includes, price, engineering } = PAGINAS_WEB_CONTENT;
-    expect(includes.items).toHaveLength(7);
+    expect(includes.items).toHaveLength(9);
     expect(price.included).toEqual(includes.items.map((i) => i.title));
-    expect(price.notIncluded).toHaveLength(5);
+    expect(price.notIncluded).toHaveLength(3);
     expect(engineering.points).toHaveLength(3);
 
     renderPage();
 
-    expect(section("que-incluye").querySelectorAll("dt")).toHaveLength(7);
-    expect(listAfterHeading(section("precio"), price.includedTitle).querySelectorAll("li")).toHaveLength(7);
-    expect(listAfterHeading(section("precio"), price.notIncludedTitle).querySelectorAll("li")).toHaveLength(5);
+    expect(section("que-incluye").querySelectorAll("dt")).toHaveLength(9);
+    expect(listAfterHeading(section("precio"), price.includedTitle).querySelectorAll("li")).toHaveLength(9);
+    expect(listAfterHeading(section("precio"), price.notIncludedTitle).querySelectorAll("li")).toHaveLength(3);
     expect(section("ingenieria").querySelectorAll("li")).toHaveLength(3);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Números: todos salen de COMMITMENTS
+// Números: todos salen de COMMITMENTS y de PACKAGES
 // ---------------------------------------------------------------------------
 
-describe("/paginas-web · los números salen de COMMITMENTS", () => {
-  const DEFAULTS = Object.values(COMMITMENTS).map(String); // 500, 6, 2, 10, 24
-  const NEW_NUMBERS = Object.values(DISTINCT_COMMITMENTS).map(String).sort(); // 777, 9, 3, 12, 48
-
-  it("el contenido real solo usa cifras de COMMITMENTS (más los dígitos del teléfono)", () => {
-    expect(withoutChannelDigits(numberTokens(JSON.stringify(buildPaginasWebContent(COMMITMENTS))))).toEqual(
-      [...DEFAULTS].sort(),
+describe("/paginas-web · los números salen de COMMITMENTS y PACKAGES", () => {
+  /**
+   * Las cifras que debe llevar el texto: los compromisos y los precios, escritos con coma («3,500» son el 3 y el
+   * 500) y sin ella («3500», como los lee un lector de pantalla).
+   */
+  const figuresOf = (commitments: Commitments, packages: readonly PaginasWebPackage[]): string[] =>
+    withoutChannelDigits(
+      numberTokens(
+        [
+          ...Object.values(commitments),
+          ...packages.flatMap((p) => [p.priceLempiras.toLocaleString("en-US"), String(p.priceLempiras)]),
+        ].join(" "),
+      ),
     );
+  const DEFAULTS = figuresOf(COMMITMENTS, PACKAGES); // 2, 3, 6, 10, 12, 24, 500, 950, 3500, 3950
+  const NEW_NUMBERS = figuresOf(DISTINCT_COMMITMENTS, DISTINCT_PACKAGES); // 100, 15, 4, 48, 5, 7, 800, 8, 9, 5100, 8800
+
+  it("las cifras distintas no se parecen a las reales ni a los dígitos de contacto (si no, la prueba no distinguiría)", () => {
+    expect(NEW_NUMBERS.filter((n) => DEFAULTS.includes(n))).toEqual([]);
+    expect(NEW_NUMBERS.filter((n) => CHANNEL_DIGITS.has(n))).toEqual([]);
   });
 
-  it("con compromisos distintos aparecen los nuevos números y no sobrevive ninguno de los valores por defecto", () => {
-    const content = buildPaginasWebContent(DISTINCT_COMMITMENTS);
+  it("el contenido real solo usa cifras de COMMITMENTS y de PACKAGES (más los dígitos del teléfono)", () => {
+    expect(withoutChannelDigits(numberTokens(JSON.stringify(buildPaginasWebContent(COMMITMENTS, PACKAGES))))).toEqual(DEFAULTS);
+  });
+
+  it("con compromisos y precios distintos aparecen los nuevos números y no sobrevive ninguno de los valores por defecto", () => {
+    const content = buildPaginasWebContent(DISTINCT_COMMITMENTS, DISTINCT_PACKAGES);
     const json = JSON.stringify(content);
 
-    for (const expected of ["US$777", "Hasta 9 secciones", "3 rondas de revisión", "12 días hábiles", "48 horas hábiles"]) {
+    for (const expected of [
+      "L 5,100",
+      "L 8,800",
+      "Desde L 5,100",
+      "Hasta 9 secciones",
+      "4 rondas de revisión",
+      "15 días hábiles",
+      "48 horas hábiles",
+      "7 meses",
+    ]) {
       expect(json, expected).toContain(expected);
     }
     const tokens = withoutChannelDigits(numberTokens(json));
@@ -497,41 +531,68 @@ describe("/paginas-web · los números salen de COMMITMENTS", () => {
     for (const old of DEFAULTS) expect(tokens, `quedó ${old}`).not.toContain(old);
   });
 
-  it("con el valor 1 usa el singular en las cuatro cantidades", () => {
+  it("con el valor 1 usa el singular en las cinco cantidades", () => {
     const json = JSON.stringify(
-      buildPaginasWebContent({ ...DISTINCT_COMMITMENTS, maxSections: 1, revisionRounds: 1, deliveryBusinessDays: 1, responseBusinessHours: 1 }),
+      buildPaginasWebContent(
+        {
+          ...DISTINCT_COMMITMENTS,
+          maxSections: 1,
+          revisionRounds: 1,
+          deliveryBusinessDays: 1,
+          responseBusinessHours: 1,
+          domainHostingMonths: 1,
+        },
+        DISTINCT_PACKAGES,
+      ),
     );
-    for (const singular of ["1 sección", "1 ronda de revisión", "1 día hábil", "1 hora hábil"]) {
+    for (const singular of ["1 sección", "1 ronda de revisión", "1 día hábil", "1 hora hábil", "1 mes"]) {
       expect(json, singular).toContain(singular);
     }
-    expect(json).not.toMatch(/(^|[^\d])1 (secciones|rondas|días|horas)/);
+    expect(json).not.toMatch(/(^|[^\d])1 (secciones|rondas|días|horas|meses)/);
   });
 
-  it("los miles llevan coma: 1200 se muestra como US$1,200", () => {
-    const content = buildPaginasWebContent({ ...DISTINCT_COMMITMENTS, priceFromUsd: 1200 });
-    expect(content.price.amount).toBe("US$1,200");
-    expect(content.hero.facts[0].value).toBe("Desde US$1,200");
+  it("los miles llevan coma: 1200 se muestra como L 1,200", () => {
+    const [standard, combo] = DISTINCT_PACKAGES;
+    const content = buildPaginasWebContent(DISTINCT_COMMITMENTS, [{ ...standard, priceLempiras: 1200 }, combo]);
+    expect(content.price.packages[0].amount).toBe("L 1,200");
+    expect(content.hero.facts[0].value).toBe("Desde L 1,200");
+    expect(content.price.packages[0].amountSpoken).toBe("1200 lempiras");
+    expect(content.hero.facts[0].valueSpoken).toBe("Desde 1200 lempiras");
   });
 
-  it("en pantalla se ven los compromisos actuales y ninguna otra cifra escrita en los componentes", () => {
+  it("el precio «desde» del hero es el del paquete más barato, esté en el orden que esté", () => {
+    const [standard, combo] = DISTINCT_PACKAGES;
+    const content = buildPaginasWebContent(DISTINCT_COMMITMENTS, [{ ...combo, priceLempiras: 4000 }, standard]);
+    expect(content.hero.facts[0].value).toBe("Desde L 4,000");
+    expect(content.hero.facts[0].valueSpoken).toBe("Desde 4000 lempiras");
+  });
+
+  it("en pantalla se ven los compromisos y precios actuales y ninguna otra cifra escrita en los componentes", () => {
     renderPage();
 
-    const text = visibleText(document.querySelector("main")!);
-    expect(text).toContain(`Desde US$${COMMITMENTS.priceFromUsd}`);
-    expect(withoutChannelDigits(numberTokens(text))).toEqual([...DEFAULTS].sort());
+    const main = document.querySelector("main")!;
+    const text = visibleText(main);
+    // El «Desde L 3,500» del hero se ve (aria-hidden) y un lector oye «Desde 3500 lempiras».
+    expect(main.textContent).toContain("Desde L 3,500");
+    expect(text).toContain("Desde 3500 lempiras");
+    expect(withoutChannelDigits(numberTokens(text))).toEqual(DEFAULTS);
   });
 
-  it("en pantalla, con otros compromisos, cambian todas las cifras a la vez (ningún componente trae su número)", () => {
+  it("en pantalla, con otros compromisos y precios, cambian todas las cifras a la vez (ningún componente trae su número)", () => {
     contentSwitch.distinct = true;
     renderPage();
 
-    const text = visibleText(document.querySelector("main")!);
-    expect(within(section("precio")).getByText("US$777")).toBeInTheDocument();
-    expect(text).toContain("Desde US$777");
-    expect(text).toContain("12 días hábiles");
+    const main = document.querySelector("main")!;
+    const text = visibleText(main);
+    expect(within(section("precio")).getByText("L 5,100")).toBeInTheDocument();
+    expect(within(section("precio")).getByText("L 8,800")).toBeInTheDocument();
+    expect(main.textContent).toContain("Desde L 5,100");
+    expect(text).toContain("Desde 5100 lempiras");
+    expect(text).toContain("15 días hábiles");
     expect(text).toContain("Menos de 48 horas hábiles");
     expect(text).toContain("Hasta 9 secciones");
-    expect(text).toContain("3 rondas de revisión");
+    expect(text).toContain("4 rondas de revisión");
+    expect(text).toContain("7 meses");
     const tokens = withoutChannelDigits(numberTokens(text));
     expect(tokens).toEqual(NEW_NUMBERS);
     for (const old of DEFAULTS) expect(tokens, `quedó ${old}`).not.toContain(old);
@@ -539,107 +600,367 @@ describe("/paginas-web · los números salen de COMMITMENTS", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Dominio: no se cotiza en la página, así que no lleva ninguna cifra al lado
+// Paquetes: dos tarjetas con su precio, accesibles y con ancla estable
 // ---------------------------------------------------------------------------
 
-describe("/paginas-web · el dominio no lleva cifra", () => {
-  const DOMAIN_ITEM = "Dominio";
-  const DOMAIN_SENTENCE = "No incluye el dominio: lo compras a tu nombre y te ayudamos a elegirlo y configurarlo.";
-  const FAQ_QUESTION = "¿El dominio y el hosting están incluidos?";
-  const FAQ_ANSWER =
-    "No incluye el dominio: lo compras a tu nombre y te ayudamos a elegirlo y configurarlo. El hosting, el servicio donde vive tu página, tampoco está en el precio base.";
+describe("/paginas-web · paquetes y precios", () => {
+  // `spoken` es lo que anuncia el lector de pantalla: «L» se lee «ele», así que se dice «lempiras», y sin coma de
+  // miles para que ninguna voz lo lea como decimal.
+  const STANDARD = { id: "estandar", name: "Plan Estándar", amount: "L 3,500", spoken: "3500 lempiras" } as const;
+  const COMBO = { id: "combo-emprendedor", name: "Combo Emprendedor", amount: "L 3,950", spoken: "3950 lempiras" } as const;
+  const COMBO_EXTRAS = PACKAGES.find((pkg) => pkg.id === COMBO.id)!.extras;
 
-  /** Lo primero que parece una cifra o una tarifa: un dígito, un símbolo de dólar (US$ incluido) o una periodicidad de cobro. */
-  const figureIn = (text: string): string | null =>
-    text.match(/\d|\$|d[oó]lar|\b(?:al|por|cada)\s+(?:año|mes)\b|\/\s?(?:año|mes)\b|\banual|\bmensual/i)?.[0] ?? null;
-
-  const domainItemRow = (): HTMLElement => {
-    const list = listAfterHeading(section("precio"), PAGINAS_WEB_CONTENT.price.notIncludedTitle);
-    const rows = Array.from(list.querySelectorAll("li")).filter((li) => within(li).queryByText(DOMAIN_ITEM));
-    expect(rows, `ítems «${DOMAIN_ITEM}» en lo que no incluye`).toHaveLength(1);
-    return rows[0];
+  const card = (id: string): HTMLElement => {
+    const found = section("precio").querySelector<HTMLElement>(`article[data-package="${id}"]`);
+    expect(found, `tarjeta del paquete ${id}`).not.toBeNull();
+    return found!;
   };
-  const domainFaqItem = (): HTMLElement => {
-    const items = Array.from(section("preguntas").querySelectorAll("details")).filter((d) =>
-      within(d).queryByText(FAQ_QUESTION),
-    );
-    expect(items, `preguntas «${FAQ_QUESTION}»`).toHaveLength(1);
-    return items[0];
+  /** Lo que se lee en la página y en lo que se anuncia: texto visible, atributos accesibles y el contenido serializado. */
+  const everything = (): string => {
+    const main = document.querySelector("main")!;
+    return [textAndAccessibleAttributes(main), visibleText(main), JSON.stringify(PAGINAS_WEB_CONTENT)].join("\n");
   };
 
-  it("el detector de cifras reconoce un importe o una tarifa junto al dominio y deja pasar el texto aprobado", () => {
-    for (const figure of [
-      "Dominio US$21 al año",
-      "El dominio cuesta US$ 21",
-      "Dominio: $15",
-      "Dominio: veintiún dólares",
-      "Se renueva cada año",
-      "Se paga por año",
-      "Cuesta quince/año",
-      "Se cobra al mes",
-      "Pago anual",
-      "Cuota mensual",
-    ]) {
-      expect(figureIn(figure), figure).not.toBeNull();
-    }
-    for (const fine of [DOMAIN_ITEM, DOMAIN_SENTENCE, FAQ_QUESTION, FAQ_ANSWER]) {
-      expect(figureIn(fine), fine).toBeNull();
-    }
+  it("los precios de los paquetes son exactamente L 3,500 y L 3,950, en este orden", () => {
+    expect(PACKAGES.map((pkg) => [pkg.id, pkg.name, pkg.priceLempiras])).toEqual([
+      [STANDARD.id, STANDARD.name, 3500],
+      [COMBO.id, COMBO.name, 3950],
+    ]);
+    expect(PAGINAS_WEB_CONTENT.price.packages.map((pkg) => pkg.amount)).toEqual([STANDARD.amount, COMBO.amount]);
   });
 
-  it("COMMITMENTS ya no trae un precio del dominio", () => {
-    expect(COMMITMENTS).not.toHaveProperty("domainYearlyUsd");
-    expect(COMMITMENTS).not.toHaveProperty("domainPrice");
-  });
-
-  it("en el contenido, el ítem «Dominio» y la respuesta de las preguntas dicen exactamente esto, con los compromisos reales y con otros", () => {
-    for (const content of [PAGINAS_WEB_CONTENT, buildPaginasWebContent(DISTINCT_COMMITMENTS)]) {
-      const items = content.price.notIncluded.filter((i) => i.title === DOMAIN_ITEM);
-      expect(items).toHaveLength(1);
-      expect(items[0].text).toBe(DOMAIN_SENTENCE);
-
-      const faq = content.faq.items.filter((i) => i.question === FAQ_QUESTION);
-      expect(faq).toHaveLength(1);
-      expect(faq[0].answer).toBe(FAQ_ANSWER);
-    }
-  });
-
-  it("en pantalla, el «Dominio» de lo que no incluye el precio base muestra exactamente la frase", () => {
+  it("#precio muestra dos tarjetas, una por paquete, con su ancla estable y su data-package", () => {
     renderPage();
 
-    expect(within(domainItemRow()).getByText(DOMAIN_SENTENCE)).toBeInTheDocument();
+    const cards = Array.from(section("precio").querySelectorAll("article"));
+    expect(cards.map((c) => c.getAttribute("data-package"))).toEqual([STANDARD.id, COMBO.id]);
+    expect(cards.map((c) => c.id)).toEqual(["paquete-estandar", "paquete-combo-emprendedor"]);
+    expect(card(STANDARD.id)).toBe(document.getElementById("paquete-estandar"));
+    expect(card(COMBO.id)).toBe(document.getElementById("paquete-combo-emprendedor"));
   });
 
-  it("en pantalla, la pregunta «¿El dominio y el hosting están incluidos?» responde exactamente el texto nuevo", () => {
+  it("los dos precios, «L 3,500» y «L 3,950», están visibles dentro de su tarjeta", () => {
     renderPage();
 
-    expect(within(domainFaqItem()).getByText(FAQ_ANSWER)).toBeInTheDocument();
+    expect(within(card(STANDARD.id)).getByText(STANDARD.amount)).toBeVisible();
+    expect(within(card(COMBO.id)).getByText(COMBO.amount)).toBeVisible();
+    expect(visibleText(card(STANDARD.id))).not.toContain(COMBO.amount);
+    expect(visibleText(card(COMBO.id))).not.toContain(STANDARD.amount);
   });
 
-  it.each([
-    ["reales", false, "US$500"],
-    ["distintos", true, "US$777"],
-  ] as const)(
-    "en pantalla, con compromisos %s, ni el ítem «Dominio» ni su pregunta llevan «al año», importe en US$ ni otra cifra",
-    (_label, distinct, price) => {
-      contentSwitch.distinct = distinct;
+  it.each([STANDARD, COMBO])(
+    "la tarjeta de $name es un grupo con nombre accesible «nombre + precio»: encabezado y precio juntos",
+    (pkg) => {
       renderPage();
 
-      // El precio sigue en su sitio: la ausencia de cifras junto al dominio no es porque la página no tenga ninguna.
-      expect(within(section("precio")).getByText(price)).toBeInTheDocument();
-      expect(visibleText(document.querySelector("main")!)).toContain(`Desde ${price}`);
-
-      for (const [place, el] of [
-        ["lo que no incluye", domainItemRow()],
-        ["las preguntas", domainFaqItem()],
-      ] as const) {
-        const text = visibleText(el);
-        expect(text, place).toMatch(/dominio/i); // no pasa en vacío
-        expect(figureIn(text), place).toBeNull();
-        expect(text, place).not.toMatch(/al año|US\$/i);
+      const group = screen.getByRole("article", { name: `${pkg.name} ${pkg.spoken}` });
+      expect(group).toBe(card(pkg.id));
+      expect(group).toHaveAccessibleName(`${pkg.name} ${pkg.spoken}`);
+      expect(within(group).getByRole("heading", { level: 3, name: pkg.name })).toBeInTheDocument();
+      expect(within(group).getByText(pkg.amount)).toBeInTheDocument();
+      // El grupo se nombra con ids que existen y están dentro de la tarjeta.
+      for (const id of group.getAttribute("aria-labelledby")!.split(" ")) {
+        expect(group.contains(document.getElementById(id)), id).toBe(true);
       }
     },
   );
+
+  it("las tarjetas están dentro de la región «Precio claro desde el inicio» y vienen después de su h2", () => {
+    renderPage();
+
+    const region = screen.getByRole("region", { name: "Precio claro desde el inicio" });
+    expect(within(region).getAllByRole("article")).toHaveLength(2);
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+
+    const h2 = within(region).getByRole("heading", { level: 2 });
+    for (const article of within(region).getAllByRole("article")) {
+      expect(h2.compareDocumentPosition(article) & Node.DOCUMENT_POSITION_FOLLOWING, article.id).toBeTruthy();
+    }
+  });
+
+  it("el Combo Emprendedor muestra sus 7 entregables bajo «Tu logo profesional incluye»", () => {
+    renderPage();
+
+    expect(COMBO_EXTRAS).toHaveLength(7);
+    const combo = within(card(COMBO.id));
+    const title = combo.getByRole("heading", { level: 4, name: "Tu logo profesional incluye" });
+    const list = title.nextElementSibling;
+    expect(list?.tagName).toBe("UL");
+    const items = Array.from(list!.querySelectorAll("li"));
+    expect(items).toHaveLength(7);
+    expect(items.map((li) => li.textContent?.trim())).toEqual([...COMBO_EXTRAS]);
+    for (const extra of [
+      "Diseño de logotipo personalizado",
+      "Variaciones de color del logotipo",
+      "Archivos PNG, JPG y PDF",
+      "Archivo editable",
+      "Paleta oficial de colores",
+      "Tipografías utilizadas",
+      "Alta resolución para redes sociales y medios físicos",
+    ]) {
+      expect(combo.getByText(extra), extra).toBeInTheDocument();
+    }
+  });
+
+  it("el Plan Estándar no tiene lista de entregables: solo nombre, precio y «Tú aportas tu logo.»", () => {
+    renderPage();
+
+    const standard = card(STANDARD.id);
+    expect(standard.querySelectorAll("ul, li, h4")).toHaveLength(0);
+    expect(Array.from(standard.children).map((child) => child.textContent)).toEqual([
+      STANDARD.name,
+      `${STANDARD.amount}${STANDARD.spoken}`, // lo que se ve y, solo para lectores, lo que se dice
+      "Tú aportas tu logo.",
+    ]);
+  });
+
+  it.each([STANDARD, COMBO])(
+    "el precio de $name se ve como «$amount» (aria-hidden) y se anuncia «$spoken» (solo lectores), sin que «L» se lea «ele»",
+    (pkg) => {
+      renderPage();
+
+      const amount = card(pkg.id).querySelector<HTMLElement>(`[id$="-precio"]`)!;
+      const [visual, spoken] = Array.from(amount.children);
+      expect(amount.children).toHaveLength(2);
+      expect(visual).toHaveAttribute("aria-hidden", "true");
+      expect(visual).toHaveTextContent(new RegExp(`^${pkg.amount}$`));
+      expect(spoken).not.toHaveAttribute("aria-hidden");
+      expect(spoken.className).toBe("sr-only");
+      expect(spoken).toHaveTextContent(new RegExp(`^${pkg.spoken}$`));
+      // Lo que anuncia un lector no trae la «L» suelta.
+      expect(visibleText(amount)).toBe(pkg.spoken);
+    },
+  );
+
+  it("con otros precios, el nombre accesible y el texto para lectores siguen los datos (amountSpoken, sin coma)", () => {
+    contentSwitch.distinct = true;
+    renderPage();
+
+    expect(screen.getByRole("article", { name: "Plan Estándar 5100 lempiras" })).toBe(card(STANDARD.id));
+    expect(screen.getByRole("article", { name: "Combo Emprendedor 8800 lempiras" })).toBe(card(COMBO.id));
+  });
+
+  it("«One-Page» no se parte en la descripción del precio: va en un span sin saltos y el texto visible no cambia", () => {
+    renderPage();
+
+    const scope = section("precio").querySelector<HTMLElement>(".ms-pw-intro")!;
+    expect(scope.textContent).toBe(PAGINAS_WEB_CONTENT.price.scope);
+    const nowrap = Array.from(scope.querySelectorAll("span"));
+    expect(nowrap.map((s) => [s.className, s.textContent])).toEqual([["ms-pw-nowrap", "One-Page"]]);
+  });
+
+  it("ni la página ni su contenido dicen «US$», «USD» ni «impuestos», con los precios reales y con otros", () => {
+    renderPage();
+    expect(everything()).not.toMatch(/US\$|USD|impuesto/i);
+    expect(everything().length).toBeGreaterThan(3000); // no pasa en vacío
+    cleanup();
+
+    contentSwitch.distinct = true;
+    renderPage();
+    const main = document.querySelector("main")!;
+    expect([textAndAccessibleAttributes(main), visibleText(main), JSON.stringify(buildPaginasWebContent(DISTINCT_COMMITMENTS, DISTINCT_PACKAGES))].join("\n")).not.toMatch(
+      /US\$|USD|impuesto/i,
+    );
+  });
+
+  it("el precio obsoleto «Desde US$500» y su rótulo ya no existen, ni en pantalla ni en el contenido", () => {
+    renderPage();
+
+    expect(everything()).not.toMatch(/US\$\s?500|Impuestos no incluidos|precio base/i);
+  });
+
+  it("el hero anuncia «Desde L 3,500» y el precio queda en lempiras en toda la página", () => {
+    renderPage();
+
+    expect(within(section("inicio")).getByText("Desde L 3,500")).toHaveAttribute("aria-hidden", "true");
+    expect(within(section("inicio")).getByText("Desde 3500 lempiras")).toHaveClass("sr-only");
+    const prices = document.querySelector("main")!.textContent!.match(/\bL\s?[\d,]+/g) ?? [];
+    expect([...new Set(prices)].sort()).toEqual(["L 3,500", "L 3,950"]);
+  });
+
+  it("«Dominio» y «Hosting» no aparecen en «Lo que no está incluido»: están incluidos los primeros meses", () => {
+    for (const content of [PAGINAS_WEB_CONTENT, buildPaginasWebContent(DISTINCT_COMMITMENTS, DISTINCT_PACKAGES)]) {
+      expect(JSON.stringify(content.price.notIncluded)).not.toMatch(/dominio|hosting/i);
+      expect(content.price.included.some((title) => /Dominio y hosting/.test(title))).toBe(true);
+    }
+
+    renderPage();
+    const notIncluded = listAfterHeading(section("precio"), "Lo que no está incluido");
+    expect(notIncluded.textContent).not.toMatch(/dominio|hosting/i);
+    const included = listAfterHeading(section("precio"), "Lo que incluye cada plan");
+    expect(included.textContent).toMatch(/Dominio y hosting por 12 meses/);
+  });
+
+  it("COMMITMENTS trae los meses de dominio y hosting y ningún precio de dominio ni de hosting", () => {
+    expect(COMMITMENTS.domainHostingMonths).toBe(12);
+    for (const key of ["domainYearlyUsd", "domainPrice", "hostingPrice", "priceFromUsd"]) {
+      expect(COMMITMENTS, key).not.toHaveProperty(key);
+    }
+  });
+
+  it("en pantalla, con otros compromisos, el dominio y el hosting dicen los meses nuevos", () => {
+    contentSwitch.distinct = true;
+    renderPage();
+
+    const included = listAfterHeading(section("precio"), "Lo que incluye cada plan");
+    expect(included.textContent).toMatch(/Dominio y hosting por 7 meses/);
+    expect(visibleText(section("preguntas"))).toContain("Sí, durante los primeros 7 meses.");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lo que el propietario no ha decidido no se afirma, y el plazo sigue ligado al material completo
+// ---------------------------------------------------------------------------
+
+describe("/paginas-web · lo no decidido y el plazo", () => {
+  /** Renovaciones, promociones, titularidad del dominio, impuestos, tarifas periódicas y dólares: nada de esto se dice. */
+  const UNDECIDED =
+    /renov|promoci|vigencia|aliad|titular|a tu nombre|extensi[oó]n|ISV|impuesto|al año|anual|mensual|cada año|US\$|USD/i;
+  const BOTH = [
+    ["reales", () => PAGINAS_WEB_CONTENT],
+    ["distintos", () => buildPaginasWebContent(DISTINCT_COMMITMENTS, DISTINCT_PACKAGES)],
+  ] as const;
+  const faqAnswer = (content: typeof PAGINAS_WEB_CONTENT, question: string): string => {
+    const found = content.faq.items.filter((i) => i.question === question);
+    expect(found, question).toHaveLength(1);
+    return found[0].answer;
+  };
+
+  it("el detector reconoce cada cosa no decidida y deja pasar lo aprobado", () => {
+    for (const bad of [
+      "Se renueva cada año",
+      "Renovación del dominio",
+      "Promoción de lanzamiento",
+      "Vigencia de la oferta",
+      "Nuestros aliados",
+      "El titular del dominio",
+      "Registrado a tu nombre",
+      "Extensión .com",
+      "ISV incluido",
+      "Impuestos no incluidos",
+      "Pago anual",
+      "Pago mensual",
+      "US$500",
+      "500 USD",
+    ]) {
+      expect(bad, bad).toMatch(UNDECIDED);
+    }
+    for (const fine of ["Sí, durante los primeros 12 meses.", "Plan Estándar: L 3,500.", "3500 lempiras", "2 rondas de revisión de la página"]) {
+      expect(fine, fine).not.toMatch(UNDECIDED);
+    }
+  });
+
+  it.each(BOTH)("con compromisos %s, nada del contenido (JSON completo) menciona lo no decidido", (label, build) => {
+    const json = JSON.stringify(build());
+    expect(json.length).toBeGreaterThan(5000); // no pasa en vacío
+    expect(json.match(UNDECIDED)?.[0] ?? null).toBeNull();
+  });
+
+  it("en pantalla, el texto visible y los atributos accesibles de <main> tampoco lo mencionan", () => {
+    renderPage();
+    const main = document.querySelector("main")!;
+    expect(textAndAccessibleAttributes(main).match(UNDECIDED)?.[0] ?? null).toBeNull();
+    expect(visibleText(main).match(UNDECIDED)?.[0] ?? null).toBeNull();
+  });
+
+  it.each(BOTH)("con compromisos %s, la respuesta del dominio y el hosting es exactamente «Sí, durante los primeros N meses.»", (label, build) => {
+    const content = build();
+    const months = label === "reales" ? 12 : DISTINCT_COMMITMENTS.domainHostingMonths;
+    expect(faqAnswer(content, "¿El dominio y el hosting están incluidos?")).toBe(`Sí, durante los primeros ${months} meses.`);
+  });
+
+  it.each(BOTH)(
+    "con compromisos %s, el plazo corre desde el material completo (textos, logo y fotos) en el proceso, en el paso y en las preguntas",
+    (label, build) => {
+      const content = build();
+      const days = label === "reales" ? "10 días hábiles" : `${DISTINCT_COMMITMENTS.deliveryBusinessDays} días hábiles`;
+
+      expect(content.timeline.intro).toBe(`El plazo de ${days} corre desde que nos pasas tus textos, tu logo y tus fotos.`);
+      const step = content.timeline.steps.find((s) => s.title === "Nos pasas tu material");
+      expect(step?.text).toBe("Tus textos, tu logo y tus fotos. Con eso empieza a contar el plazo.");
+      expect(faqAnswer(content, "¿Cuánto tardan en entregar la página?")).toBe(
+        `Entregamos en ${days}, contados desde que nos pasas tus textos, tu logo y tus fotos.`,
+      );
+    },
+  );
+
+  it.each(BOTH)(
+    "con compromisos %s, qué necesitas: el logo es tuyo en el Plan Estándar y su diseño está incluido en el Combo, sin atar eso al plazo",
+    (label, build) => {
+      const answer = faqAnswer(build(), "¿Qué necesito darles para empezar?");
+      expect(answer).toBe(
+        "Tus textos y tus fotos. Si eliges el Plan Estándar, también tu logo; en el Combo Emprendedor, el diseño de tu logo está incluido. La redacción de textos largos y la fotografía profesional no están incluidas.",
+      );
+      expect(answer).not.toMatch(/plazo|d[ií]as/i);
+    },
+  );
+
+  it.each(BOTH)("con compromisos %s, ningún texto dice «lo diseñamos nosotros» ni insinúa un plazo propio del Combo", (label, build) => {
+    const content = build();
+    expect(JSON.stringify(content)).not.toMatch(/lo diseñamos nosotros/i);
+    const engineering = content.engineering.points.find((p) => p.title === "Diseño a partir de tu material");
+    expect(engineering?.text).toBe("Diseñamos con tus textos, tu logo y tus fotos, y escribimos el código para tu página.");
+    // Las únicas frases con el plazo en días son las del compromiso de entrega, ninguna menciona el Combo.
+    const allStrings = (value: unknown): string[] =>
+      typeof value === "string"
+        ? [value]
+        : value && typeof value === "object"
+          ? Object.values(value).flatMap(allStrings)
+          : [];
+    const withDays = allStrings(content)
+      .flatMap((text) => text.split(/(?<=\.)\s/))
+      .filter((sentence) => /d[ií]as h[aá]biles/.test(sentence));
+    expect(withDays.length).toBeGreaterThan(0);
+    for (const sentence of withDays) expect(sentence, sentence).not.toMatch(/combo/i);
+  });
+
+  it.each(BOTH)("con compromisos %s, las revisiones se nombran «de la página» en el ítem, la pregunta, el paso y el dato", (label, build) => {
+    const content = build();
+    const rounds = label === "reales" ? "2 rondas" : `${DISTINCT_COMMITMENTS.revisionRounds} rondas`;
+    expect(content.price.included).toContain(`${rounds} de revisión de la página`);
+    expect(faqAnswer(content, "¿Puedo pedir cambios?")).toContain(`Cada plan incluye ${rounds} de revisión de la página.`);
+    expect(content.timeline.steps.find((s) => s.title === "Entrega y ajustes")?.text).toContain(
+      `Cada plan incluye ${rounds} de revisión de la página:`,
+    );
+    expect(content.timeline.facts[1]).toEqual({ value: rounds, label: "De revisión de la página" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CSS: las tarjetas de paquete van lado a lado y se apilan en pantallas angostas
+// ---------------------------------------------------------------------------
+
+describe("/paginas-web · tarjetas de paquete (index.css)", () => {
+  const rules = (media?: string, property = "grid-template-columns"): Map<string, string> => {
+    const css = readFileSync(path.join(ROOT, "src", "index.css"), "utf8");
+    const found = new Map<string, string>();
+    postcss.parse(css).walkRules((rule) => {
+      const parent = rule.parent;
+      const inMedia = parent?.type === "atrule" && (parent as { name?: string }).name === "media";
+      const params = inMedia ? (parent as { params: string }).params.replace(/\s+/g, "") : undefined;
+      if (params !== media) return;
+      rule.walkDecls(property, (decl) => {
+        for (const selector of rule.selectors) found.set(selector.trim(), decl.value.replace(/\s+/g, " ").trim());
+      });
+    });
+    return found;
+  };
+
+  it("en escritorio son dos columnas iguales", () => {
+    expect(rules().get(".ms-pw-plans")).toBe("repeat(2, minmax(0, 1fr))");
+  });
+
+  it("en @media (max-width: 920px) pasan a una sola columna (apiladas)", () => {
+    expect(rules("(max-width:920px)").get(".ms-pw-plans")).toBe("minmax(0, 1fr)");
+  });
+
+  it("la rejilla alinea al inicio: ninguna tarjeta se estira a la altura de la otra y deja un hueco vacío", () => {
+    expect(rules(undefined, "align-items").get(".ms-pw-plans")).toBe("start");
+  });
+
+  it("la clase de «One-Page» no permite saltos de línea", () => {
+    expect(rules(undefined, "white-space").get(".ms-pw-nowrap")).toBe("nowrap");
+  });
 });
 
 // ---------------------------------------------------------------------------
