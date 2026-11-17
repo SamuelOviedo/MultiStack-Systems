@@ -15,7 +15,7 @@ interface PwContactProps {
 }
 
 /**
- * Contacto: ContactForm en una tarjeta como la de ContactSplit y, al lado (debajo en pantallas
+ * Contacto: ContactForm en una tarjeta y, al lado (debajo en pantallas
  * angostas), los canales alternativos. El orden del DOM es el de lectura.
  */
 const PwContact = ({ contact, prefill }: PwContactProps) => {

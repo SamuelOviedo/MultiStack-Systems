@@ -524,7 +524,7 @@ export function buildPaginasWebContent(
     },
 
     // Anuncio: «Ingeniería, no plantillas» y «Diseño web a medida».
-    // El sitio de MultiStack está hecho con React y TypeScript: lo confirma TechStack.tsx.
+    // El sitio de MultiStack está hecho con React y TypeScript: lo confirman las dependencias de package.json (react y typescript).
     engineering: {
       id: SECTION_IDS.engineering,
       eyebrow: "Cómo la construimos",

@@ -3,8 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ContactForm y lib/analytics reales; solo se simula la red (sendContactMessage, como en contact.test.tsx). Los mismos
-// casos se prueban en ContactSplit (el contenedor anterior de la home), en PwContact con el contenido de la home
-// (el contenedor actual de «/») y en PwContact de /paginas-web.
+// casos se prueban en PwContact con el contenido de la home (el contenedor de «/») y en PwContact de /paginas-web.
 
 const send = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/contact", async (importOriginal) => {
@@ -38,14 +37,6 @@ interface Container {
 }
 
 const CONTAINERS: Container[] = [
-  {
-    label: "ContactSplit (home)",
-    path: "/",
-    element: async () => {
-      const { default: ContactSplit } = await import("@/components/marketing/ContactSplit");
-      return <ContactSplit />;
-    },
-  },
   {
     label: "PwContact con el contenido de la home (/)",
     path: "/",
