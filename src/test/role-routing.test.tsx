@@ -110,7 +110,17 @@ describe("canAccessPath", () => {
     const declared = [...appSource.matchAll(/path="([^"]+)"\s+element=\{\s*<ProtectedRoute allowedTypes=\{\[([\d, ]+)\]\}/g)].map(
       (m) => [m[1], m[2].split(",").map((n) => Number(n.trim()))] as const,
     );
-    expect(declared.map(([p]) => p).sort()).toEqual(["/dashboard", "/dashboard/project/:id", "/dashboard/proyectos", "/dashboard/tickets", "/solicitudes"]);
+    // Por el módulo de Cotizaciones: se suman exactamente sus 3 rutas (lista, catálogo y detalle), todas solo del administrador.
+    expect(declared.map(([p]) => p).sort()).toEqual([
+      "/dashboard",
+      "/dashboard/cotizaciones",
+      "/dashboard/cotizaciones/:id",
+      "/dashboard/cotizaciones/catalogo",
+      "/dashboard/project/:id",
+      "/dashboard/proyectos",
+      "/dashboard/tickets",
+      "/solicitudes",
+    ]);
     for (const [path, roles] of declared) {
       const concrete = path.replace(":id", "abc");
       for (const role of [0, 1, 2]) expect(canAccessPath(role, concrete), `${role} ${path}`).toBe(roles.includes(role));

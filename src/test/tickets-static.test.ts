@@ -153,12 +153,22 @@ describe("rutas y permisos del Soporte", () => {
     expect(appSource).toMatch(/const TicketsGlobal\s*=\s*lazy\(\(\) => import\("\.\/pages\/dashboard\/TicketsGlobal\.tsx"\)\)/);
   });
 
-  it("no apareció ninguna ruta nueva (siguen las del Resumen y la lista de proyectos)", () => {
+  // Por el módulo de Cotizaciones: las únicas rutas nuevas son sus 3 (lista, catálogo y detalle); cada una, una sola vez.
+  it("no apareció ninguna ruta nueva más allá de las 3 de Cotizaciones (siguen las del Resumen y la lista de proyectos)", () => {
     const paths = [...appSource.matchAll(/path="([^"]+)"/g)].map((m) => m[1]);
-    for (const p of ["/dashboard", "/dashboard/proyectos", "/dashboard/project/:id", "/dashboard/tickets", "/solicitudes"]) {
+    for (const p of [
+      "/dashboard",
+      "/dashboard/proyectos",
+      "/dashboard/project/:id",
+      "/dashboard/tickets",
+      "/dashboard/cotizaciones",
+      "/dashboard/cotizaciones/catalogo",
+      "/dashboard/cotizaciones/:id",
+      "/solicitudes",
+    ]) {
       expect(paths.filter((x) => x === p), p).toHaveLength(1);
     }
-    expect(paths.filter((p) => p.startsWith("/dashboard"))).toHaveLength(4);
+    expect(paths.filter((p) => p.startsWith("/dashboard"))).toHaveLength(7);
   });
 
   it("el cajón sigue siendo uno solo y lo usan la lista global y el detalle de proyecto", () => {
