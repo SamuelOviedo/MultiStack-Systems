@@ -25,6 +25,9 @@ const Dashboard             = lazy(() => import("./pages/dashboard/Dashboard.tsx
 const ProjectsList          = lazy(() => import("./pages/dashboard/ProjectsList.tsx"));
 const ProjectDetail         = lazy(() => import("./pages/dashboard/ProjectDetail.tsx"));
 const TicketsGlobal         = lazy(() => import("./pages/dashboard/TicketsGlobal.tsx"));
+const CotizacionesList      = lazy(() => import("./pages/dashboard/CotizacionesList.tsx"));
+const CotizacionesCatalogo  = lazy(() => import("./pages/dashboard/CotizacionesCatalogo.tsx"));
+const CotizacionDetalle     = lazy(() => import("./pages/dashboard/CotizacionDetalle.tsx"));
 const MisSolicitudes        = lazy(() => import("./pages/client/MisSolicitudes.tsx"));
 const ClientPortal          = lazy(() => import("./pages/client/ClientPortal.tsx"));
 const AuthCallback          = lazy(() => import("./pages/auth/AuthCallback.tsx"));
@@ -35,7 +38,7 @@ const TerminosDelServicio   = lazy(() => import("./pages/legal/TerminosDelServic
 const NotFound              = lazy(() => import("./pages/marketing/NotFound.tsx"));
 const PaginasWeb = lazy(() => import("./pages/marketing/PaginasWeb.tsx"));
 
-// Visita directa a /dashboard o /dashboard/proyectos: pide el armazón y la página a la vez (ver preloadPanel.ts).
+// Visita directa a una pantalla del panel con armazón: pide el armazón y la página a la vez (rutas en FIRST_PAGE, ver preloadPanel.ts).
 preloadPanelForPath(window.location.pathname);
 
 const PageLoader = () => (
@@ -45,7 +48,7 @@ const PageLoader = () => (
 );
 
 // Pantallas del panel con armazón: indicador ligero (solo texto) en vez del logotipo mientras llegan el armazón y la página.
-const SHELL_PATHS = new Set(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets"]);
+const SHELL_PATHS = new Set(["/dashboard", "/dashboard/proyectos", "/dashboard/tickets", "/dashboard/cotizaciones"]);
 const RouteFallback = () => {
   const { pathname } = useLocation();
   const path = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
@@ -105,6 +108,36 @@ const App = () => (
                   <ProtectedRoute allowedTypes={[0]}>
                     <AdminShell>
                       <TicketsGlobal />
+                    </AdminShell>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/cotizaciones"
+                element={
+                  <ProtectedRoute allowedTypes={[0]}>
+                    <AdminShell>
+                      <CotizacionesList />
+                    </AdminShell>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/cotizaciones/catalogo"
+                element={
+                  <ProtectedRoute allowedTypes={[0]}>
+                    <AdminShell>
+                      <CotizacionesCatalogo />
+                    </AdminShell>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/cotizaciones/:id"
+                element={
+                  <ProtectedRoute allowedTypes={[0]}>
+                    <AdminShell>
+                      <CotizacionDetalle />
                     </AdminShell>
                   </ProtectedRoute>
                 }

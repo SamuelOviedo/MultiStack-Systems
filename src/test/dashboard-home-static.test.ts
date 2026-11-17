@@ -115,10 +115,20 @@ describe("código de producción del Resumen · voz y mensajes", () => {
 });
 
 describe("rutas y permisos del Resumen y la lista de proyectos", () => {
-  it("ProtectedRoute ya no tiene valor por defecto y App declara allowedTypes={[0]} en las 4 rutas del panel", () => {
+  // Por el módulo de Cotizaciones: a las 4 rutas de siempre se suman exactamente sus 3 rutas (lista, catálogo y detalle).
+  it("ProtectedRoute ya no tiene valor por defecto y App declara allowedTypes={[0]} en las 7 rutas del panel", () => {
     expect(protectedRouteSource).not.toMatch(/allowedTypes\s*=\s*\[/);
     const panel = appSource.split("<Route").filter((c) => /path="\/dashboard/.test(c));
-    expect(panel.length).toBe(4);
+    expect(panel.length).toBe(7);
+    expect(panel.map((c) => c.match(/path="([^"]+)"/)![1]).sort()).toEqual([
+      "/dashboard",
+      "/dashboard/cotizaciones",
+      "/dashboard/cotizaciones/:id",
+      "/dashboard/cotizaciones/catalogo",
+      "/dashboard/project/:id",
+      "/dashboard/proyectos",
+      "/dashboard/tickets",
+    ]);
     for (const route of panel) expect(route).toContain("<ProtectedRoute allowedTypes={[0]}>");
   });
 
