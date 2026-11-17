@@ -41,7 +41,7 @@ describe("contact e-mail — corporate design", () => {
     expect(html).toContain(`border:1px solid ${COLORS.border}`);
     expect(html).toContain("max-width:560px");
     expect(html).toContain(BRAND.logoUrl);
-    expect(html).toContain(`>${BRAND.name}</td>`);
+    expect(html).toContain(`alt="${BRAND.name}"`);                    // the logo carries the brand name
     expect(html).toContain(`mailto:${BRAND.supportEmail}`);
     expect(html).toContain(BRAND.tagline);
   });

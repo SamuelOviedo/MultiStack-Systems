@@ -36,7 +36,7 @@ Las plantillas **solo componen bloques**; nunca concatenan HTML. La lógica de c
 | `footer` | `#52525b` | Texto del pie sobre el fondo de página (AA) |
 | `button` | `#18181b` (texto `#ffffff`) | Botón principal |
 | Tipografía | Fuentes del sistema (`-apple-system, Segoe UI, Roboto, Arial…`) | Sin fuentes web |
-| Logo | `https://www.multistacksystems.com/logo-black.png` (24×28) | Marca oscura sobre blanco |
+| Logo | `https://www.multistacksystems.com/brand/email-logo-v2.png` (PNG RGB de 264×189; se muestra a 132×95, en los atributos `width`/`height` y en `style`) | Logo completo oficial (isotipo + rótulo, versión a todo color) a 2× sobre fondo blanco plano con 12 px de relleno; legible aunque el cliente oscurezca la tarjeta. Sustituye al texto de marca de la cabecera (`alt="MultiStack Systems"`). Sale del master oficial «Full color, transparent»: recorte a la caja del contenido, un solo remuestreo Lanczos a 240×165 y aplanado sobre blanco (reconstruido así coincide píxel a píxel; sin deformar ni cambiar color). El archivo vive en `public/brand/` y no se sobrescribe: cambiar el logo implica un nombre nuevo (`-v3`), para no alterar los correos ya enviados. Los anteriores `logo-black.png` y `logo-white.png` siguen publicados solo por los correos ya enviados; ningún correo ni plantilla actual los usa |
 | Soporte | `soporte@multistacksystems.com` | Pie y Reply-To. Es el buzón con MX; `mail.` no tiene MX |
 
 ### Bloques disponibles
@@ -51,7 +51,7 @@ Las plantillas **solo componen bloques**; nunca concatenan HTML. La lógica de c
 | `list` | Viñetas |
 | `notice` | Caja gris de aviso ("¿No fuiste tú?") |
 
-**Estructura común:** preheader oculto → cabecera (logo + "MultiStack Systems") → tarjeta (etiqueta superior, título, bloques) → pie (motivo del correo, ayuda con enlace a soporte, marca, lema y web).
+**Estructura común:** preheader oculto → cabecera (logo completo oficial, sin texto de marca duplicado) → tarjeta (etiqueta superior, título, bloques) → pie (motivo del correo, ayuda con enlace a soporte, marca, lema y web).
 
 ### Compatibilidad con clientes de correo
 
@@ -60,6 +60,7 @@ Las plantillas **solo componen bloques**; nunca concatenan HTML. La lógica de c
 - Ancho máximo de 560 px, fluido en pantallas pequeñas.
 - `<style>` mínimo solo para ajustes móviles (relleno y tamaño del título); si un cliente lo ignora, el correo sigue funcionando.
 - `color-scheme: light`, para que no se invierta de forma rara en modo oscuro.
+- **Logo de la cabecera:** un `<img>` PNG con URL absoluta `https`, solo en una celda de la tabla, con `width`/`height` en atributos y en `style`, `display:block`, `border:0` y `alt` con el nombre de la marca. Sin SVG, WebP, `<picture>`, `srcset` ni imágenes de fondo CSS. Lo fija `_shared/email/templates.test.ts` en todos los correos y en las plantillas de contingencia.
 - **Outlook de escritorio** (motor de Word):
   - tabla fantasma `<!--[if mso]>` de 560 px, porque ignora `max-width`;
   - `mso-padding-alt` en el botón, porque ignora el padding de `<a>`;
@@ -88,19 +89,20 @@ Las plantillas **solo componen bloques**; nunca concatenan HTML. La lógica de c
 
 ### Plantillas de contingencia para el Dashboard
 
-`supabase/email-templates/confirm-signup.html` y `reset-password.html` se generan desde el mismo sistema, con las variables `{{ .ConfirmationURL }}` y `{{ .Email }}`. Solo se usan si se desactiva el Send Email Hook.
+`supabase/email-templates/confirm-signup.html` y `reset-password.html` usan las variables `{{ .ConfirmationURL }}` y `{{ .Email }}` y llevan la misma cabecera que `layout.ts` (lo comprueba `_shared/email/templates.test.ts`). `supabase/config.toml` no las enlaza (no tiene `[auth.email.template.*]` ni `[auth.hook.send_email]`): en el proyecto alojado se pegan a mano en Dashboard → Authentication → Email Templates, y solo se envían si se desactiva el Send Email Hook; con el hook activo, Auth no las usa. El resto de su HTML es anterior a `layout.ts`: no tienen la tabla fantasma de 560 px ni `mso-padding-alt` para Outlook, y el pie conserva los grises anteriores (`#71717a`, `#a1a1aa`). Conviene regenerarlas desde `layout.ts` antes de activarlas.
 
 ## 4. Cómo revisar
 
 | Forma | Comando / ruta |
 |---|---|
-| Instantáneas HTML versionadas (abrir en el navegador) | `supabase/functions/_shared/email/__snapshots__/*.html` (9 correos) |
+| Instantáneas HTML versionadas (abrir en el navegador) | `supabase/functions/_shared/email/__snapshots__/*.html` (12 instantáneas, las de contacto incluidas) |
 | Galería escritorio (640 px) + móvil (375 px) | `npm run email:preview` → `email-previews/index.html` (no versionado) |
-| Regenerar instantáneas tras un cambio de diseño intencional | `npx vitest run supabase/functions/_shared/email -u` |
+| Regenerar instantáneas tras un cambio de diseño intencional | `npx vitest run supabase/functions/_shared/email supabase/functions/send-contact-email/templates.test.ts -u` |
 | Pruebas | `npx vitest run supabase/functions` |
 
-`_shared/email/templates.test.ts` (42 pruebas) comprueba en los 9 correos:
+`_shared/email/templates.test.ts` comprueba en los correos que genera (los de contacto tienen su propia prueba, `send-contact-email/templates.test.ts`):
 - que comparten el layout (fondo, tarjeta, borde, ancho, logo, marca, pie);
+- que la cabecera de todos los correos, los de contacto y las plantillas de contingencia incluidos, es la de `layout.ts`, con el logo compatible con Gmail y Outlook (ver «Compatibilidad»);
 - que no queda nada del diseño anterior (colores neón, logo blanco, monoespaciada en el cuerpo);
 - que son seguros para clientes de correo (sin `<script>` ni CSS externo, tablas, solo esquemas de URL permitidos);
 - el escape de todos los valores dinámicos;

@@ -15,6 +15,8 @@ afterEach(() => {
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const PUBLIC = path.join(ROOT, "public");
+// Armados por partes: este archivo es la lista blanca y no debe disparar su propia búsqueda en otros barridos.
+const LEGACY = [["logo", "white"], ["logo", "black"]].map(([a, b]) => `${a}-${b}.png`);
 
 /** Ancho y alto de un PNG leídos de su cabecera IHDR (bytes 16-23), sin decodificar la imagen. */
 function pngSize(file: string): [number, number] {
@@ -139,14 +141,14 @@ describe("src/assets/brand: PNG del sitio acotados (nombre, dimensiones y peso)"
 });
 
 describe("la marca anterior no se referencia desde código activo", () => {
-  // Armados por partes: este archivo es la lista blanca y no debe disparar su propia búsqueda en otros barridos.
-  const LEGACY = [["logo", "white"], ["logo", "black"]].map(([a, b]) => `${a}-${b}.png`);
-  /** Este archivo (los literales viven aquí) y, de forma transitoria, la plantilla de correos: sus mensajes ya enviados
-   * cargan el archivo desde public/ y el PR de correos la sustituye. Quitar esa entrada cuando se fusione. */
-  const ALLOWED = new Set(["src/test/brand-identity.test.tsx", "supabase/functions/_shared/email/layout.ts"]);
+  /** Solo este archivo, donde viven los literales. Los correos ya enviados siguen cargando los PNG desde public/. */
+  const ALLOWED = new Set(["src/test/brand-identity.test.tsx"]);
   const TEXT = /\.(tsx?|mjs|cjs|js|json|html|css|md|svg|webmanifest)$/;
 
-  /** Archivos de texto bajo `dir`. Las pruebas de supabase/functions verifican los correos ya enviados y se omiten. */
+  /**
+   * Archivos de texto bajo `dir`. Con `withTests` falso se omiten las pruebas: las de supabase/functions nombran los
+   * PNG antiguos precisamente para comprobar que los correos ya NO los usan.
+   */
   const walk = (dir: string, withTests: boolean): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
       const full = path.join(dir, e.name);
@@ -155,11 +157,17 @@ describe("la marca anterior no se referencia desde código activo", () => {
     });
   const rel = (f: string) => path.relative(ROOT, f).split(path.sep).join("/");
 
-  it("ni src/, ni index.html, ni scripts/, ni supabase/functions/ nombran los dos PNG de la marca anterior", () => {
+  it("ni src/, ni index.html, ni scripts/, ni supabase/functions/, ni supabase/email-templates/ nombran los dos PNG de la marca anterior", () => {
+    const templates = walk(path.join(ROOT, "supabase", "email-templates"), false);
+    expect(templates.map(rel).sort()).toEqual([
+      "supabase/email-templates/confirm-signup.html",
+      "supabase/email-templates/reset-password.html",
+    ]);
     const files = [
       ...walk(path.join(ROOT, "src"), true),
       ...walk(path.join(ROOT, "scripts"), true),
       ...walk(path.join(ROOT, "supabase", "functions"), false),
+      ...templates,
       path.join(ROOT, "index.html"),
     ];
     expect(files.length).toBeGreaterThan(100);
@@ -224,6 +232,6 @@ describe("iconos, manifiesto e imágenes sociales", () => {
   });
 
   it("los archivos de la marca anterior siguen en public/ (los correos ya enviados los cargan)", () => {
-    for (const file of ["logo-white.png", "logo-black.png"]) expect(existsSync(path.join(PUBLIC, file)), file).toBe(true);
+    for (const file of LEGACY) expect(existsSync(path.join(PUBLIC, file)), file).toBe(true);
   });
 });

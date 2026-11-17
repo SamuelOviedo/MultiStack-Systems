@@ -88,7 +88,7 @@ The voice is **technical but accessible** — an engineer who explains clearly, 
 ## 2 — Logo & isotype
 
 > ### Current identity
-> The official identity is the **isotipo** (an angular "M" with a terminal prompt `>_`) and the **full logo** (isotipo above the "MultiStack SYSTEMS" wordmark), each in a **light** and a **dark** version. The earlier mark described in previous revisions of this manual (a three-layer isometric chevron stack, shipped as `public/logo-white.png` and `public/logo-black.png`) is **obsolete**. It must not be used in new work. The two files stay in `public/` only because e-mails already sent load them from there; No site code, script or page metadata references them. Only e-mail still does: the transactional layout (`supabase/functions/_shared/email/layout.ts`, pending migration to the official mark) and the contingency templates under `supabase/email-templates/` (used only if the Send Email Hook is disabled).
+> The official identity is the **isotipo** (an angular "M" with a terminal prompt `>_`) and the **full logo** (isotipo above the "MultiStack SYSTEMS" wordmark), each in a **light** and a **dark** version. The earlier mark described in previous revisions of this manual (a three-layer isometric chevron stack, shipped as `public/logo-white.png` and `public/logo-black.png`) is **obsolete**. It must not be used in new work. The two files stay in `public/` only because e-mails already sent load them from there; no site code, script or page metadata references them. E-mail doesn't either: the transactional layout (`supabase/functions/_shared/email/layout.ts`) and the contingency templates under `supabase/email-templates/` (used only if the Send Email Hook is disabled) use `public/brand/email-logo-v2.png`.
 
 ### Versions
 
