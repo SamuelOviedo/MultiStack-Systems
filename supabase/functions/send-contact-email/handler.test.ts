@@ -1002,3 +1002,35 @@ describe("contact handler — the e-mail provider", () => {
     expect(t.emails).toHaveLength(1);
   });
 });
+
+describe("contact handler — the logs carry neither the sender nor the destination address (rule 5)", () => {
+  const CONFIGURED: [string, string] = ["info", "[contact] sender and destination configured"];
+  const EMPTY: [string, string] = ["warn", "[contact] ⚠ sender or destination address is empty"];
+
+  it("a successful send uses both addresses but no log line contains either of them", async () => {
+    const t = setup();
+    expect((await t.handle(post(lead()))).status).toBe(200);
+    expect(t.emails).toHaveLength(1);
+    // The addresses of setup() (example.test), as the e-mail really used them.
+    const { from, to } = t.emails[0];
+    const fromAddress = from.match(/<([^>]+)>/)![1];
+    expect(to).toContain("@example.test");
+    expect(fromAddress).toContain("@mail.example.test");
+    expect(t.logs).toContainEqual(CONFIGURED);
+    for (const [, line] of t.logs) {
+      for (const fragment of [from, fromAddress, to, "example.test"]) expect(line).not.toContain(fragment);
+      expect(line).not.toContain("@"); // nor the visitor's address
+    }
+  });
+
+  it.each([["destination", { dest: "" }], ["sender", { fromAddress: "" }]])(
+    "an empty %s is reported without any address",
+    async (_label, over) => {
+      const t = setup(over);
+      await t.handle(post(lead()));
+      expect(t.logs).toContainEqual(EMPTY);
+      expect(t.logs).not.toContainEqual(CONFIGURED);
+      for (const [, line] of t.logs) expect(line).not.toContain("@");
+    },
+  );
+});
