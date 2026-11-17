@@ -18,7 +18,17 @@ export interface SendEmailOptions {
   html: string;
   from?: string;
   replyTo?: string;
+  /**
+   * Resend `Idempotency-Key` (kept by Resend for 24 h): the same key with the same payload returns the first send
+   * instead of sending again. Build it from ids only ("welcome/<user uuid>"), NEVER from an address or any other
+   * personal data. Allowlist: 1-256 characters of A-Z a-z 0-9 . _ : / -, anything else is refused before sending.
+   */
+  idempotencyKey?: string;
 }
+
+// An allowlist, not a denylist: an address ("@"), a phone number ("+", spaces), a name (spaces, accents), a control
+// character or a bad length cannot become a key, whatever the caller builds.
+const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9._:/-]{1,256}$/;
 
 // A token is a run of characters that cannot separate an address from the text around it. Every token that contains
 // an "@" is replaced whole: one linear pass (a token ends at the first separator, nothing is retried from inside it),
@@ -99,6 +109,13 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
     throw new Error("RESEND_API_KEY not set");
   }
 
+  const idempotencyKey = opts.idempotencyKey;
+  if (idempotencyKey !== undefined && !IDEMPOTENCY_KEY_RE.test(idempotencyKey)) {
+    // The key itself is not echoed: it is the caller's mistake and may carry what it should not.
+    console.error("[resend] ❌ invalid idempotency key — not sent");
+    throw new Error("invalid idempotency key");
+  }
+
   const payload = {
     from:     opts.from    ?? FROM_VERIFIED,
     to:       opts.to,
@@ -108,14 +125,17 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
   };
 
   // Rule 5: no recipient, sender or subject in the logs (a contact subject carries the visitor's name).
-  console.log("[resend] → sending");
+  console.log(`[resend] → sending${idempotencyKey ? " (idempotent)" : ""}`);
+
+  const headers: Record<string, string> = {
+    Authorization:  `Bearer ${RESEND_API_KEY}`,
+    "Content-Type": "application/json",
+  };
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: {
-      Authorization:  `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 

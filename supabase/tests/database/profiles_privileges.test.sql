@@ -10,7 +10,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(31);
+SELECT plan(45);
 
 -- ── Fixtures (as postgres) ───────────────────────────────────────────────────
 -- Auth users: the handle_new_user trigger creates each profile as a client (2).
@@ -20,7 +20,9 @@ VALUES
   ('00000000-0000-0000-0000-000000000000', '22222222-2222-4222-8222-222222222222', 'authenticated', 'authenticated', 's1-collab@test.local', '{}'),
   ('00000000-0000-0000-0000-000000000000', '33333333-3333-4333-8333-333333333333', 'authenticated', 'authenticated', 's1-client@test.local', '{}'),
   -- Tries to smuggle a role through signup metadata
-  ('00000000-0000-0000-0000-000000000000', '44444444-4444-4444-8444-444444444444', 'authenticated', 'authenticated', 's1-sneaky@test.local', '{"user_type": 0}');
+  ('00000000-0000-0000-0000-000000000000', '44444444-4444-4444-8444-444444444444', 'authenticated', 'authenticated', 's1-sneaky@test.local', '{"user_type": 0}'),
+  -- A fresh client whose welcome e-mail was never sent: the reservation below runs on it
+  ('00000000-0000-0000-0000-000000000000', '66666666-6666-4666-8666-666666666666', 'authenticated', 'authenticated', 's1-welcome@test.local', '{}');
 
 SELECT is(
   (SELECT user_type FROM public.profiles WHERE id = '33333333-3333-4333-8333-333333333333'),
@@ -61,6 +63,30 @@ SELECT ok(NOT has_any_column_privilege('anon', 'public.profiles', 'UPDATE'),
   'anon has no UPDATE on any profiles column');
 SELECT ok(NOT has_table_privilege('anon', 'public.profiles', 'INSERT'),
   'anon has no INSERT on profiles');
+
+-- What the welcome flow relies on: useAuth reads user_type and welcome_email_sent in one query, and the reservation
+-- filters and returns through SELECT-privileged columns. The guard trigger is the layer that forbids a reset.
+SELECT col_not_null('public', 'profiles', 'welcome_email_sent',
+  'welcome_email_sent is NOT NULL (the reservation filter "= false" never meets a NULL)');
+SELECT ok(has_column_privilege('authenticated', 'public.profiles', 'user_type', 'SELECT'),
+  'authenticated can read user_type (useAuth)');
+SELECT ok(has_column_privilege('authenticated', 'public.profiles', 'welcome_email_sent', 'SELECT'),
+  'authenticated can read welcome_email_sent (useAuth, and the WHERE of the reservation)');
+SELECT ok(NOT has_column_privilege('anon', 'public.profiles', 'welcome_email_sent', 'SELECT'),
+  'anon cannot read welcome_email_sent');
+SELECT policies_are('public', 'profiles',
+  ARRAY['select own profile', 'admin reads all profiles', 'update own profile'],
+  'profiles keeps exactly its three policies (no INSERT or DELETE policy, one UPDATE policy)');
+SELECT has_trigger('public', 'profiles', 'guard_profile_privileged_columns',
+  'the guard trigger exists on profiles');
+SELECT trigger_is('public', 'profiles', 'guard_profile_privileged_columns',
+  'public', 'guard_profile_privileged_columns',
+  'the guard trigger runs public.guard_profile_privileged_columns()');
+SELECT is(
+  (SELECT tgenabled::text FROM pg_trigger
+    WHERE tgrelid = 'public.profiles'::regclass AND tgname = 'guard_profile_privileged_columns'),
+  'O', 'the guard trigger is enabled (fires for API sessions)'
+);
 
 -- ── Client (role 2) ──────────────────────────────────────────────────────────
 SET LOCAL role authenticated;
@@ -129,6 +155,40 @@ SELECT is(
   2, 'client is still a client after every attempt'
 );
 
+-- ── The reservation send-welcome-email runs (reserveWelcome), verbatim ──────
+-- UPDATE … SET welcome_email_sent = true WHERE id = <caller> AND welcome_email_sent = false RETURNING id
+SET LOCAL role authenticated;
+SELECT set_config('request.jwt.claims',
+  '{"sub":"66666666-6666-4666-8666-666666666666","role":"authenticated","email":"s1-welcome@test.local"}', true);
+
+SELECT results_eq(
+  $$ UPDATE public.profiles SET welcome_email_sent = true
+      WHERE id = '66666666-6666-4666-8666-666666666666' AND welcome_email_sent = false
+     RETURNING id $$,
+  $$ VALUES ('66666666-6666-4666-8666-666666666666'::uuid) $$,
+  'reservation: the first call on its own profile claims 1 row'
+);
+SELECT is_empty(
+  $$ UPDATE public.profiles SET welcome_email_sent = true
+      WHERE id = '66666666-6666-4666-8666-666666666666' AND welcome_email_sent = false
+     RETURNING id $$,
+  'reservation: the second call matches 0 rows (already sent: nothing is sent again)'
+);
+SELECT results_eq(
+  $$ UPDATE public.profiles SET welcome_email_sent = true
+      WHERE id = '66666666-6666-4666-8666-666666666666'
+     RETURNING id $$,
+  $$ VALUES ('66666666-6666-4666-8666-666666666666'::uuid) $$,
+  'control: without "AND welcome_email_sent = false" the row is claimed again (true to true passes the guard)'
+);
+SELECT is_empty(
+  $$ UPDATE public.profiles SET welcome_email_sent = true
+      WHERE id = '44444444-4444-4444-8444-444444444444' AND welcome_email_sent = false
+     RETURNING id $$,
+  'reservation: another user''s id matches 0 rows (RLS: own row only)'
+);
+RESET role;
+
 -- ── Anonymous ────────────────────────────────────────────────────────────────
 SET LOCAL role anon;
 SELECT set_config('request.jwt.claims', '{"role":"anon"}', true);
@@ -157,7 +217,22 @@ SELECT throws_ok(
   $$ UPDATE public.profiles SET user_type = 0 WHERE id = '33333333-3333-4333-8333-333333333333' $$,
   '42501', NULL, 'role changes are not possible through the API, even for admins'
 );
+SELECT is_empty(
+  $$ UPDATE public.profiles SET welcome_email_sent = true
+      WHERE id = '44444444-4444-4444-8444-444444444444'
+     RETURNING id $$,
+  'an admin cannot set another user''s welcome flag (0 rows: the UPDATE policy is own row only)'
+);
 RESET role;
+
+SELECT results_eq(
+  $$ SELECT id, welcome_email_sent FROM public.profiles
+      WHERE id IN ('44444444-4444-4444-8444-444444444444', '66666666-6666-4666-8666-666666666666')
+      ORDER BY id $$,
+  $$ VALUES ('44444444-4444-4444-8444-444444444444'::uuid, false),
+            ('66666666-6666-4666-8666-666666666666'::uuid, true) $$,
+  'only the caller''s own reservation stuck: the other flag is still false'
+);
 
 -- ── Collaborator (role 1) keeps its access ───────────────────────────────────
 SET LOCAL role authenticated;

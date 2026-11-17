@@ -40,19 +40,27 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+interface ProfileLookup {
+  userType: number;
+  /** `profiles.welcome_email_sent`; null when unknown (lookup failed, timed out or the value is missing). */
+  welcomeEmailSent: boolean | null;
+}
+
 /**
- * Resolve a user's role from the `profiles` table.
+ * Resolve a user's role from the `profiles` table, and in the same query
+ * whether the welcome e-mail already went out (RLS "select own profile").
  *
- * Guaranteed to resolve to a number: any error, missing row, or stalled
+ * Guaranteed to resolve with a numeric role: any error, missing row, or stalled
  * request falls back to {@link DEFAULT_USER_TYPE} instead of rejecting. This
  * is the safety net that prevents the post-login redirect and role-gated data
- * loads from hanging forever.
+ * loads from hanging forever. The welcome flag is then unknown (null), which
+ * never triggers the welcome request.
  */
-const fetchUserType = async (userId: string): Promise<number> => {
+const fetchProfile = async (userId: string): Promise<ProfileLookup> => {
   try {
     const query = supabase
       .from("profiles" as any)
-      .select("user_type")
+      .select("user_type, welcome_email_sent")
       .eq("id", userId)
       .single();
 
@@ -60,11 +68,16 @@ const fetchUserType = async (userId: string): Promise<number> => {
       setTimeout(() => reject(new Error("profile-fetch-timeout")), PROFILE_FETCH_TIMEOUT_MS)
     );
 
-    const { data } = (await Promise.race([query, timeout])) as { data: { user_type?: number } | null };
-    return typeof data?.user_type === "number" ? data.user_type : DEFAULT_USER_TYPE;
+    const { data } = (await Promise.race([query, timeout])) as {
+      data: { user_type?: number; welcome_email_sent?: boolean } | null;
+    };
+    return {
+      userType: typeof data?.user_type === "number" ? data.user_type : DEFAULT_USER_TYPE,
+      welcomeEmailSent: typeof data?.welcome_email_sent === "boolean" ? data.welcome_email_sent : null,
+    };
   } catch {
     // Network failure, RLS error, or timeout — degrade gracefully.
-    return DEFAULT_USER_TYPE;
+    return { userType: DEFAULT_USER_TYPE, welcomeEmailSent: null };
   }
 };
 
@@ -81,6 +94,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Who the current `userType` belongs to, and a counter that invalidates in-flight profile lookups.
     let currentUserId: string | null = null;
     let latestRequest = 0;
+    // Users whose welcome e-mail was already requested while this provider is mounted (once per page load). Not
+    // persisted on purpose: the server reserves profiles.welcome_email_sent atomically, this only stops repeats.
+    const welcomeRequested = new Set<string>();
+
+    /**
+     * Fire-and-forget request of the welcome e-mail, at most once per user and page. Its answer never touches the
+     * auth state, and nothing it does (a rejection or a synchronous throw) can stall the auth gate.
+     */
+    const requestWelcomeEmail = (userId: string) => {
+      if (welcomeRequested.has(userId)) return;
+      welcomeRequested.add(userId);
+      try {
+        void Promise.resolve(supabase.functions.invoke("send-welcome-email")).catch(() => {});
+      } catch {
+        // Ignored: the welcome e-mail is best effort.
+      }
+    };
 
     /**
      * Synchronously mirrors the incoming session. When the user changes (sign-in as someone else without
@@ -112,10 +142,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (nextUser) {
         const request = ++latestRequest;
-        const type = await fetchUserType(nextUser.id);
+        const profile = await fetchProfile(nextUser.id);
         // A newer session event (another account, sign-out) superseded this lookup: its answer is stale.
         if (!active || request !== latestRequest) return;
-        setUserType(type);
+        setUserType(profile.userType);
+        // Only a fresh answer that says "not sent yet" asks for the welcome e-mail; unknown (null) never does.
+        if (profile.welcomeEmailSent === false) requestWelcomeEmail(nextUser.id);
       }
       if (active) setLoading(false);
     };
@@ -134,10 +166,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
 
-      // Fire welcome email on first sign-in; edge function handles idempotency.
-      if (event === "SIGNED_IN") {
-        supabase.functions.invoke("send-welcome-email").catch(() => {});
-      }
+      // The welcome e-mail is NOT requested here: SIGNED_IN also fires on every reload, every time the tab becomes
+      // visible again and once per other open tab. applySession asks for it once the profile says it was not sent.
 
       // Second signal for recovery links (the hash capture is the first).
       if (event === "PASSWORD_RECOVERY") {
