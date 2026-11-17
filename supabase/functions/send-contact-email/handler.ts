@@ -256,9 +256,9 @@ export function createContactHandler(deps: ContactDeps) {
       return unavailable();
     }
 
-    // Startup diagnostics logged to Supabase function logs
-    log("info", `[contact] FROM_ADDRESS: ${deps.fromAddress}`);
-    log("info", `[contact] DEST: ${deps.dest}`);
+    // Diagnostics without values (rule 5): whether the sender and the destination are set, never the addresses.
+    if (deps.fromAddress && deps.dest) log("info", "[contact] sender and destination configured");
+    else log("warn", "[contact] ⚠ sender or destination address is empty");
 
     try {
       // The edge_functions secret key is the only way to store a lead (direct anonymous inserts are closed, S4) and to

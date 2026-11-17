@@ -13,6 +13,7 @@ vi.mock("@/components/common/Navbar", async () => {
 
 import { ADS_ROUTES } from "@/lib/analytics";
 import { routeMetaToPageMeta } from "@/lib/pageMeta";
+import { PRIVACY_POLICY_VERSION } from "@/lib/packageRequest";
 import { HOME_META, ROUTE_META, SITE_ORIGIN } from "@/lib/routeMeta";
 import PoliticaDePrivacidad from "@/pages/legal/PoliticaDePrivacidad";
 import TerminosDelServicio from "@/pages/legal/TerminosDelServicio";
@@ -662,12 +663,24 @@ describe("Política de Privacidad · medición de Google Ads", () => {
     expect(normalize(document.body.textContent)).toMatch(/(no|tampoco) se carga[^.]*sesi[oó]n iniciada/i);
   });
 
-  it("lleva la cabecera «Versión 1.1»", () => {
+  it("lleva la cabecera «Vigente desde: Noviembre 2026 | Versión 1.2»", () => {
     renderPolicy();
 
     const header = document.querySelector("header")!;
-    expect(normalize(header.textContent)).toMatch(/Versi[oó]n 1\.1/);
+    expect(normalize(header.textContent)).toContain("Vigente desde: Noviembre 2026 | Versión 1.2");
+    // La versión que queda escrita en cada solicitud con consentimiento (packageRequest) es la de esta cabecera.
+    expect(normalize(header.textContent)).toContain(`Versión ${PRIVACY_POLICY_VERSION.replace("v", "")}`);
     expect(header.querySelector("h1")).toHaveTextContent("Política de Privacidad");
+  });
+
+  it("la frase de «NO vende» exceptúa la medición de Google Ads y lo que se autorice para el Combo Emprendedor, descrito a continuación", () => {
+    renderPolicy();
+
+    const sentence = paragraphWith(/vende, arrienda ni/i);
+    expect(sentence, "párrafo «NO vende, arrienda ni cede»").toBeDefined();
+    expect(normalize(sentence!.textContent)).toContain(
+      "salvo la medición de conversiones de Google Ads descrita en el apartado 2.5 y lo que usted autorice para el Combo Emprendedor, descrito a continuación.",
+    );
   });
 
   it("la fila de Google LLC menciona Google Fonts y la medición de conversiones", () => {

@@ -6,3 +6,6 @@ export const CONTACT_ID_PREFIX = "ms-contact-pw";
 
 /** id del textarea «Mensaje»: ContactForm arma cada id como `${idPrefix}-<campo>`. */
 export const CONTACT_MESSAGE_ID = `${CONTACT_ID_PREFIX}-message`;
+
+/** id (ancla estable) de la tarjeta de un paquete del precio: `paquete-estandar`, `paquete-combo-emprendedor`. */
+export const packageCardId = (packageId: string): string => `paquete-${packageId}`;
