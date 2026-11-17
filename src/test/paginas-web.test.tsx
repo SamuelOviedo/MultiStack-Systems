@@ -347,8 +347,7 @@ describe("/paginas-web · títulos del anuncio", () => {
 
 /**
  * Palabras que prometen rapidez. La medición móvil real de la landing da Rendimiento 81-84, así que la página no
- * puede prometer velocidad: solo cuenta que la mide. (La home sí dice «Responde en segundos» en AgentValueSection;
- * eso no se prueba aquí, solo la landing.) Respecto a la lista pedida se añade «veloces» (el plural de «veloz» no
+ * puede prometer velocidad: solo cuenta que la mide. Respecto a la lista pedida se añade «veloces» (el plural de «veloz» no
  * contiene «veloz», y «veloc» a secas atraparía el «Velocidad» aprobado) y las grafías sin tilde de rápid- y ágil.
  */
 const SPEED_CLAIM = /r[aá]pid|veloz|veloces|[aá]gil|instant|inmediat|en segundos|enseguida/i;

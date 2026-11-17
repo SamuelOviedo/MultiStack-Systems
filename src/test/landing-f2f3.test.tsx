@@ -1,5 +1,7 @@
+// Quedan solo lo que sigue vivo tras retirar la landing de IA: el prefill de ContactForm (lo usa la home con los
+// mensajes de HOME_CONTENT) y las variantes de la barra («overlay» sigue en el Navbar).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 vi.mock("@/hooks/useAuth", () => ({
@@ -9,9 +11,6 @@ vi.mock("@/lib/tickets", () => ({ getOpenTicketsCount: vi.fn().mockResolvedValue
 
 import Navbar from "@/components/common/Navbar";
 import ContactForm from "@/components/marketing/ContactForm";
-import AiServicesCatalog from "@/components/marketing/AiServicesCatalog";
-import { useActiveScene } from "@/hooks/useActiveScene";
-import { AI_SERVICES, getAiService, serviceContactMessage } from "@/lib/aiServices";
 
 // ---------------------------------------------------------------- helpers
 
@@ -44,51 +43,14 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-// ---------------------------------------------------------------- F2
-
-describe("useActiveScene", () => {
-  const SECTIONS = { hero: "hero", agente: "agent" } as const;
-
-  it("activa la escena cuya sección cruza el centro del viewport", () => {
-    document.body.innerHTML = '<section id="hero"></section><section id="agente"></section>';
-    const { result } = renderHook(() => useActiveScene(SECTIONS));
-    expect(result.current).toBe("hero");
-
-    act(() => {
-      ioCallbacks.at(-1)!([{ target: document.getElementById("agente")!, isIntersecting: true }]);
-    });
-    expect(result.current).toBe("agent");
-  });
-});
-
-// ---------------------------------------------------------------- F3
-
-describe("AiServicesCatalog", () => {
-  it("lista los 3 servicios aprobados y delega el CTA", () => {
-    const onSelect = vi.fn();
-    render(<AiServicesCatalog onSelect={onSelect} />);
-    expect(AI_SERVICES.map((s) => s.slug)).toEqual(["agente-rag", "cero-papel", "integracion-a-medida"]);
-    expect(document.getElementById("productos")).not.toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: /Automatización Cero Papel/ }));
-    expect(onSelect).toHaveBeenCalledWith(getAiService("cero-papel"));
-  });
-
-  it("no publica precios ni URLs mientras no estén confirmados", () => {
-    for (const s of AI_SERVICES) {
-      expect(s.priceFrom).toBeUndefined();
-      expect(JSON.stringify(s)).not.toMatch(/https?:\/\//);
-    }
-  });
-});
+// ---------------------------------------------------------------- ContactForm
 
 describe("ContactForm · prefill", () => {
   it("prellena el mensaje y lo reaplica con cada nonce nuevo", () => {
-    const text = serviceContactMessage(getAiService("agente-rag"));
+    const text = "Hola, quiero cotizar un software a medida.";
     const { rerender } = render(<ContactForm idPrefix="t" prefill={{ text, nonce: 1 }} />);
     const textarea = screen.getByLabelText("Mensaje") as HTMLTextAreaElement;
     expect(textarea.value).toBe(text);
-    expect(textarea.value).toContain("Agente de Atención IA");
     expect(document.activeElement).toBe(screen.getByLabelText("Nombre completo"));
 
     fireEvent.change(textarea, { target: { value: "otra cosa" } });
@@ -96,6 +58,8 @@ describe("ContactForm · prefill", () => {
     expect(textarea.value).toBe(text);
   });
 });
+
+// ---------------------------------------------------------------- Navbar
 
 describe("Navbar · variant", () => {
   const renderNav = (variant?: "default" | "overlay") =>

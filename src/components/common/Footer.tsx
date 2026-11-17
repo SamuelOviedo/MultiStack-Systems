@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import Logo from "@/components/common/Logo";
 import { getTechonHref, isExternalHref } from "@/lib/products";
+import { HOME_CONTENT } from "@/pages/marketing/homeContent";
 import type { CSSProperties } from "react";
 
 const MONO = "'JetBrains Mono', monospace";
@@ -17,7 +18,7 @@ const linkStyle: CSSProperties = {
   border: "none",
   color: "var(--text2)",
   cursor: "pointer",
-  padding: 0,
+  padding: "3px 0",
   fontSize: "14px",
   textDecoration: "none",
 };
@@ -29,8 +30,11 @@ const anchorLink: CSSProperties = {
 
 const scrollTo = (id: string, navigate: ReturnType<typeof useNavigate>) => {
   const el = document.getElementById(id);
-  if (el) window.scrollTo({ top: el.offsetTop - 60, behavior: "smooth" });
-  else navigate(`/#${id}`);
+  // Rect-based, like the Navbar: lands exactly below the fixed 72px bar.
+  const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (el) {
+    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 72), behavior: reduced ? "auto" : "smooth" });
+  } else navigate(`/#${id}`);
 };
 
 const Footer = () => {
@@ -53,88 +57,33 @@ const Footer = () => {
             <Logo className="h-[26px]" />
           </div>
           <div
-            style={{ fontFamily: MONO, fontSize: "12.5px", lineHeight: 1.7, color: "var(--muted)" }}
+            style={{ fontFamily: MONO, fontSize: "12.5px", lineHeight: 1.7, color: "var(--text2)" }}
           >
-            Built in Honduras. Engineered for anywhere.
+            {HOME_CONTENT.footer.description}
             <br />
-            Siguatepeque, HN — Remote First
+            {HOME_CONTENT.footer.location}
           </div>
         </div>
 
-        {/* Col 2 — Productos */}
-        <div>
-          <div style={colTitle}>Productos</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <button
-              type="button"
-              className="ms-foot-link"
-              style={linkStyle}
-              onClick={() => scrollTo("productos", navigate)}
-            >
-              TechOn — Soporte
-            </button>
-            <button
-              type="button"
-              className="ms-foot-link"
-              style={linkStyle}
-              onClick={() => scrollTo("productos", navigate)}
-            >
-              Licensing
-            </button>
-            <button
-              type="button"
-              className="ms-foot-link"
-              style={linkStyle}
-              onClick={() => scrollTo("productos", navigate)}
-            >
-              Development
-            </button>
-            <span style={{ fontFamily: MONO, fontSize: "12px", color: "var(--muted)" }}>
-              WhatsApp — En desarrollo
-            </span>
-          </div>
-        </div>
-
-        {/* Col 3 — MultiStack */}
+        {/* Col 2 — Navegación de la home (solo páginas web: ya no hay columna de productos) */}
         <div>
           <div style={colTitle}>MultiStack</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <button
-              type="button"
-              className="ms-foot-link"
-              style={linkStyle}
-              onClick={() => scrollTo("ecosistema", navigate)}
-            >
-              Ecosistema
-            </button>
-            <button
-              type="button"
-              className="ms-foot-link"
-              style={linkStyle}
-              onClick={() => scrollTo("stack", navigate)}
-            >
-              Engineering
-            </button>
-            <button
-              type="button"
-              className="ms-foot-link"
-              style={linkStyle}
-              onClick={() => scrollTo("empresa", navigate)}
-            >
-              Empresa
-            </button>
-            <button
-              type="button"
-              className="ms-foot-link"
-              style={linkStyle}
-              onClick={() => scrollTo("contacto", navigate)}
-            >
-              Contacto
-            </button>
+            {HOME_CONTENT.nav.items.map((item) => (
+              <button
+                key={item.href}
+                type="button"
+                className="ms-foot-link"
+                style={linkStyle}
+                onClick={() => scrollTo(item.href.replace(/^#/, ""), navigate)}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Col 4 — Cuenta + Legal */}
+        {/* Col 3 — Cuenta + Legal */}
         <div>
           <div style={colTitle}>Cuenta</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -205,7 +154,7 @@ const Footer = () => {
           borderTop: "1px solid var(--border-soft)",
           fontFamily: MONO,
           fontSize: "12px",
-          color: "var(--muted)",
+          color: "var(--text2)",
         }}
       >
         © 2026 MultiStack Systems. Todos los derechos reservados.

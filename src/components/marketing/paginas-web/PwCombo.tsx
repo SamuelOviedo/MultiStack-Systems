@@ -9,7 +9,7 @@ interface PwComboProps {
 }
 
 /** Una parte del Combo: quién la hace y sus entregables. */
-const ComboColumn = ({ column }: { column: PaginasWebComboColumn }) => (
+export const ComboColumn = ({ column }: { column: PaginasWebComboColumn }) => (
   <div className="ms-pw-combo__col">
     <h3 className="ms-pw-h3">{column.title}</h3>
     <p className="ms-pw-combo__by">{column.note}</p>
