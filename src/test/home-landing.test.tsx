@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // La home real (Navbar y Footer incluidos) con el backend simulado: la sesión es anónima y nunca se envía nada.
@@ -94,10 +94,20 @@ function stubMotion(reduced: boolean): void {
   })) as typeof window.matchMedia;
 }
 
-const renderHome = (hash = "") =>
+/** Deja ver dónde está el router: ruta, query, hash y cómo llegó (PUSH o REPLACE). */
+const Probe = () => {
+  const { pathname, search, hash } = useLocation();
+  const type = useNavigationType();
+  return <output data-testid="probe">{JSON.stringify({ pathname, search, hash, type })}</output>;
+};
+const where = (): { pathname: string; search: string; hash: string; type: string } =>
+  JSON.parse(screen.getByTestId("probe").textContent!);
+
+const renderHome = (entry = "/") =>
   render(
-    <MemoryRouter initialEntries={[`/${hash}`]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Index />
+      <Probe />
     </MemoryRouter>,
   );
 
@@ -400,6 +410,30 @@ describe("home · servicios bajo cotización y prellenado del formulario", () =>
     expect(message().value).toBe("Ya escribí algo");
   });
 
+  it("el CTA de un servicio conserva la query de la URL (gclid de Ads) y reemplaza la entrada del historial", () => {
+    renderHome("/?gclid=abc&utm_source=x");
+    expect(where().search).toBe("?gclid=abc&utm_source=x");
+
+    const ctas = screen.getAllByRole("link", { name: /Cuéntanos tu proyecto/ });
+    fireEvent.click(ctas[0]);
+    expect(where()).toMatchObject({ pathname: "/", search: "?gclid=abc&utm_source=x", hash: "#contacto", type: "REPLACE" });
+
+    fireEvent.click(ctas[1]);
+    expect(where()).toMatchObject({ search: "?gclid=abc&utm_source=x", hash: "#contacto", type: "REPLACE" });
+    expect(message().value).toBe(HOME_CONTENT.services.items[1].messagePrefill);
+  });
+
+  it("cada «Cuéntanos tu proyecto» tiene un nombre accesible distinto que empieza por el texto visible", () => {
+    renderHome();
+    const labels = HOME_CONTENT.services.items.map((s) => s.cta.ariaLabel);
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const service of HOME_CONTENT.services.items) {
+      expect(service.cta.ariaLabel, service.id).toBeTruthy();
+      expect(service.cta.ariaLabel!.startsWith(service.cta.label), service.id).toBe(true);
+      expect(screen.getByRole("link", { name: service.cta.ariaLabel! })).toBeInTheDocument();
+    }
+  });
+
   it("el formulario es el de siempre: nombre, teléfono, correo, mensaje y envío", () => {
     renderHome();
     const contact = document.getElementById(HOME_SECTION_IDS.contact)!;
@@ -476,6 +510,42 @@ describe("home · sin la narrativa anterior ni lo no decidido", () => {
 });
 
 // ---------------------------------------------------------------- ilustración
+
+describe("home · proceso", () => {
+  it("el paso 1 es «Envías tu solicitud», sin nombrar paquetes ni plazos", () => {
+    const [first, ...rest] = HOME_CONTENT.process.steps;
+    expect(first).toEqual({
+      title: "Envías tu solicitud",
+      text: "Es una solicitud, no un pago ni un contrato. Te contactamos para confirmar el paquete y los siguientes pasos.",
+    });
+    expect(JSON.stringify(first)).not.toMatch(/Combo|Est[aá]ndar|\d/);
+    // Los demás pasos son los aprobados de /paginas-web, sin cambios.
+    expect(rest.length).toBeGreaterThanOrEqual(3);
+    renderHome();
+    const steps = within(document.getElementById(HOME_SECTION_IDS.process)!).getAllByRole("heading", { level: 3 });
+    expect(steps[0]).toHaveTextContent("Envías tu solicitud");
+  });
+});
+
+describe("home · pie", () => {
+  const footerLink = (): HTMLElement => within(document.querySelector("footer")!).getByRole("button", { name: "Planes" });
+
+  it("los enlaces del pie se desplazan suave, o de golpe con prefers-reduced-motion: reduce", () => {
+    const scrollTo = vi.fn();
+    window.scrollTo = scrollTo as unknown as typeof window.scrollTo;
+    renderHome();
+    fireEvent.click(footerLink());
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: "smooth" }));
+    cleanup();
+
+    stubMotion(true);
+    scrollTo.mockClear();
+    renderHome();
+    fireEvent.click(footerLink());
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: "auto" }));
+  });
+});
 
 describe("home · ilustración del hero", () => {
   it("es una ilustración con descripción, con las tarjetas flotantes ocultas a lectores de pantalla", () => {

@@ -153,6 +153,27 @@ describe("index.html", () => {
   });
 });
 
+describe("public/site.webmanifest", () => {
+  const manifest = (): { name: string; description: string; theme_color: string; background_color: string } =>
+    JSON.parse(read("public/site.webmanifest"));
+
+  it("describe un negocio de páginas web en Honduras, igual que el JSON-LD de index.html", () => {
+    const ld = JSON.parse(indexDoc().querySelector('script[type="application/ld+json"]')!.textContent!) as { description: string };
+    expect(manifest().description).toBe(ld.description);
+    expect(manifest().description).toMatch(/p[aá]ginas web/i);
+    expect(manifest().description).toMatch(/Honduras/);
+  });
+
+  it("no conserva nada de la narrativa anterior de IA, en ningún campo", () => {
+    expect(read("public/site.webmanifest")).not.toMatch(/24\/7|RAG|piloto autom[aá]tico|productizad|n8n|cero papel/i);
+  });
+
+  it("no cambia los colores del tema", () => {
+    expect(manifest().theme_color).toBe("#080F1E");
+    expect(manifest().background_color).toBe("#080F1E");
+  });
+});
+
 describe("index.html · archivos locales que enlaza", () => {
   /** Rutas dentro de public/ que index.html nombra: <link href="/…">, imagen social y logo del JSON-LD. */
   const localPaths = (): string[] => {

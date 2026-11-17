@@ -250,7 +250,11 @@ export function buildHomeContent(
       title: "Software a medida",
       text: "Programamos software para lo que tu negocio necesita. Cuéntanos qué buscas y lo cotizamos.",
       tag: "Bajo cotización",
-      cta: { label: "Cuéntanos tu proyecto", href: contactHref },
+      cta: {
+        label: "Cuéntanos tu proyecto",
+        href: contactHref,
+        ariaLabel: "Cuéntanos tu proyecto de software a medida",
+      },
       messagePrefill: "Hola, quiero cotizar un software a medida.",
     },
     {
@@ -258,7 +262,11 @@ export function buildHomeContent(
       title: "Agentes de IA y automatización personalizada",
       text: "Diseñamos agentes de IA y automatizaciones para tareas de tu negocio. Cada proyecto se cotiza según lo que necesites.",
       tag: "Bajo cotización",
-      cta: { label: "Cuéntanos tu proyecto", href: contactHref },
+      cta: {
+        label: "Cuéntanos tu proyecto",
+        href: contactHref,
+        ariaLabel: "Cuéntanos tu proyecto de IA o automatización",
+      },
       messagePrefill: "Hola, quiero cotizar un agente de IA o una automatización.",
     },
   ];
@@ -274,9 +282,10 @@ export function buildHomeContent(
   ];
 
   return {
-    // Los metas viven también en index.html y src/lib/routeMeta.ts: no se importa este módulo desde
-    // routeMeta para no arrastrarlo al chunk de entrada que comparte con el dashboard. Se copian y una
-    // prueba los compara.
+    // Los metas viven también en index.html y src/lib/routeMeta.ts. No se importa este módulo desde routeMeta
+    // para no acoplar los metas de las rutas al contenido de la página; se copian como literales y una prueba
+    // los compara. (Este módulo y el contenido de /paginas-web que reutiliza sí entran en el chunk de entrada,
+    // porque la home no es lazy.)
     meta: {
       title: "Páginas web para negocios en Honduras | MultiStack Systems",
       description:
@@ -376,8 +385,9 @@ export function buildHomeContent(
       ],
     },
 
-    // El paso 1 es propio de la home, porque aquí se pide un paquete y no una cotización. Los demás
-    // son los aprobados de /paginas-web, con el plazo contado desde que el cliente entrega su material.
+    // El paso 1 es propio de la home, porque aquí se envía una solicitud y no una cotización. No nombra
+    // paquetes ni plazos: los pasos siguientes (los aprobados de /paginas-web) ya cuentan el plazo desde que el
+    // cliente entrega su material, y nada de esto insinúa un plazo propio del Combo.
     process: {
       id: HOME_SECTION_IDS.process,
       eyebrow: "Proceso",
@@ -385,8 +395,8 @@ export function buildHomeContent(
       intro: pw.timeline.intro,
       steps: [
         {
-          title: "Haces tu solicitud",
-          text: `Eliges el ${combo.name} o el ${standard.name} y envías tu solicitud. Es una solicitud, no un pago ni un contrato.`,
+          title: "Envías tu solicitud",
+          text: "Es una solicitud, no un pago ni un contrato. Te contactamos para confirmar el paquete y los siguientes pasos.",
         },
         ...pw.timeline.steps.slice(1),
       ],

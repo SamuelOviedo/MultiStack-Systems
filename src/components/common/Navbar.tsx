@@ -367,9 +367,11 @@ const Navbar = ({ variant = "default", homeNav, onHomeNavigate }: NavbarProps) =
             />
           </button>
 
-          {/* Primary CTA of the home. From 1120px: at 1024px it would push the auth buttons out of the bar
-              (measured). Below 1024px it is the first item of the drawer; in between the hero carries it. */}
-          {showHomeNav && homeNav && (
+          {/* Primary CTA of the home, only without a session (clients and admins already have their own links;
+              with the admin's [ TICKETS ] and [ SALIR ] it would clip the bar at 1120-1155px). From 1120px: at 1024px
+              it would push the auth buttons out (measured). Below 1024px it is the first item of the drawer; in
+              between the hero carries it. */}
+          {showHomeNav && homeNav && !user && (
             <Link
               to={homeNav.cta.href}
               aria-label={homeNav.cta.ariaLabel}
@@ -442,18 +444,22 @@ const Navbar = ({ variant = "default", homeNav, onHomeNavigate }: NavbarProps) =
               <MobileNavDrawer open={mobileOpen} onOpenChange={setMobileOpen} returnFocusRef={burgerRef} vars={navVars}>
                 {showHomeNav && homeNav && (
                   <>
-                    <Link
-                      to={homeNav.cta.href}
-                      aria-label={homeNav.cta.ariaLabel}
-                      className="ms-home-navcta ms-home-navcta--block"
-                      onClick={() => {
-                        rememberPackageIntent(homeNav.packageId);
-                        setMobileOpen(false);
-                      }}
-                    >
-                      {homeNav.cta.label}
-                    </Link>
-                    <div aria-hidden="true" style={{ height: "1px", background: "var(--border-soft)", margin: "14px 0" }} />
+                    {!user && (
+                      <>
+                        <Link
+                          to={homeNav.cta.href}
+                          aria-label={homeNav.cta.ariaLabel}
+                          className="ms-home-navcta ms-home-navcta--block"
+                          onClick={() => {
+                            rememberPackageIntent(homeNav.packageId);
+                            setMobileOpen(false);
+                          }}
+                        >
+                          {homeNav.cta.label}
+                        </Link>
+                        <div aria-hidden="true" style={{ height: "1px", background: "var(--border-soft)", margin: "14px 0" }} />
+                      </>
+                    )}
                     <ul role="list" className="m-0 flex list-none flex-col gap-1 p-0">
                       {sections.map((item) => (
                         <li key={item.id}>

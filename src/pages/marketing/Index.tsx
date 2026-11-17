@@ -32,7 +32,7 @@ const prefersReducedMotion = () =>
  * `/paginas-web` sigue siendo una landing aparte.
  */
 const Index = () => {
-  const { hash, key } = useLocation();
+  const { hash, key, search } = useLocation();
   const navigate = useNavigate();
   // Tokens MS con los tonos AA del conjunto cinemático (los mismos de /paginas-web); contrastes en msTokens.ts.
   const vars = cinematicVars(useCinematicTheme());
@@ -56,12 +56,14 @@ const Index = () => {
 
   // CTA de un servicio: reemplaza el mensaje por el de ese servicio (cada clic aplica de nuevo: nonce nuevo) y va a
   // #contacto con el router. La navegación nativa a un ancla quitaría el foco que ContactForm acaba de poner en el nombre.
+  // Conserva la query (gclid y demás identificadores de Ads: sin ellos la conversión sale sin atribución) y reemplaza la
+  // entrada del historial en vez de apilar otra.
   const requestService = useCallback(
     (service: HomeService) => {
       setContactPrefill((prev) => ({ text: service.messagePrefill, nonce: (prev?.nonce ?? 0) + 1 }));
-      navigate({ hash: HOME_SECTION_IDS.contact });
+      navigate({ search, hash: HOME_SECTION_IDS.contact }, { replace: true });
     },
-    [navigate],
+    [navigate, search],
   );
 
   // Llegada a #contacto desde la barra: prellena el mensaje por defecto una sola vez y sin pisar lo que la

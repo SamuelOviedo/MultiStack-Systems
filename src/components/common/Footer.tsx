@@ -31,8 +31,10 @@ const anchorLink: CSSProperties = {
 const scrollTo = (id: string, navigate: ReturnType<typeof useNavigate>) => {
   const el = document.getElementById(id);
   // Rect-based, like the Navbar: lands exactly below the fixed 72px bar.
-  if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 72), behavior: "smooth" });
-  else navigate(`/#${id}`);
+  const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (el) {
+    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 72), behavior: reduced ? "auto" : "smooth" });
+  } else navigate(`/#${id}`);
 };
 
 const Footer = () => {

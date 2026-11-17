@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
+const session = vi.hoisted(() => ({ user: null as null | { id: string }, userType: null as null | number }));
 vi.mock("@/hooks/useAuth", () => ({
-  useAuth: () => ({ user: null, userType: null, loading: false, signOut: vi.fn() }),
+  useAuth: () => ({ user: session.user, userType: session.userType, loading: false, signOut: vi.fn() }),
 }));
 vi.mock("@/lib/tickets", () => ({ getOpenTicketsCount: vi.fn().mockResolvedValue(0) }));
 const themeState = vi.hoisted(() => ({ resolvedTheme: "dark" }));
@@ -14,6 +15,7 @@ vi.mock("next-themes", () => ({
 import Navbar from "@/components/common/Navbar";
 import { useScrollSpy } from "@/hooks/useScrollSpy";
 import { PACKAGE_INTENT_KEY } from "@/lib/packageIntent";
+import { getOpenTicketsCount } from "@/lib/tickets";
 import { HOME_CONTENT } from "@/pages/marketing/homeContent";
 
 type IOCallback = (entries: Partial<IntersectionObserverEntry>[]) => void;
@@ -41,6 +43,10 @@ const SECTIONS = HOME_CONTENT.nav.items.map((item) => `<section id="${item.href.
 
 beforeEach(() => {
   themeState.resolvedTheme = "dark";
+  session.user = null;
+  session.userType = null;
+  // restoreAllMocks (afterEach) deja el mock sin valor: el administrador consulta el conteo de tickets.
+  vi.mocked(getOpenTicketsCount).mockResolvedValue(0);
   ioCallbacks = [];
   vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
 });
@@ -68,6 +74,12 @@ describe("useScrollSpy", () => {
     expect(ioCallbacks).toHaveLength(0);
   });
 });
+
+/** El cajón es un portal de Radix: se cierra antes de que afterEach vacíe el body. */
+const closeDrawer = async (dialog: HTMLElement) => {
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar menú" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: 5000 });
+};
 
 describe("Navbar", () => {
   const renderAt = (path: string, variant?: "default" | "overlay", withHomeNav = true) =>
@@ -114,6 +126,34 @@ describe("Navbar", () => {
     fireEvent(cta, new MouseEvent("auxclick", { bubbles: true, button: 1 }));
     expect(JSON.parse(localStorage.getItem(PACKAGE_INTENT_KEY)!).id).toBe("combo-emprendedor");
     localStorage.clear();
+  });
+
+  it.each([
+    ["administrador", 0],
+    ["cliente", 2],
+  ] as const)("con sesión de %s no aparece «Solicitar Combo» (ni en la barra ni en el menú) pero sí los enlaces de sección", async (_name, type) => {
+    session.user = { id: "u1" };
+    session.userType = type;
+    renderAt("/");
+    expect(screen.queryByRole("link", { name: /Solicitar Combo/ })).toBeNull();
+    for (const item of HOME_CONTENT.nav.items) expect(screen.getByRole("button", { name: item.label })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Abrir menú" }));
+    const dialog = await screen.findByRole("dialog", {}, { timeout: 5000 });
+    expect(within(dialog).queryByRole("link", { name: /Solicitar Combo/ })).toBeNull();
+    for (const item of HOME_CONTENT.nav.items) expect(within(dialog).getByRole("button", { name: new RegExp(item.label) })).toBeInTheDocument();
+    await closeDrawer(dialog);
+  });
+
+  it("sin sesión el menú trae el botón «Solicitar Combo» antes de los enlaces", async () => {
+    renderAt("/");
+    fireEvent.click(screen.getByRole("button", { name: "Abrir menú" }));
+    const dialog = await screen.findByRole("dialog", {}, { timeout: 5000 });
+    expect(within(dialog).getByRole("link", { name: /Solicitar Combo/ })).toHaveAttribute(
+      "href",
+      "/solicitudes?paquete=combo-emprendedor",
+    );
+    await closeDrawer(dialog);
   });
 
   it("sin homeNav no hay enlaces de sección ni botón, aunque la ruta sea \"/\"", () => {
