@@ -3,6 +3,7 @@ import { Check, X } from "lucide-react";
 import type { PaginasWebPrice, PaginasWebPricePackage } from "@/pages/marketing/paginasWebContent";
 import { packageCardId } from "./ids";
 import PwLink from "./PwLink";
+import PwRequestLink from "./PwRequestLink";
 import PwSection from "./PwSection";
 import PwSectionHead from "./PwSectionHead";
 
@@ -26,7 +27,9 @@ const withoutBreaks = (text: string): ReactNode =>
 /**
  * Una tarjeta por paquete. Es un <article> nombrado con su encabezado y su precio (aria-labelledby con
  * los dos ids): el lector de pantalla anuncia «Plan Estándar 3500 lempiras» como un solo grupo. El id de la
- * tarjeta es un ancla estable (`paquete-<id>`) y `data-package` lleva el id del paquete.
+ * tarjeta es un ancla estable (`paquete-<id>`) y `data-package` lleva el id del paquete. Al fondo lleva su CTA
+ * «Solicitar …», que guarda la intención de paquete y abre /solicitudes?paquete=<id>; el del Combo es el principal
+ * y el del Plan Estándar es el secundario.
  */
 const PwPlan = ({ plan }: { plan: PaginasWebPricePackage }) => {
   const cardId = packageCardId(plan.id);
@@ -58,6 +61,15 @@ const PwPlan = ({ plan }: { plan: PaginasWebPricePackage }) => {
           </ul>
         </div>
       )}
+      <div className="ms-pw-plan__cta">
+        <PwRequestLink
+          packageId={plan.id}
+          to={plan.requestHref}
+          className={`ms-pw-btn ${plan.id === "combo-emprendedor" ? "ms-pw-btn--primary" : "ms-pw-btn--ghost"}`}
+        >
+          {plan.requestLabel}
+        </PwRequestLink>
+      </div>
     </article>
   );
 };

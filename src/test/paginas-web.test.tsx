@@ -81,6 +81,7 @@ const INDEX_LF = readFileSync(path.join(ROOT, "index.html"), "utf8").replace(/\r
 
 const SECTION_ORDER = [
   "inicio",
+  "combo-emprendedor",
   "que-incluye",
   "precio",
   "proceso",
@@ -200,7 +201,7 @@ describe("/paginas-web · estructura", () => {
     levels.slice(1).forEach((level, i) => expect(level - levels[i], `encabezado ${i + 2}`).toBeLessThanOrEqual(1));
   });
 
-  it("las 10 secciones llevan los ids estables, en orden de lectura, y SECTION_IDS no se ha movido", () => {
+  it("las 11 secciones llevan los ids estables, en orden de lectura, y SECTION_IDS no se ha movido", () => {
     expect(Object.values(SECTION_IDS)).toEqual(SECTION_ORDER);
 
     renderPage();
@@ -224,12 +225,13 @@ describe("/paginas-web · estructura", () => {
     }
   });
 
-  it("los lectores de pantalla las anuncian como 10 regiones con el nombre de su encabezado", () => {
+  it("los lectores de pantalla las anuncian como 11 regiones con el nombre de su encabezado", () => {
     renderPage();
 
     const regions = screen.getAllByRole("region");
-    expect(regions).toHaveLength(10);
+    expect(regions).toHaveLength(11);
     expect(screen.getByRole("region", { name: "Páginas web en Honduras" })).toBe(section("inicio"));
+    expect(screen.getByRole("region", { name: "Combo Emprendedor" })).toBe(section("combo-emprendedor"));
     expect(screen.getByRole("region", { name: "Precio claro desde el inicio" })).toBe(section("precio"));
     expect(screen.getByRole("region", { name: "Mira cómo trabajamos" })).toBe(section("como-trabajamos"));
     expect(screen.getByRole("region", { name: "Cotiza tu página web" })).toBe(section("contacto"));
@@ -264,10 +266,12 @@ describe("/paginas-web · estructura", () => {
     for (const control of controls) expect(control).toHaveAccessibleName();
   });
 
-  it("la página es una oferta aparte: sin imágenes, sin testimonios y sin los otros productos ni la IA", () => {
+  it("la página es una oferta aparte: sin imágenes de contenido, sin testimonios y sin los otros productos ni la IA", () => {
     renderPage();
 
-    expect(document.querySelectorAll("img, picture, video, canvas, iframe, object, embed, [role='img']")).toHaveLength(0);
+    // Sin imágenes de contenido: el póster del Combo se retiró y nada más es multimedia.
+    expect(document.querySelectorAll("video, canvas, iframe, object, embed, [role='img']")).toHaveLength(0);
+    expect(document.querySelectorAll("img, picture")).toHaveLength(0);
     expect(document.querySelectorAll("blockquote, q, cite, figure, figcaption, [itemprop='review']")).toHaveLength(0);
 
     const text = visibleText(document.querySelector("main")!);
@@ -711,6 +715,7 @@ describe("/paginas-web · paquetes y precios", () => {
       STANDARD.name,
       `${STANDARD.amount}${STANDARD.spoken}`, // lo que se ve y, solo para lectores, lo que se dice
       "Tú aportas tu logo.",
+      "Solicitar Plan Estándar", // el CTA de la tarjeta, al fondo
     ]);
   });
 
@@ -774,7 +779,8 @@ describe("/paginas-web · paquetes y precios", () => {
 
     expect(within(section("inicio")).getByText("Desde L 3,500")).toHaveAttribute("aria-hidden", "true");
     expect(within(section("inicio")).getByText("Desde 3500 lempiras")).toHaveClass("sr-only");
-    const prices = document.querySelector("main")!.textContent!.match(/\bL\s?[\d,]+/g) ?? [];
+    // Monto con miles bien formados: en textContent el texto de lectores («3500 lempiras») queda pegado al visual.
+    const prices = document.querySelector("main")!.textContent!.match(/\bL \d{1,3}(?:,\d{3})*/g) ?? [];
     expect([...new Set(prices)].sort()).toEqual(["L 3,500", "L 3,950"]);
   });
 
@@ -954,8 +960,18 @@ describe("/paginas-web · tarjetas de paquete (index.css)", () => {
     expect(rules("(max-width:920px)").get(".ms-pw-plans")).toBe("minmax(0, 1fr)");
   });
 
-  it("la rejilla alinea al inicio: ninguna tarjeta se estira a la altura de la otra y deja un hueco vacío", () => {
-    expect(rules(undefined, "align-items").get(".ms-pw-plans")).toBe("start");
+  it("la rejilla estira las tarjetas a la misma altura: así los dos CTA, pegados al fondo con margin-top: auto, quedan alineados", () => {
+    expect(rules(undefined, "align-items").get(".ms-pw-plans")).toBe("stretch");
+    expect(rules(undefined, "margin-top").get(".ms-pw-plan__cta")).toBe("auto");
+  });
+
+  it("el rótulo del Combo respeta las mayúsculas de las marcas y es el único rótulo que lo hace", () => {
+    expect(rules(undefined, "text-transform").get(".ms-pw-eyebrow")).toBe(["lower", "case"].join("")); // armado en ejecución: un literal así sumaría una regla al CSS de producción
+    expect(rules(undefined, "text-transform").get(".ms-pw-combo .ms-pw-eyebrow")).toBe("none");
+    expect([...rules(undefined, "text-transform").keys()].filter((s) => s.includes("ms-pw-") && s.includes("eyebrow")).sort()).toEqual([
+      ".ms-pw-combo .ms-pw-eyebrow",
+      ".ms-pw-eyebrow",
+    ]);
   });
 
   it("la clase de «One-Page» no permite saltos de línea", () => {

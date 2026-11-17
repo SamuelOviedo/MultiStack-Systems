@@ -12,8 +12,21 @@
  *   cargos que no estén en PACKAGES.
  * - Hechos, no adjetivos: la velocidad se cuenta como proceso (se mide con Lighthouse), nunca
  *   como resultado ni con adjetivos que la prometan.
+ * - El Combo Emprendedor (alianza LAU Graphic x MultiStack Systems) sale de la referencia oficial de
+ *   la campaña (no se publica su póster): solo los entregables de su paquete, el precio y lo que cada parte hace. Nada de plazo propio, de
+ *   propuestas o revisiones del logo ni de vigencia.
  * - Sin JSX ni estilos. Las propiedades de PaginasWebContent siguen el orden de lectura.
  */
+
+import { packageCardId } from "@/components/marketing/paginas-web/ids";
+import { packageRequestPath } from "@/lib/packageIntent";
+// Los paquetes viven en src/lib/webPackages.ts: los comparte el flujo de solicitudes, que no debe importar
+// el contenido de la landing. PACKAGES se reexporta aquí solo para las pruebas de la página, que lo importan de
+// este módulo; la página no lo usa.
+import { PACKAGES, lempiras, lempirasSpoken, type PaginasWebPackage } from "@/lib/webPackages";
+
+export { PACKAGES };
+export type { PaginasWebPackage };
 
 export interface Commitments {
   /** Secciones como máximo, dentro de una sola página (no son páginas separadas). */
@@ -34,46 +47,6 @@ export const COMMITMENTS: Commitments = {
   responseBusinessHours: 24,
   domainHostingMonths: 12,
 };
-
-export interface PaginasWebPackage {
-  readonly id: "estandar" | "combo-emprendedor";
-  readonly name: string;
-  /** Precio en lempiras, sin formato: 3500. */
-  readonly priceLempiras: number;
-  /** Una frase: qué hace distinto a este paquete del otro. */
-  readonly summary: string;
-  /** Encabezado de la lista de `extras`; solo cuando hay extras. */
-  readonly extrasTitle?: string;
-  /** Entregables propios del paquete, sobre lo que incluyen los dos. Vacío si no hay. */
-  readonly extras: readonly string[];
-}
-
-/** Términos comerciales aprobados por el propietario. Los precios solo se escriben aquí. */
-export const PACKAGES: readonly PaginasWebPackage[] = [
-  {
-    id: "estandar",
-    name: "Plan Estándar",
-    priceLempiras: 3500,
-    summary: "Tú aportas tu logo.",
-    extras: [],
-  },
-  {
-    id: "combo-emprendedor",
-    name: "Combo Emprendedor",
-    priceLempiras: 3950,
-    summary: "Incluye el diseño de tu logo.",
-    extrasTitle: "Tu logo profesional incluye",
-    extras: [
-      "Diseño de logotipo personalizado",
-      "Variaciones de color del logotipo",
-      "Archivos PNG, JPG y PDF",
-      "Archivo editable",
-      "Paleta oficial de colores",
-      "Tipografías utilizadas",
-      "Alta resolución para redes sociales y medios físicos",
-    ],
-  },
-];
 
 export interface Channels {
   readonly whatsappUrl: string;
@@ -97,6 +70,7 @@ export const CHANNELS: Channels = {
 /** Anclas estables de cada sección. Los enlaces del anuncio y de la página dependen de ellas. */
 export const SECTION_IDS = {
   hero: "inicio",
+  combo: "combo-emprendedor",
   includes: "que-incluye",
   price: "precio",
   timeline: "proceso",
@@ -155,6 +129,38 @@ export interface PaginasWebHero extends PaginasWebSectionHead {
   readonly facts: readonly PaginasWebFact[];
 }
 
+/** Una columna del Combo: qué parte lo hace, y los entregables de esa parte. */
+export interface PaginasWebComboColumn {
+  readonly title: string;
+  /** Quién lo hace: «Lo diseña LAU Graphic» o «La programa MultiStack Systems». */
+  readonly note: string;
+  readonly items: readonly string[];
+}
+
+/** Sección promocional del Combo: precio, entregables por parte, CTA a la solicitud. */
+export interface PaginasWebCombo extends PaginasWebSectionHead {
+  /** Id del paquete en PACKAGES: la solicitud y la intención guardada usan este valor. */
+  readonly packageId: PaginasWebPackage["id"];
+  readonly subtitle: string;
+  /** El subtítulo como lo dice un lector de pantalla: sin «L» suelta ni coma de miles. */
+  readonly subtitleSpoken: string;
+  readonly amount: string;
+  readonly amountSpoken: string;
+  readonly logo: PaginasWebComboColumn;
+  readonly web: PaginasWebComboColumn;
+  /** Destino del CTA principal: `/solicitudes?paquete=<id>`. */
+  readonly ctaLabel: string;
+  readonly ctaHref: string;
+  /** Enlace al Plan Estándar: «Ver el Plan Estándar (L 3,500)», con el monto aparte para decirlo bien en voz alta. */
+  readonly standardLink: {
+    readonly label: string;
+    readonly amount: string;
+    readonly amountSpoken: string;
+    readonly href: string;
+  };
+  readonly note: string;
+}
+
 export interface PaginasWebIncludes extends PaginasWebSectionHead {
   readonly intro: string;
   readonly items: readonly PaginasWebItem[];
@@ -168,6 +174,10 @@ export interface PaginasWebPricePackage {
   /** Lo mismo para un lector de pantalla, sin coma de miles: «3500 lempiras». */
   readonly amountSpoken: string;
   readonly summary: string;
+  /** Texto del CTA de la tarjeta: «Solicitar Plan Estándar». */
+  readonly requestLabel: string;
+  /** Destino del CTA de la tarjeta: `/solicitudes?paquete=<id>`. */
+  readonly requestHref: string;
   /** Solo si el paquete tiene extras. */
   readonly extrasTitle?: string;
   readonly extras: readonly string[];
@@ -227,6 +237,7 @@ export interface PaginasWebContact extends PaginasWebSectionHead {
 
 export interface PaginasWebContent {
   readonly hero: PaginasWebHero;
+  readonly combo: PaginasWebCombo;
   readonly includes: PaginasWebIncludes;
   readonly price: PaginasWebPrice;
   readonly timeline: PaginasWebTimeline;
@@ -239,12 +250,6 @@ export interface PaginasWebContent {
 }
 
 const NEW_TAB_NOTICE = "(se abre en una pestaña nueva)";
-
-/** 3500 -> «L 3,500»; 3950 -> «L 3,950». */
-const lempiras = (amount: number): string => `L ${amount.toLocaleString("en-US")}`;
-
-/** 3500 -> «3500 lempiras»: sin coma, para que ninguna voz lo lea como decimal. */
-const lempirasSpoken = (amount: number): string => `${amount} lempiras`;
 
 /** (6, "sección", "secciones") -> «6 secciones»; con 1 usa el singular. */
 const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
@@ -278,6 +283,10 @@ export function buildPaginasWebContent(
   const days = count(commitments.deliveryBusinessDays, "día hábil", "días hábiles");
   const hours = count(commitments.responseBusinessHours, "hora hábil", "horas hábiles");
   const months = count(commitments.domainHostingMonths, "mes", "meses");
+
+  const standardAmount = lempiras(standard.priceLempiras);
+  const comboAmount = lempiras(combo.priceLempiras);
+  const comboAmountSpoken = lempirasSpoken(combo.priceLempiras);
 
   const contactHref = `#${SECTION_IDS.contact}`;
   const quoteCta: PaginasWebLink = { label: "Cotiza tu página web", href: contactHref };
@@ -404,6 +413,47 @@ export function buildPaginasWebContent(
       ],
     },
 
+    // Referencia oficial de la campaña del Combo Emprendedor (de LAU Graphic). Los entregables del logo son los
+    // `extras` del paquete; los de la página, lo ya confirmado en COMMITMENTS y en «Qué incluye».
+    // A propósito no se dice nada del plazo del Combo, de las propuestas ni las revisiones del logo,
+    // de impuestos, de la renovación ni de la vigencia.
+    combo: {
+      id: SECTION_IDS.combo,
+      eyebrow: "LAU Graphic × MultiStack Systems",
+      title: combo.name,
+      packageId: combo.id,
+      subtitle: `Tu identidad de marca y presencia digital por ${comboAmount}.`,
+      subtitleSpoken: `Tu identidad de marca y presencia digital por ${comboAmountSpoken}.`,
+      amount: comboAmount,
+      amountSpoken: comboAmountSpoken,
+      logo: {
+        title: "Logo profesional",
+        note: "Lo diseña LAU Graphic",
+        items: combo.extras,
+      },
+      web: {
+        title: "Página web",
+        note: "La programa MultiStack Systems",
+        items: [
+          "Diseño personalizado, con código propio y sin plantillas",
+          `Una sola página con hasta ${sections}, adaptable al celular`,
+          "Presentación de tu negocio, servicios y contacto",
+          "Botón directo a WhatsApp y redes sociales",
+          "Ubicación integrada con Google Maps",
+          `Dominio y hosting incluidos durante los primeros ${months}`,
+        ],
+      },
+      ctaLabel: `Solicitar ${combo.name}`,
+      ctaHref: packageRequestPath(combo.id),
+      standardLink: {
+        label: `Ver el ${standard.name}`,
+        amount: standardAmount,
+        amountSpoken: lempirasSpoken(standard.priceLempiras),
+        href: `#${packageCardId(standard.id)}`,
+      },
+      note: "Es una solicitud, no un pago ni un contrato. Te contactamos para confirmar el paquete y los siguientes pasos.",
+    },
+
     // Anuncio: «Landing pages a medida» y «Diseño web a medida».
     // La sección no promete ventas: muestra lo que una landing necesita para recibir contactos.
     includes: {
@@ -430,6 +480,8 @@ export function buildPaginasWebContent(
         amount: lempiras(pkg.priceLempiras),
         amountSpoken: lempirasSpoken(pkg.priceLempiras),
         summary: pkg.summary,
+        requestLabel: `Solicitar ${pkg.name}`,
+        requestHref: packageRequestPath(pkg.id),
         ...(pkg.extrasTitle ? { extrasTitle: pkg.extrasTitle } : {}),
         extras: pkg.extras,
       })),
