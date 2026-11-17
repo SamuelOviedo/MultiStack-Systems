@@ -1318,28 +1318,114 @@
   color: var(--text2);
 }
 
-/* Precio: el monto es lo más grande de la página; debajo, incluye y no incluye. */
-.ms-pw-amount {
-  margin: 40px 0 0;
+/* Precio: dos tarjetas de paquete con el monto a gran tamaño; debajo, incluye y no incluye. */
+.ms-pw-plans {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: stretch;
+  margin-top: 48px;
+}
+.ms-pw-nowrap {
+  white-space: nowrap;
+}
+.ms-pw-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 30px 28px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.ms-pw-plan__amount,
+.ms-pw-combo__price {
+  margin: 0;
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: clamp(44px, 5.4vw, 64px);
   line-height: 1;
+  letter-spacing: -0.04em;
   color: var(--text);
 }
-.ms-pw-amount__prefix {
-  margin-right: 6px;
+.ms-pw-plan__extras {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
+}
+.ms-pw-plan__extras-title {
+  margin: 0;
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: 15.5px;
+  line-height: 1.3;
+  color: var(--text);
+}
+.ms-pw-plan__extras .ms-pw-checks {
+  gap: 12px;
+  margin-top: 16px;
+}
+/* CTA al fondo de la tarjeta: margin-top: auto lo pega abajo si la tarjeta es más alta que su contenido. */
+.ms-pw-plan__cta {
+  margin-top: auto;
+  padding-top: 12px;
+}
+.ms-pw-plan__cta .ms-pw-btn {
+  width: 100%;
+}
+.ms-pw-plans + .ms-pw-intro {
+  margin-top: 32px;
+}
+
+/* Combo Emprendedor: panel destacado justo bajo el hero, a todo el ancho: encabezado, las dos columnas de
+   entregables y, abajo, el precio a la izquierda y los CTA a la derecha. */
+.ms-pw-combo {
+  padding: clamp(24px, 4vw, 48px);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+/* El rótulo de la alianza respeta las mayúsculas de las marcas; los demás rótulos de la página siguen en minúscula. */
+.ms-pw-combo .ms-pw-eyebrow {
+  text-transform: none;
+}
+.ms-pw-combo__cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  margin-top: 32px;
+}
+.ms-pw-combo__by {
+  margin: 4px 0 0;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 13px;
+  line-height: 1.5;
   letter-spacing: 0.02em;
   color: var(--text2);
 }
-.ms-pw-amount__value {
-  font-family: 'Sora', sans-serif;
-  font-weight: 600;
-  font-size: clamp(56px, 9vw, 104px);
-  letter-spacing: -0.045em;
+.ms-pw-combo__cols .ms-pw-checks {
+  gap: 12px;
+  margin-top: 16px;
 }
-.ms-pw-amount + .ms-pw-note {
-  margin-top: 12px;
+.ms-pw-combo__buy {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 20px clamp(24px, 4vw, 56px);
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid var(--hairline);
+}
+.ms-pw-combo__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.ms-pw-combo__buy .ms-pw-note {
+  grid-column: 1 / -1;
+  margin-top: 0;
 }
 .ms-pw-ledger {
   display: grid;
@@ -1556,8 +1642,16 @@
   .ms-pw-split,
   .ms-pw-contact,
   .ms-pw-points,
+  .ms-pw-plans,
   .ms-pw-ledger {
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* El precio y los CTA se apilan: con menos de 920px ya no caben en una fila sin partir los botones. */
+  .ms-pw-combo__buy {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ms-pw-combo__actions {
+    justify-content: flex-start;
   }
   .ms-pw-ledger__col,
   .ms-pw-ledger__col + .ms-pw-ledger__col {
@@ -1586,6 +1680,9 @@
     gap: 6px;
     padding: 20px 0;
   }
+  .ms-pw-combo__cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 /* Safari en iOS hace zoom al enfocar un campo de menos de 16px, y ContactForm fija 13.5px inline: solo
    !important vence un estilo inline. Vale en pantallas angostas y en táctiles de cualquier ancho
@@ -1601,10 +1698,15 @@
   .ms-pw-wrap {
     padding: 0 20px;
   }
-  .ms-pw-card {
+  .ms-pw-card,
+  .ms-pw-plan {
     padding: 22px 18px;
   }
-  .ms-pw-actions > * {
+  .ms-pw-combo {
+    padding: 22px 18px;
+  }
+  .ms-pw-actions > *,
+  .ms-pw-combo__actions > * {
     flex: 1 1 100%;
   }
   .ms-pw-faq__a {

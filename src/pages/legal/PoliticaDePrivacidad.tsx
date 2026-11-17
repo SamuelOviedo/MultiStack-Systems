@@ -43,7 +43,7 @@ export default function PoliticaDePrivacidad() {
             Política de Privacidad
           </h1>
           <p className="font-mono text-xs text-muted-foreground">
-            Vigente desde: Octubre 2026&nbsp;&nbsp;|&nbsp;&nbsp;Versión 1.1
+            Vigente desde: Noviembre 2026&nbsp;&nbsp;|&nbsp;&nbsp;Versión 1.2
           </p>
         </header>
 
@@ -188,11 +188,20 @@ export default function PoliticaDePrivacidad() {
               "Garantizar la seguridad e integridad de la plataforma y sus usuarios.",
               "Cumplir con obligaciones legales aplicables bajo la legislación hondureña.",
               "Medir cuántas solicitudes de contacto provienen de nuestros anuncios, mediante la etiqueta de conversiones de Google Ads (apartado 2.5).",
+              "Preparar el Combo Emprendedor con LAU Graphic cuando usted lo solicita y autoriza compartir sus datos (se detalla al final de esta sección).",
             ]} />
             <p className="mt-4">
               MultiStack Systems <strong className="text-foreground">NO</strong> vende, arrienda ni
               cede sus datos personales a terceros con fines comerciales o publicitarios, salvo la
-              medición de conversiones de Google Ads descrita en el apartado 2.5.
+              medición de conversiones de Google Ads descrita en el apartado 2.5 y lo que usted autorice
+              para el Combo Emprendedor, descrito a continuación.
+            </p>
+            <p className="mt-4">
+              Si usted solicita el Combo Emprendedor y nos autoriza expresamente al enviar su
+              solicitud, compartimos con <strong className="text-foreground">LAU Graphic</strong>,
+              el estudio de diseño que crea el logo del Combo Emprendedor, su nombre, su correo electrónico, el
+              nombre de su negocio y la información necesaria para diseñar su logo, solo con ese
+              fin. Sin esa autorización no compartimos ningún dato suyo con LAU Graphic.
             </p>
           </section>
 
