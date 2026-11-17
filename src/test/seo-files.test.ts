@@ -107,15 +107,43 @@ describe("index.html", () => {
     }
   });
 
-  it("conserva el posicionamiento de IA y automatización de la home en title, description y og:title", () => {
+  it("la home se posiciona como páginas web para negocios en Honduras en title, description y og:title", () => {
     for (const [name, value] of [
       ["title", indexDoc().title],
       ["description", indexMeta("name", "description")],
       ["og:title", indexMeta("property", "og:title")],
     ] as const) {
-      expect(value, name).toMatch(/\bIA\b/);
-      expect(value, name).toMatch(/automatizaci[oó]n/i);
-      expect(value, name).not.toMatch(/p[aá]ginas? web/i);
+      expect(value, name).toMatch(/p[aá]ginas web/i);
+      expect(value, name).toMatch(/Honduras/);
+      // Nada de la narrativa anterior de IA, y sin precios en las metas.
+      expect(value, name).not.toMatch(/\bIA\b|24\/7|\bRAG\b|n8n|cero papel|productizad|piloto autom[aá]tico/i);
+      expect(value, name).not.toMatch(/\bL\s?\d|lempiras|\d,\d{3}/i);
+    }
+    expect(indexDoc().title.length).toBeLessThanOrEqual(60);
+    expect(indexMeta("name", "description")!.length).toBeLessThanOrEqual(155);
+  });
+
+  it("el JSON-LD es un ProfessionalService de páginas web en Honduras, sin OfferCatalog ni precios", () => {
+    const raw = indexDoc().querySelector('script[type="application/ld+json"]')!.textContent!;
+    const ld = JSON.parse(raw) as { "@type": string[]; description: string; address: { addressCountry: string } };
+    expect(ld["@type"]).toContain("ProfessionalService");
+    expect(ld.description).toMatch(/p[aá]ginas web/i);
+    expect(ld.description).toMatch(/Honduras/);
+    expect(ld.address.addressCountry).toBe("HN");
+    expect(raw).not.toMatch(/OfferCatalog|"Offer"|"price|priceCurrency|lempiras|productizad|n8n|RAG|cero papel|piloto/i);
+  });
+
+  it("el HTML ya no precarga el primer fotograma de la antigua escena del hero", () => {
+    expect(indexRaw()).not.toMatch(/scenes\/hero|hero-dark|hero-light|rel\s*=\s*"preload"/i);
+  });
+
+  it("las imágenes sociales de la home son las nuevas (og-home.v3) y existen en PNG y WebP", () => {
+    expect(indexMeta("property", "og:image")).toBe(`${WWW}/assets/images/og/og-home.v3.1200x630.png`);
+    expect(indexMeta("name", "twitter:image")).toBe(indexMeta("property", "og:image"));
+    expect(existsSync(path.join(ROOT, "public", "assets", "images", "og", "og-home.v3.1200x630.webp"))).toBe(true);
+    // Las anteriores siguen publicadas: hay vistas previas ya compartidas que las enlazan.
+    for (const old of ["og-ai.1200x630.png", "og-ai.v2.1200x630.png", "og-ai.v2.1200x630.webp"]) {
+      expect(existsSync(path.join(ROOT, "public", "assets", "images", "og", old)), old).toBe(true);
     }
   });
 
@@ -406,6 +434,7 @@ describe("public/robots.txt", () => {
       "/terminos-del-servicio",
       "/sitemap.xml",
       "/assets/index-abc123.js",
+      "/assets/images/og/og-home.v3.1200x630.png",
       "/assets/images/og/og-ai.v2.1200x630.png",
     ]) {
       expect(robots.blocks(urlPath), urlPath).toBe(false);

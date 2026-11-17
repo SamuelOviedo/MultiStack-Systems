@@ -216,11 +216,11 @@ describe("iconos, manifiesto e imágenes sociales", () => {
     expect(manifest.icons.filter((i) => !i.purpose).map((i) => i.src)).not.toContain(maskable?.src);
   });
 
-  it("index.html y routeMeta apuntan a las imágenes sociales v2, que existen y miden 1200×630", () => {
+  it("index.html y routeMeta apuntan a las imágenes sociales vigentes (home v3, /paginas-web v2), que existen y miden 1200×630", () => {
     const doc = new DOMParser().parseFromString(readFileSync(path.join(ROOT, "index.html"), "utf8"), "text/html");
     const og = new URL(doc.querySelector('meta[property="og:image"]')!.getAttribute("content")!).pathname;
     const twitter = new URL(doc.querySelector('meta[name="twitter:image"]')!.getAttribute("content")!).pathname;
-    expect(og).toBe("/assets/images/og/og-ai.v2.1200x630.png");
+    expect(og).toBe("/assets/images/og/og-home.v3.1200x630.png");
     expect(twitter).toBe(og);
     expect(OG_IMAGES.default.path).toBe(og);
     expect(OG_IMAGES.paginasWeb.path).toBe("/assets/images/og/og-paginas-web.v2.png");
@@ -228,6 +228,9 @@ describe("iconos, manifiesto e imágenes sociales", () => {
       expect(existsSync(inPublic(urlPath)), urlPath).toBe(true);
       expect(pngSize(inPublic(urlPath)), urlPath).toEqual([1200, 630]);
     }
+    expect(existsSync(inPublic("/assets/images/og/og-home.v3.1200x630.webp"))).toBe(true);
+    // La v2 con el texto de IA sigue publicada: vistas previas ya compartidas la enlazan.
+    expect(existsSync(inPublic("/assets/images/og/og-ai.v2.1200x630.png"))).toBe(true);
     expect(existsSync(inPublic("/assets/images/og/og-ai.v2.1200x630.webp"))).toBe(true);
   });
 

@@ -13,14 +13,15 @@ export interface OgImage {
 }
 
 export interface OgImages {
+  /** Imagen de la home. */
   readonly default: OgImage;
   readonly paginasWeb: OgImage;
 }
 
 export const OG_IMAGES: OgImages = {
   default: {
-    path: "/assets/images/og/og-ai.v2.1200x630.png",
-    alt: "MultiStack Systems — Tu operación, en piloto automático. Servicios productizados de IA y automatización.",
+    path: "/assets/images/og/og-home.v3.1200x630.png",
+    alt: "MultiStack Systems: páginas web para negocios en Honduras.",
   },
   paginasWeb: {
     path: "/assets/images/og/og-paginas-web.v2.png",
@@ -73,13 +74,12 @@ export const ROUTE_META: Readonly<Record<RouteMetaPath, RouteMeta>> = {
  * emite un `<ruta>/index.html` por cada entrada de ROUTE_META, y para la home duplicaría index.html.
  */
 export const HOME_META: RouteMeta = {
-  title: "MultiStack Systems | Servicios de IA y Automatización B2B",
+  title: "Páginas web para negocios en Honduras | MultiStack Systems",
   description:
-    "Servicios productizados de IA para empresas: agentes de atención 24/7 con RAG, automatización cero papel con n8n e integración con tus sistemas. Desde Honduras.",
+    "Páginas web con código propio en React para negocios en Honduras. Elige el Combo Emprendedor con el diseño de tu logo o el Plan Estándar.",
   canonical: SITE_ORIGIN,
-  ogTitle: "Servicios Productizados de IA y Automatización B2B | MultiStack Systems",
-  ogDescription:
-    "Agentes de IA que atienden 24/7 con la información de tu negocio y automatizaciones cero papel con n8n. Implementados en semanas, no en meses.",
+  ogTitle: "Páginas web para negocios en Honduras",
+  ogDescription: "Combo Emprendedor con el diseño de tu logo y Plan Estándar. Código propio en React, hecho en Honduras.",
   ogUrl: SITE_ORIGIN,
   ogImage: `${SITE_ORIGIN}${OG_IMAGES.default.path}`,
   ogImageAlt: OG_IMAGES.default.alt,

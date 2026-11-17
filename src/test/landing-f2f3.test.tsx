@@ -1,3 +1,8 @@
+// Estado tras la home web-first (home-landing.test.tsx): la home ya no monta las escenas cinemáticas ni el catálogo
+// de servicios de IA. Siguen aquí, pasando, porque sus archivos aún existen y se retiran en un commit aparte:
+//   - «useActiveScene» y «AiServicesCatalog»: huérfanos (los borra ese commit junto con sus archivos).
+//   - «ContactForm · prefill»: vigente (la home lo usa con los mensajes de HOME_CONTENT).
+//   - «Navbar · variant»: vigente (la variante «overlay» sigue en la barra, aunque la home ya no la pide).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";

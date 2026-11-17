@@ -1,82 +1,87 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "@/components/common/Navbar";
-import HeroSection from "@/components/marketing/HeroSection";
-import CinematicBackground from "@/components/marketing/cinematic/CinematicBackground";
-import AiServicesCatalog from "@/components/marketing/AiServicesCatalog";
-import EcosystemConnect from "@/components/marketing/EcosystemConnect";
-import TechStack from "@/components/marketing/TechStack";
-import BuiltHonduras from "@/components/marketing/BuiltHonduras";
-import ContactSplit from "@/components/marketing/ContactSplit";
-import type { ContactPrefill } from "@/components/marketing/ContactForm";
 import Footer from "@/components/common/Footer";
-import AiChatLauncher from "@/components/marketing/ai-demo/AiChatLauncher";
-import { cinematicVars, useMsThemeVars } from "@/lib/msTokens";
-import { CINEMATIC_SCENES } from "@/lib/cinematicScenes";
-import { getAiService, serviceContactMessage } from "@/lib/aiServices";
-import { useActiveScene } from "@/hooks/useActiveScene";
+import type { ContactPrefill } from "@/components/marketing/ContactForm";
+import HomeCombo from "@/components/marketing/home/HomeCombo";
+import HomeFinalCta from "@/components/marketing/home/HomeFinalCta";
+import HomeHero from "@/components/marketing/home/HomeHero";
+import HomePlans from "@/components/marketing/home/HomePlans";
+import HomeProcess from "@/components/marketing/home/HomeProcess";
+import HomeServices from "@/components/marketing/home/HomeServices";
+import HomeWhy from "@/components/marketing/home/HomeWhy";
+import PwContact from "@/components/marketing/paginas-web/PwContact";
+import PwFaq from "@/components/marketing/paginas-web/PwFaq";
+import { CONTACT_MESSAGE_ID } from "@/components/marketing/paginas-web/ids";
 import { useCinematicTheme } from "@/hooks/useCinematicTheme";
-import type { CinematicSceneId, ScrubSource } from "@/types/cinematic";
-import type { AiService, AiServiceSlug } from "@/types/aiServices";
+import { useRevealOnScroll } from "@/hooks/useRevealOnScroll";
+import { cinematicVars } from "@/lib/msTokens";
+import { HOME_CONTENT as CONTENT, HOME_SECTION_IDS, type HomeService } from "./homeContent";
 
-// Only entry point to framer-motion: keeps it out of the chunk /dashboard shares.
-const CinematicChapters = lazy(() => import("@/components/marketing/cinematic/CinematicChapters"));
+const COMBO_ID = CONTENT.combo.packageId;
+// El otro paquete de la tarjeta de planes: el contenido los trae en orden, Combo primero.
+const STANDARD_ID = CONTENT.plans.packages.filter((pkg) => pkg.id !== COMBO_ID)[0].id;
 
-/** Section anchor → cinematic scene, for the backdrop's scroll-spy. */
-const SCENE_SECTIONS = { hero: "hero", agente: "agent", automatizacion: "automation" } as const;
+const prefersReducedMotion = () =>
+  typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-type ScrubSources = Partial<Record<CinematicSceneId, ScrubSource>>;
-
+/**
+ * Home pública: MultiStack Systems como negocio de páginas web. Combo Emprendedor primero, Plan Estándar
+ * después; el software a medida y los agentes de IA son servicios secundarios, solo bajo cotización. Todo el
+ * texto y las cifras salen de HOME_CONTENT (homeContent.ts), que a su vez toma los precios de PACKAGES.
+ * `/paginas-web` sigue siendo una landing aparte.
+ */
 const Index = () => {
-  const location = useLocation();
-  const msVars = useMsThemeVars();
-  const cineTheme = useCinematicTheme();
-  const [chaptersReady, setChaptersReady] = useState(false);
-  const [scrubSources, setScrubSources] = useState<ScrubSources>({});
+  const { hash, key } = useLocation();
+  const navigate = useNavigate();
+  // Tokens MS con los tonos AA del conjunto cinemático (los mismos de /paginas-web); contrastes en msTokens.ts.
+  const vars = cinematicVars(useCinematicTheme());
+  const rootRef = useRef<HTMLDivElement>(null);
+  useRevealOnScroll(rootRef);
+
+  // Solo la acción de una persona crea el prefill: ContactForm mueve el foco al nombre al recibirlo.
   const [contactPrefill, setContactPrefill] = useState<ContactPrefill>();
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatArmed, setChatArmed] = useState(false);
-  const activeScene = useActiveScene(SCENE_SECTIONS, chaptersReady);
+  const defaultPrefillApplied = useRef(false);
 
-  // Re-run after the lazy chapters mount: they shift everything below them.
+  // Con hash en la URL (p. ej. /#planes al volver de otra ruta) el navegador no encuentra la ancla a tiempo. `key`
+  // cambia con cada navegación, también hacia el mismo hash: el segundo CTA de servicio vuelve a desplazar.
   useEffect(() => {
-    const id = location.hash.replace(/^#/, "");
+    const id = hash.replace(/^#/, "");
     if (!id) return;
-    requestAnimationFrame(() => {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth" });
     });
-  }, [location, chaptersReady]);
+    return () => cancelAnimationFrame(frame);
+  }, [hash, key]);
 
-  const handleChaptersReady = useCallback(() => setChaptersReady(true), []);
-
-  const registerScrubSource = useCallback((sceneId: CinematicSceneId, source: ScrubSource) => {
-    setScrubSources((prev) => (prev[sceneId] === source ? prev : { ...prev, [sceneId]: source }));
-  }, []);
-
-  const requestService = useCallback((service: AiService) => {
-    setContactPrefill((prev) => ({ text: serviceContactMessage(service), nonce: (prev?.nonce ?? 0) + 1 }));
-    document.getElementById("contacto")?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  const requestServiceBySlug = useCallback(
-    (slug: AiServiceSlug) => requestService(getAiService(slug)),
-    [requestService],
+  // CTA de un servicio: reemplaza el mensaje por el de ese servicio (cada clic aplica de nuevo: nonce nuevo) y va a
+  // #contacto con el router. La navegación nativa a un ancla quitaría el foco que ContactForm acaba de poner en el nombre.
+  const requestService = useCallback(
+    (service: HomeService) => {
+      setContactPrefill((prev) => ({ text: service.messagePrefill, nonce: (prev?.nonce ?? 0) + 1 }));
+      navigate({ hash: HOME_SECTION_IDS.contact });
+    },
+    [navigate],
   );
 
-  const armChat = useCallback(() => setChatArmed(true), []);
-  const openChat = useCallback(() => {
-    setChatArmed(true);
-    setChatOpen(true);
+  // Llegada a #contacto desde la barra: prellena el mensaje por defecto una sola vez y sin pisar lo que la
+  // persona ya escribió. El valor del campo se lee del DOM porque ContactForm es dueño de su estado.
+  const requestDefaultPrefill = useCallback((id: string) => {
+    if (id !== HOME_SECTION_IDS.contact || defaultPrefillApplied.current) return;
+    const field = document.getElementById(CONTACT_MESSAGE_ID);
+    if (field instanceof HTMLTextAreaElement && field.value.trim() !== "") return;
+    defaultPrefillApplied.current = true;
+    setContactPrefill((prev) => prev ?? { text: CONTENT.contact.messagePrefill, nonce: 1 });
   }, []);
-  const chatToDiagnosis = useCallback(() => requestServiceBySlug("agente-rag"), [requestServiceBySlug]);
 
   return (
     <>
-      <Navbar variant="overlay" />
+      <Navbar homeNav={CONTENT.nav} onHomeNavigate={requestDefaultPrefill} />
       <div
-        className="ms-landing"
+        ref={rootRef}
+        className="ms-landing ms-home"
         style={{
-          ...msVars,
+          ...vars,
           minHeight: "100vh",
           width: "100%",
           fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
@@ -84,45 +89,19 @@ const Index = () => {
           color: "var(--text)",
         }}
       >
-        {/* Escenas cinemáticas: imágenes, scrims y tokens siguen el tema activo. */}
-        <div className="ms-cine" style={cinematicVars(cineTheme)} data-nav-overlay>
-          <div className="ms-cine-stage">
-            <div className="ms-cine-stage-pin">
-              <CinematicBackground
-                scenes={CINEMATIC_SCENES}
-                activeSceneId={activeScene}
-                scrubSources={scrubSources}
-              />
-            </div>
-          </div>
-          <div className="ms-cine-content">
-            <HeroSection onTryAgent={openChat} onTryAgentIntent={armChat} />
-            <Suspense fallback={<div className="ms-chapters-placeholder" aria-hidden="true" />}>
-              <CinematicChapters
-                onReady={handleChaptersReady}
-                onScrubSource={registerScrubSource}
-                onRequestService={requestServiceBySlug}
-              />
-            </Suspense>
-          </div>
-        </div>
-
-        <AiServicesCatalog onSelect={requestService} />
-        <EcosystemConnect />
-        <TechStack />
-        <div id="empresa">
-          <BuiltHonduras />
-        </div>
-        <ContactSplit prefill={contactPrefill} />
+        <main>
+          <HomeHero hero={CONTENT.hero} primaryPackageId={COMBO_ID} />
+          <HomeCombo combo={CONTENT.combo} />
+          <HomePlans plans={CONTENT.plans} />
+          <HomeWhy why={CONTENT.why} />
+          <HomeProcess process={CONTENT.process} />
+          <HomeServices services={CONTENT.services} onRequest={requestService} />
+          <PwFaq faq={CONTENT.faq} alt />
+          <HomeFinalCta cta={CONTENT.finalCta} comboId={COMBO_ID} standardId={STANDARD_ID} />
+          <PwContact contact={CONTENT.contact} prefill={contactPrefill} />
+        </main>
         <Footer />
       </div>
-      <AiChatLauncher
-        open={chatOpen}
-        onOpenChange={setChatOpen}
-        armed={chatArmed}
-        onArm={armChat}
-        onRequestDiagnosis={chatToDiagnosis}
-      />
     </>
   );
 };

@@ -293,7 +293,7 @@
 .ms-eng-row:hover {
   background: var(--hover-bg);
 }
-.ms-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr; gap: 40px; }
+.ms-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 40px; }
 
 @media (max-width: 920px) {
   .ms-eco-body {
@@ -1721,6 +1721,706 @@
   }
   .ms-pw-btn:hover,
   .ms-pw-btn:active {
+    transform: none;
+  }
+}
+
+/* ====================================================================
+   Home web-first (`/`). Clases .ms-home-*; reutiliza .ms-pw-* donde encaja.
+   Tokens MS de .ms-landing (sin hex ni colores literales). Solo transform y
+   opacity se animan. Con prefers-reduced-motion: reduce todo queda estático y
+   visible (el bloque del final); sin JavaScript, nada se oculta: el estado
+   oculto solo existe bajo [data-reveal-ready], que pone useRevealOnScroll.
+   ==================================================================== */
+@keyframes ms-home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ms-home-bob {
+  0%,
+  100% {
+    transform: translateZ(var(--z)) translateY(0);
+  }
+  50% {
+    transform: translateZ(var(--z)) translateY(-8px);
+  }
+}
+
+/* Entrada escalonada del hero: `backwards` solo pinta el estado inicial durante el retraso. */
+.ms-home-rise {
+  animation: ms-home-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+/* Aparición de secciones al hacer scroll. */
+.ms-home[data-reveal-ready] [data-reveal]:not(.is-in) {
+  opacity: 0;
+}
+.ms-home[data-reveal-ready] [data-reveal].is-in {
+  animation: ms-home-rise 0.65s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+/* Barra: CTA principal de la home. */
+.ms-home-navcta {
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: var(--btn-primary-text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: filter 0.2s;
+}
+.ms-home-navcta:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.ms-home-navcta--block {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  font-size: 14px;
+}
+@media (hover: hover) {
+  .ms-home-navcta:hover {
+    filter: brightness(1.08);
+  }
+}
+
+/* Hero: copia a la izquierda y la ilustración con profundidad a la derecha (debajo en móvil). */
+.ms-home-hero {
+  overflow-x: clip;
+}
+.ms-home-hero::after {
+  content: "";
+  position: absolute;
+  top: 8%;
+  right: -12%;
+  width: min(760px, 80vw);
+  aspect-ratio: 1;
+  background: var(--glow-a);
+  pointer-events: none;
+}
+.ms-home-hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  gap: 32px clamp(32px, 5vw, 72px);
+  align-items: center;
+}
+.ms-home-hero .ms-pw-h1 {
+  max-width: 14ch;
+  font-size: clamp(36px, 5.4vw, 64px);
+}
+.ms-home-hero .ms-pw-lead {
+  max-width: 44ch;
+}
+.ms-home-hero .ms-pw-facts {
+  margin-top: clamp(32px, 4vw, 48px);
+}
+.ms-home-hero .ms-pw-fact {
+  padding: 18px 16px 18px 0;
+}
+.ms-home-hero .ms-pw-fact + .ms-pw-fact {
+  padding-left: 16px;
+}
+.ms-home-hero .ms-pw-fact__label {
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+/* Escena 3D: perspective en el escenario, transform-style: preserve-3d en la escena. */
+.ms-home-stage {
+  --rx: 0;
+  --ry: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 520px;
+  perspective: 1200px;
+  perspective-origin: 50% 35%;
+}
+.ms-home-stage::before {
+  content: "";
+  position: absolute;
+  inset: 1% 2%;
+  border: 1px solid var(--hairline);
+  border-radius: 32px;
+  background-image: linear-gradient(160deg, var(--primary-soft), transparent 65%), var(--grid-image);
+  background-size: auto, var(--grid-size);
+}
+.ms-home-scene {
+  position: relative;
+  width: min(100%, 440px);
+  height: 480px;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(5deg + var(--ry) * -8deg)) rotateY(calc(-14deg + var(--rx) * 16deg)) rotateZ(1deg);
+  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.ms-home-phone {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 252px;
+  height: 480px;
+  margin-left: -126px;
+  padding: 10px;
+  /* Canto del dispositivo: gris medio de la marca, visible en claro y en oscuro. */
+  border: 2px solid var(--muted);
+  border-radius: 40px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+.ms-home-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 30px;
+  background: var(--bg);
+}
+.ms-home-mock__notch {
+  align-self: center;
+  flex: none;
+  width: 54px;
+  height: 6px;
+  border-radius: 4px;
+  background: var(--text);
+  opacity: 0.18;
+}
+.ms-home-mock__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.ms-home-mock__dot {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.ms-home-mock__menu {
+  display: grid;
+  gap: 3px;
+  margin-left: auto;
+}
+.ms-home-mock__menu i {
+  display: block;
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--text);
+  opacity: 0.5;
+}
+.ms-home-mock__line {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--text);
+  opacity: 0.16;
+}
+.ms-home-mock__line--strong {
+  height: 11px;
+  opacity: 0.62;
+}
+.ms-home-mock__line--w40 {
+  width: 40%;
+}
+.ms-home-mock__line--w60 {
+  width: 60%;
+}
+.ms-home-mock__line--w75 {
+  width: 75%;
+}
+.ms-home-mock__line--w85 {
+  width: 85%;
+}
+.ms-home-mock__hero {
+  display: grid;
+  gap: 8px;
+  flex: none;
+  padding: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: linear-gradient(150deg, var(--primary-soft), transparent);
+}
+.ms-home-mock__btn {
+  display: block;
+  width: 96px;
+  height: 24px;
+  margin-top: 4px;
+  border-radius: 7px;
+  background: var(--primary);
+}
+.ms-home-mock__cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  flex: none;
+}
+.ms-home-mock__card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.ms-home-mock__card b {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-accent);
+  border-radius: 50%;
+  background: var(--primary-soft);
+}
+.ms-home-mock__map {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 56px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background-color: var(--primary-soft);
+  background-image: var(--grid-image);
+  background-size: var(--grid-size);
+}
+.ms-home-mock__pin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 6px var(--primary-soft);
+}
+.ms-home-mock__wa {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--success);
+  color: var(--btn-primary-text);
+  box-shadow: var(--shadow-card);
+}
+.ms-home-float {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 190px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  transform: translateZ(var(--z));
+  animation: ms-home-bob 6s ease-in-out infinite;
+  animation-delay: var(--d);
+}
+.ms-home-float__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-accent);
+  border-radius: 9px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.ms-home-float--1 {
+  --z: 70px;
+  --d: 0s;
+  top: 10%;
+  left: -3%;
+}
+.ms-home-float--2 {
+  --z: 100px;
+  --d: -2s;
+  top: 44%;
+  right: -4%;
+}
+.ms-home-float--3 {
+  --z: 60px;
+  --d: -4s;
+  bottom: 7%;
+  left: 2%;
+}
+
+/* Combo Emprendedor: la sección destacada, con el borde y el degradado de marca. */
+.ms-home-combo {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(24px, 4vw, 56px);
+  border: 1px solid var(--border-accent);
+  border-radius: 22px;
+  background: linear-gradient(150deg, var(--primary-soft), transparent 50%), var(--surface-2);
+  box-shadow: var(--shadow-card);
+}
+.ms-home-combo::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+}
+/* El rótulo de la alianza respeta las mayúsculas de las marcas (como el del Combo de /paginas-web). */
+.ms-home-combo__eyebrow {
+  text-transform: none;
+}
+.ms-home-combo__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px 48px;
+  align-items: start;
+}
+.ms-home-combo__collab {
+  margin-top: 16px;
+  color: var(--text);
+}
+.ms-home-combo__sub {
+  margin-top: 10px;
+}
+.ms-home-combo__ticket {
+  min-width: 240px;
+  padding: 20px 24px;
+  border: 1px solid var(--border-accent);
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: var(--shadow-card);
+}
+.ms-home-combo__name {
+  margin: 0 0 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+.ms-home-combo__buy {
+  display: grid;
+  gap: 4px;
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid var(--hairline);
+}
+.ms-home-combo__buy .ms-pw-combo__actions {
+  justify-content: flex-start;
+}
+.ms-home-combo__buy .ms-pw-note {
+  margin-top: 12px;
+}
+
+/* Planes: el recomendado lleva su etiqueta sobre el borde y el degradado de marca. */
+.ms-home-plan-slot {
+  display: flex;
+  min-width: 0;
+}
+.ms-home-plan-slot > .ms-pw-plan {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ms-home-plan--featured {
+  position: relative;
+  border-color: var(--border-accent);
+  background: linear-gradient(160deg, var(--primary-soft), transparent 55%), var(--bg);
+  box-shadow: var(--shadow-lift);
+}
+.ms-home-badge {
+  position: absolute;
+  top: -14px;
+  left: 28px;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--btn-primary-text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+/* Por qué: cinco tarjetas, 3 + 2 en escritorio. */
+.ms-home-why {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 20px;
+  margin: 48px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ms-home-card {
+  display: grid;
+  grid-column: span 2;
+  align-content: start;
+  gap: 12px;
+  padding: 26px 24px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.2s, border-color 0.2s;
+}
+.ms-home-card:nth-child(n + 4) {
+  grid-column: span 3;
+}
+.ms-home-card .ms-pw-h3 + .ms-pw-text {
+  margin-top: 0;
+}
+.ms-home-card__icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border-accent);
+  border-radius: 11px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+@media (hover: hover) {
+  .ms-home-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--border-accent);
+  }
+}
+
+/* Proceso: encabezado fijo a la izquierda y pasos a la derecha. */
+.ms-home-process {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 48px clamp(40px, 6vw, 96px);
+  align-items: start;
+}
+.ms-home-process__head {
+  position: sticky;
+  top: 104px;
+}
+.ms-home-process .ms-pw-steps {
+  margin-top: 8px;
+}
+
+/* También hacemos: tarjetas discretas, de contorno discontinuo, siempre bajo cotización. */
+.ms-home-services {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin: 40px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ms-home-service {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+}
+.ms-home-tag {
+  margin: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text2);
+}
+.ms-home-textlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: auto;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  /* Al tabular, el foco no debe quedar bajo el Navbar fijo. */
+  scroll-margin-top: 96px;
+}
+.ms-home-textlink span {
+  transition: transform 0.2s;
+}
+.ms-home-textlink:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (hover: hover) {
+  .ms-home-textlink:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+  .ms-home-textlink:hover span {
+    transform: translateX(3px);
+  }
+}
+
+/* Cierre: panel centrado con los dos CTA de solicitud. */
+.ms-home-final {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(32px, 5vw, 64px) clamp(20px, 4vw, 48px);
+  border: 1px solid var(--border-accent);
+  border-radius: 22px;
+  background: radial-gradient(circle at 50% 0%, var(--primary-soft), transparent 70%), var(--surface-2);
+  text-align: center;
+}
+.ms-home-final .ms-pw-h2 {
+  max-width: 22ch;
+}
+.ms-home-final .ms-pw-lead {
+  max-width: 56ch;
+}
+.ms-home-final__actions {
+  justify-content: center;
+}
+.ms-home-final__alt {
+  margin-top: 28px;
+}
+
+@media (max-width: 960px) {
+  .ms-home-hero__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ms-home-stage {
+    min-height: 500px;
+  }
+  .ms-home-why {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ms-home-card,
+  .ms-home-card:nth-child(n + 4) {
+    grid-column: auto;
+  }
+  .ms-home-card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  .ms-home-process {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ms-home-process__head {
+    position: static;
+  }
+  .ms-home-combo__top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ms-home-combo__ticket {
+    justify-self: start;
+  }
+}
+@media (max-width: 720px) {
+  .ms-home-services {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ms-home-hero .ms-pw-fact,
+  .ms-home-hero .ms-pw-fact + .ms-pw-fact {
+    padding: 16px 0;
+  }
+}
+@media (max-width: 600px) {
+  .ms-home-why {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ms-home-card:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+}
+@media (max-width: 520px) {
+  .ms-home-stage {
+    min-height: 440px;
+  }
+  .ms-home-scene {
+    height: 420px;
+  }
+  .ms-home-phone {
+    width: 216px;
+    height: 420px;
+    margin-left: -108px;
+    border-radius: 34px;
+  }
+  .ms-home-screen {
+    border-radius: 25px;
+  }
+  .ms-home-float {
+    max-width: 156px;
+    padding: 8px 10px 8px 8px;
+    font-size: 12.5px;
+  }
+  .ms-home-float--1 {
+    --z: 40px;
+    left: 0;
+  }
+  .ms-home-float--2 {
+    --z: 50px;
+    right: 0;
+  }
+  .ms-home-float--3 {
+    --z: 30px;
+    left: 0;
+  }
+}
+@media (max-width: 480px) {
+  .ms-home-plan--featured .ms-home-badge {
+    left: 18px;
+  }
+  .ms-home-card {
+    padding: 22px 18px;
+  }
+  .ms-home-service {
+    padding: 20px 18px;
+  }
+}
+
+/* Movimiento reducido: sin animaciones ni transiciones, nada oculto y la escena en su pose fija. */
+@media (prefers-reduced-motion: reduce) {
+  .ms-home-rise,
+  .ms-home-float,
+  .ms-home[data-reveal-ready] [data-reveal].is-in {
+    animation: none;
+  }
+  .ms-home[data-reveal-ready] [data-reveal]:not(.is-in) {
+    opacity: 1;
+  }
+  .ms-home-scene,
+  .ms-home-card,
+  .ms-home-navcta,
+  .ms-home-textlink span {
+    transition: none;
+  }
+  .ms-home-card:hover,
+  .ms-home-textlink:hover span {
     transform: none;
   }
 }
