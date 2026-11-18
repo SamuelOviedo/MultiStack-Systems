@@ -19,8 +19,12 @@ const CHANNEL =
 
 /**
  * `/contacto`: encabezado de la referencia y, al lado, los otros canales. El formulario es el de siempre
- * (ContactForm: Edge Function, consentimiento, honeypot y conversión de Ads), con el aspecto del sitio. Los textos del
- * formulario no están en SITE_CONTENT: son los de ContactForm.
+ * (ContactForm: Edge Function, consentimiento y honeypot), con el aspecto del sitio. Los textos del formulario no están
+ * en SITE_CONTENT: son los de ContactForm.
+ *
+ * Aquí NO se envía la conversión de Ads: `/contacto` no está en `ADS_ROUTES` (lib/analytics) porque la Política de
+ * Privacidad v1.2 solo nombra la home, `/paginas-web` y las páginas legales. Medir `/contacto` exige antes publicar una
+ * Política nueva que nombre la ruta; sin eso no se añade a `ADS_ROUTES`.
  */
 const Contacto = () => {
   useEffect(() => applyPageMeta(PAGE_META), []);

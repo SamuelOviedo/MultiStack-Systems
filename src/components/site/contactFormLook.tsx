@@ -10,9 +10,12 @@ const ALERT = "font-mono text-[11px] text-site-destructive";
 /**
  * Aspecto del formulario de contacto en el sitio público (`.ms-site`): etiquetas mono pequeñas, campos oscuros con borde
  * sutil y foco teal, y botón primario de ancho completo. Es el aspecto del formulario de la referencia con la lógica de
- * ContactForm (Edge Function, consentimiento, honeypot y conversión de Ads), que no cambia. Usa los tokens `site-*`:
- * las variables MS del estilo por omisión (`--text`, `--primary`…) no existen dentro de `.ms-site`, y sin `style` en línea
- * el foco, el borde de error y el estado deshabilitado se resuelven con clases.
+ * ContactForm (Edge Function, consentimiento y honeypot), que no cambia. Usa los tokens `site-*`: las variables MS del
+ * estilo por omisión (`--text`, `--primary`…) no existen dentro de `.ms-site`, y sin `style` en línea el foco, el borde
+ * de error y el estado deshabilitado se resuelven con clases.
+ *
+ * En `/contacto` este formulario no envía la conversión de Ads: la ruta no está en `ADS_ROUTES` (lib/analytics) por la
+ * Política de Privacidad v1.2. Medir `/contacto` exige antes publicar una Política nueva que nombre la ruta.
  */
 export const SITE_CONTACT_LOOK: ContactFormLook = {
   form: { className: "flex flex-col gap-4" },

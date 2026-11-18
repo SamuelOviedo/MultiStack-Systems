@@ -17,9 +17,9 @@ const COMMITMENTS_OTHER: Commitments = {
   domainHostingMonths: 18,
 };
 const CHANNELS_OTHER: Channels = {
-  whatsappUrl: "https://wa.me/50499887766",
-  phoneDisplay: "+504 9988-7766",
-  phoneHref: "tel:+50499887766",
+  whatsappUrl: "https://wa.me/50400000002",
+  phoneDisplay: "+504 0000-0002",
+  phoneHref: "tel:+50400000002",
   instagramUrl: CHANNELS.instagramUrl,
   facebookUrl: CHANNELS.facebookUrl,
   location: CHANNELS.location,
@@ -139,20 +139,20 @@ describe("buildSiteContent: cada valor nuevo aparece donde corresponde", () => {
 
   it("contacto: horas de respuesta, teléfono y WhatsApp de CHANNELS en la vista, el pie y los enlaces prellenados", () => {
     expect(content.contactView.intro).toContain("menos de 36 horas hábiles");
-    expect(content.contactView.phone).toEqual({ label: "Llama al +504 9988-7766", href: "tel:+50499887766" });
-    expect(content.contactView.whatsapp.href).toBe("https://wa.me/50499887766");
-    expect(content.footer.phone).toEqual({ label: "+504 9988-7766", href: "tel:+50499887766" });
-    expect(content.footer.whatsapp.href).toBe("https://wa.me/50499887766");
-    expect(content.hero.secondaryCta.href).toMatch(/^https:\/\/wa\.me\/50499887766\?text=/);
+    expect(content.contactView.phone).toEqual({ label: "Llama al +504 0000-0002", href: "tel:+50400000002" });
+    expect(content.contactView.whatsapp.href).toBe("https://wa.me/50400000002");
+    expect(content.footer.phone).toEqual({ label: "+504 0000-0002", href: "tel:+50400000002" });
+    expect(content.footer.whatsapp.href).toBe("https://wa.me/50400000002");
+    expect(content.hero.secondaryCta.href).toMatch(/^https:\/\/wa\.me\/50400000002\?text=/);
     for (const item of content.servicesView.items) {
-      expect(item.cta.href, item.id).toMatch(/^https:\/\/wa\.me\/50499887766\?text=/);
+      expect(item.cta.href, item.id).toMatch(/^https:\/\/wa\.me\/50400000002\?text=/);
     }
   });
 
   it("metas: precios, teléfono y horas siguen a los datos nuevos", () => {
     expect(content.meta.home.description).toContain("L 4,100");
     expect(content.meta.planes.description).toContain("Plan Intermedio L 8,200");
-    expect(content.meta.contacto.description).toContain("+504 9988-7766");
+    expect(content.meta.contacto.description).toContain("+504 0000-0002");
     expect(content.meta.contacto.ogDescription).toContain("36 horas hábiles");
   });
 

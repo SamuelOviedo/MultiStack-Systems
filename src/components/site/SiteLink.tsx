@@ -1,7 +1,7 @@
 import { forwardRef, type AnchorHTMLAttributes, type MouseEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { rememberPackageIntent, type PackageIntentId } from "@/lib/packageIntent";
-import { isInternalTarget, withPreservedSearch } from "./siteLinks";
+import { isInternalTarget, isSafeExternalTarget, withPreservedSearch } from "./siteLinks";
 
 export interface SiteLinkProps extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> {
   /** Ruta de la app (`/planes`, `/#contacto`, `#contacto`) o URL externa (https:, mailto:, tel:). */
@@ -15,7 +15,8 @@ export interface SiteLinkProps extends Omit<AnchorHTMLAttributes<HTMLAnchorEleme
 
 /**
  * Enlace del sitio público. Interno: un `<Link>` de react-router (navega sin recargar) con la query de atribución de
- * Ads aplicada (ver siteLinks.ts). Externo: un `<a>` normal; con `target="_blank"` añade `rel="noopener noreferrer"`.
+ * Ads aplicada (ver siteLinks.ts). Externo (https:, mailto: o tel:): un `<a>` normal; con `target="_blank"` añade
+ * `rel="noopener noreferrer"`. Cualquier otro destino se pinta como texto, sin enlace.
  * Úsalo en el encabezado, el pie y todo CTA entre vistas del sitio.
  */
 export const SiteLink = forwardRef<HTMLAnchorElement, SiteLinkProps>(function SiteLink(
@@ -29,6 +30,12 @@ export const SiteLink = forwardRef<HTMLAnchorElement, SiteLinkProps>(function Si
   };
 
   if (!isInternalTarget(to)) {
+    // Ni ruta de la app ni https:, mailto: o tel:: se pinta solo el texto, sin enlace (`javascript:`, `data:` y `http:`
+    // no llegan a un `href`). Hoy todos los destinos son constantes; es defensa en profundidad.
+    if (!isSafeExternalTarget(to)) {
+      if (import.meta.env.DEV) console.warn(`SiteLink: destino no permitido, se pinta como texto: ${to}`);
+      return <>{rest.children}</>;
+    }
     return (
       <a
         ref={ref}

@@ -6,7 +6,8 @@ const remember = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/packageIntent", () => ({ rememberPackageIntent: remember }));
 
 import { SiteLink } from "@/components/site/SiteLink";
-import { isCampaignParam, isInternalTarget, withPreservedSearch } from "@/components/site/siteLinks";
+import { isInternalTarget, isSafeExternalTarget, withPreservedSearch } from "@/components/site/siteLinks";
+import { isCampaignParam } from "@/lib/campaignParams";
 
 afterEach(() => remember.mockReset());
 
@@ -60,6 +61,61 @@ describe("withPreservedSearch", () => {
   });
 });
 
+describe("isInternalTarget: lo que el navegador resolvería a otro sitio no es interno", () => {
+  it.each([
+    "/\\evil.test",
+    "/\\/evil.test",
+    "\\\\evil.test",
+    "\\evil.test",
+    "/planes\\x",
+    "//evil.test",
+    "//",
+    "/\t/evil.test",
+    "/\n/evil.test",
+    "/\r/evil.test",
+    "/\u0000/evil.test",
+    "#a\\b",
+  ])("%j se rechaza", (to) => {
+    expect(isInternalTarget(to)).toBe(false);
+  });
+
+  it.each(["/", "/planes", "/planes?paquete=combo-emprendedor#x", "/#contacto", "#contacto", "/a/b"])("%j sigue siendo interno", (to) => {
+    expect(isInternalTarget(to)).toBe(true);
+  });
+
+  it("withPreservedSearch no le añade query a lo rechazado", () => {
+    expect(withPreservedSearch("/\\evil.test", "?gclid=abc", "/")).toBe("/\\evil.test");
+  });
+});
+
+describe("isSafeExternalTarget: solo https:, mailto: y tel:", () => {
+  it.each([
+    "https://wa.me/50400000000?text=Hola%20MultiStack",
+    "HTTPS://example.test/x",
+    "mailto:hola@example.test",
+    "tel:+50400000000",
+  ])("%j se acepta", (to) => {
+    expect(isSafeExternalTarget(to)).toBe(true);
+  });
+
+  it.each([
+    "javascript:alert(1)",
+    "JavaScript:alert(1)",
+    " javascript:alert(1)",
+    "java\tscript:alert(1)",
+    "data:text/html,<b>x</b>",
+    "http://example.test",
+    "vbscript:x",
+    "file:///etc/passwd",
+    "blob:https://example.test/x",
+    "//evil.test",
+    "example.test/x",
+    "",
+  ])("%j se rechaza", (to) => {
+    expect(isSafeExternalTarget(to)).toBe(false);
+  });
+});
+
 function renderLink(ui: React.ReactElement, path = "/?gclid=abc&utm_source=x&foo=1") {
   return render(<MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>);
 }
@@ -84,6 +140,38 @@ describe("SiteLink", () => {
     const link = screen.getByRole("link", { name: "WhatsApp" });
     expect(link).toHaveAttribute("href", "https://wa.me/50400000000");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("mailto: y tel: se pintan como enlace", () => {
+    renderLink(
+      <>
+        <SiteLink to="mailto:hola@example.test">Correo</SiteLink>
+        <SiteLink to="tel:+50400000000">Llamar</SiteLink>
+      </>,
+    );
+    expect(screen.getByRole("link", { name: "Correo" })).toHaveAttribute("href", "mailto:hola@example.test");
+    expect(screen.getByRole("link", { name: "Llamar" })).toHaveAttribute("href", "tel:+50400000000");
+  });
+
+  it.each(["javascript:alert(1)", " javascript:alert(1)", "data:text/html,x", "http://example.test", "vbscript:x"])(
+    "el destino %j no se pinta como enlace: queda solo el texto",
+    (to) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { container } = renderLink(<SiteLink to={to}>Texto del enlace</SiteLink>);
+      expect(screen.queryByRole("link")).toBeNull();
+      expect(container.querySelector("a")).toBeNull();
+      expect(container.innerHTML).not.toContain("href");
+      expect(container.textContent).toBe("Texto del enlace");
+      warn.mockRestore();
+    },
+  );
+
+  it("un destino que el navegador resolvería a otro sitio (/\\host) tampoco es un enlace", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { container } = renderLink(<SiteLink to="/\\evil.test">Texto</SiteLink>);
+    expect(container.querySelector("a")).toBeNull();
+    expect(container.textContent).toBe("Texto");
+    warn.mockRestore();
   });
 
   it("con packageId guarda la intención con clic y con clic medio, y respeta el onClick del llamador", () => {

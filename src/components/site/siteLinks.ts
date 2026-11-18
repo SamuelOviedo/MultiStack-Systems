@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useLocation } from "react-router-dom";
+import { isCampaignParam, keyOf, rawPairs } from "@/lib/campaignParams";
 
 /**
  * Atribución de Google Ads en la navegación interna del sitio público.
@@ -15,36 +16,46 @@ import { useLocation } from "react-router-dom";
  * - Los pares se copian TAL CUAL, sin decodificar ni volver a codificar: la analítica descarta un click-id con
  *   `%xx` o `+`, y `URLSearchParams` re-codificaría `=` o `~` de un gclid válido.
  * - Si el destino ya trae un parámetro con la misma clave (p. ej. `?paquete=`), manda el del destino.
- * - Enlaces externos (https:, mailto:, tel:) no se tocan.
+ * - Enlaces externos (https:, mailto:, tel:) no se tocan. Cualquier otro esquema no es un enlace (`isSafeExternalTarget`).
+ *
+ * Los click-ids y `isCampaignParam` están en `@/lib/campaignParams`, que también usa la redirección de las anclas
+ * antiguas de la home.
  */
 
-/** Click-ids que gtag.js lee de la URL (misma lista que `GTAG_CLICK_PARAM_KEYS` de lib/analytics). */
-export const CLICK_ID_PARAMS: readonly string[] = [
-  "gclid",
-  "gbraid",
-  "wbraid",
-  "dclid",
-  "gclsrc",
-  "gad_source",
-  "gad_campaignid",
-];
-
-/** true si es un parámetro de campaña que viaja entre rutas distintas. */
-export function isCampaignParam(key: string): boolean {
-  const lower = key.toLowerCase();
-  return CLICK_ID_PARAMS.includes(lower) || lower.startsWith("utm_");
+/** Barra invertida o carácter de control (tabulador, salto de línea…): el navegador los normaliza al resolver la URL. */
+function hasUnsafePathChar(to: string): boolean {
+  for (let i = 0; i < to.length; i += 1) {
+    const code = to.charCodeAt(i);
+    if (code === 0x5c || code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
 }
 
-/** Ruta de la app: `/algo`, `/algo?x=1#y` o un ancla `#y`. «//host» es una URL con protocolo implícito: no. */
+/**
+ * Ruta de la app: `/algo`, `/algo?x=1#y` o un ancla `#y`. No lo son «//host» (protocolo implícito) ni lo que lleve una
+ * barra invertida o un carácter de control: el navegador convierte `/\host` y `/<tab>/host` en `//host` y navegaría a
+ * otro sitio.
+ */
 export function isInternalTarget(to: string): boolean {
+  if (hasUnsafePathChar(to)) return false;
   return (to.startsWith("/") && !to.startsWith("//")) || to.startsWith("#");
 }
 
-const rawPairs = (query: string): string[] => query.replace(/^\?/, "").split("&").filter(Boolean);
-const keyOf = (pair: string): string => {
-  const eq = pair.indexOf("=");
-  return eq < 0 ? pair : pair.slice(0, eq);
-};
+const EXTERNAL_PROTOCOLS: ReadonlySet<string> = new Set(["https:", "mailto:", "tel:"]);
+
+/**
+ * Destino externo que puede pintarse como enlace: solo `https:`, `mailto:` y `tel:`. La decisión se toma sobre el
+ * protocolo que analiza `new URL` y no sobre un prefijo de texto: el analizador descarta espacios y tabuladores
+ * iniciales o internos y no distingue mayúsculas, así que `" javascript:x"` o `"java\tscript:x"` no se cuelan. React 18
+ * no filtra `href="javascript:…"`.
+ */
+export function isSafeExternalTarget(to: string): boolean {
+  try {
+    return EXTERNAL_PROTOCOLS.has(new URL(to).protocol);
+  } catch {
+    return false;
+  }
+}
 
 /** Destino con la query de atribución de `currentSearch` aplicada según la regla del encabezado de este módulo. */
 export function withPreservedSearch(to: string, currentSearch: string, currentPathname: string): string {

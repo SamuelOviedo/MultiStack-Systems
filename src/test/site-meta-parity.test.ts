@@ -136,7 +136,7 @@ describe("buildViewMetas no escribe ningún dato a mano", () => {
       { name: "Plan Gamma", priceLempiras: 4650 },
     ],
     techonName: "SoporteX",
-    phoneDisplay: "+504 9988-7766",
+    phoneDisplay: "+504 0000-0002",
     responseBusinessHours: 36,
   };
 
@@ -148,7 +148,7 @@ describe("buildViewMetas no escribe ningún dato a mano", () => {
     expect(metas.planes.description).toContain("Plan Alfa L 4,100, Plan Beta L 8,200 y Plan Gamma L 4,650");
     expect(metas.planes.ogDescription).toContain("L 4,100");
     expect(metas.servicios.description).toContain("SoporteX");
-    expect(metas.contacto.description).toContain("+504 9988-7766");
+    expect(metas.contacto.description).toContain("+504 0000-0002");
     expect(metas.contacto.ogDescription).toContain("36 horas hábiles");
 
     for (const plan of ROUTE_META_FACTS.plans) {

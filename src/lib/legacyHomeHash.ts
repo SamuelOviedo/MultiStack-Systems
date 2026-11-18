@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { campaignSearch } from "@/lib/campaignParams";
 
 /**
  * Rutas de las vistas que antes eran secciones de la home. Son las mismas de `SITE_PATHS` (siteContent.ts); se escriben
@@ -41,14 +42,15 @@ function anchorOf(hash: string): string {
 }
 
 /**
- * Destino al que lleva una ancla antigua de la home, o `null` si la URL no es una de ellas. Conserva la query (la de
- * Ads y las campañas) y descarta el hash, que en la vista nueva ya no apunta a nada. Solo mira la home: `/planes#x`
- * no se toca.
+ * Destino al que lleva una ancla antigua de la home, o `null` si la URL no es una de ellas. De la query solo conserva
+ * los parámetros de campaña (click-ids de Google y `utm_*`, copiados tal cual), la misma regla que los enlaces entre
+ * rutas del sitio (`campaignSearch`): `redirect`, `code`, `error`, `token` y demás parámetros funcionales no pasan a la
+ * vista nueva. Descarta el hash, que en la vista nueva ya no apunta a nada. Solo mira la home: `/planes#x` no se toca.
  */
 export function legacyHomeDestination(location: HomeLocation): string | null {
   if (location.pathname !== "/" || location.hash.length < 2) return null;
   const destination = LEGACY_HOME_ANCHORS.get(anchorOf(location.hash));
-  return destination ? `${destination}${location.search}` : null;
+  return destination ? `${destination}${campaignSearch(location.search)}` : null;
 }
 
 /** El `id` de la home nueva al que apunta un ancla antigua que se queda en `/`, o `null` si la URL no es una de ellas. */

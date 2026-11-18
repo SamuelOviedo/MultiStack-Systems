@@ -47,10 +47,40 @@ describe("legacyHomeDestination", () => {
     expect(legacyHomeDestination(at("/", "", hash))).toBe(destination);
   });
 
-  it("conserva la query y descarta el hash", () => {
+  it("conserva los parámetros de campaña y descarta el hash", () => {
     expect(legacyHomeDestination(at("/", "?gclid=PRUEBA&utm_source=x", "#planes"))).toBe(
       "/planes?gclid=PRUEBA&utm_source=x",
     );
+  });
+
+  it.each(["redirect=//evil.test", "code=abc", "error=access_denied", "token=x", "access_token=eyJ.x.y", "foo=bar"])(
+    "el parámetro funcional %s no pasa a la vista nueva, con o sin parámetros de campaña",
+    (pair) => {
+      expect(legacyHomeDestination(at("/", `?${pair}`, "#planes"))).toBe("/planes");
+      expect(legacyHomeDestination(at("/", `?gclid=PRUEBA&${pair}&utm_source=x`, "#planes"))).toBe(
+        "/planes?gclid=PRUEBA&utm_source=x",
+      );
+    },
+  );
+
+  it("el caso de la auditoría: code, redirect y token no sobreviven; los click-ids y utm_* sí, tal cual", () => {
+    expect(legacyHomeDestination(at("/", "?code=abc&redirect=//evil.test&token=x", "#planes"))).toBe("/planes");
+    expect(
+      legacyHomeDestination(at("/", "?code=abc&gclid=AbC_1-2.3~4=&redirect=//evil.test&UTM_Source=x&gbraid=ZZ%2F&token=x", "#contacto")),
+    ).toBe("/contacto?gclid=AbC_1-2.3~4=&UTM_Source=x&gbraid=ZZ%2F");
+  });
+
+  it.each(["gclid", "gbraid", "wbraid", "dclid", "gclsrc", "gad_source", "gad_campaignid", "utm_campaign"])(
+    "%s viaja a la vista nueva",
+    (key) => {
+      expect(legacyHomeDestination(at("/", `?${key}=v`, "#servicios"))).toBe(`/servicios?${key}=v`);
+    },
+  );
+
+  it("sin parámetros de campaña el destino queda sin `?`", () => {
+    expect(legacyHomeDestination(at("/", "?", "#planes"))).toBe("/planes");
+    expect(legacyHomeDestination(at("/", "?&&", "#planes"))).toBe("/planes");
+    expect(legacyHomeDestination(at("/", "?code=abc", "#planes"))).toBe("/planes");
   });
 
   it.each(["#inicio", "#proceso", "#por-que-elegirnos", "#preguntas", "#solicitar", "#faq", "#Planes", "#planes-x", "#", ""])(
@@ -185,6 +215,8 @@ describe("LegacyHomeGate", () => {
     ["/#servicios", "/servicios"],
     ["/?gclid=PRUEBA#planes", "/planes?gclid=PRUEBA"],
     ["/?gclid=PRUEBA&utm_campaign=a#contacto", "/contacto?gclid=PRUEBA&utm_campaign=a"],
+    ["/?code=abc&redirect=//evil.test&token=x#planes", "/planes"],
+    ["/?code=abc&gclid=PRUEBA&redirect=//evil.test&access_token=x&utm_source=g#planes", "/planes?gclid=PRUEBA&utm_source=g"],
   ])("%s redirige a %s sin montar la home", (entry, destination) => {
     renderAt(entry);
     expect(screen.getByTestId("where").textContent).toBe(destination);
