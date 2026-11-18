@@ -14,3 +14,4 @@ paths:
 - Los mocks de producto usan datos ficticios y llevan `role="img"` con un `aria-label` descriptivo.
 - Nombres, estados y enlaces de productos salen de `PRODUCTS`; un producto `soon` o `dev` nunca se presenta como disponible.
 - Nunca inventes testimonios, clientes, cifras ni logos.
+- Crédito «Desarrollado por MultiStack Systems»: usa `DevCredit` de `snippets/credito-multistack/` y sigue `docs/standards/CREDITO-MULTISTACK.md`; en nuestro pie va en modo `ownSite`.

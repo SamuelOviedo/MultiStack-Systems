@@ -336,6 +336,7 @@ The product is built on **shadcn/ui** primitives (Radix + CVA + `tailwind-merge`
 | Manual element | Component file | Notes |
 |---|---|---|
 | **Brand logo / lockup** | `src/components/common/Logo.tsx` (site), `src/components/admin/BrandMark.tsx` (admin) | Theme-aware official isotipo, lockup and full logo (see §2). |
+| **Developer credit** («Desarrollado por MultiStack Systems») | `snippets/credito-multistack/DevCredit.tsx` | Footer credit for the sites we build, our own included (`ownSite` mode). Single source and rules in [`docs/standards/CREDITO-MULTISTACK.md`](../standards/CREDITO-MULTISTACK.md); the monochrome, animated isotipo is an approved exception limited to this credit (standard §11). |
 | **Buttons & states** | `src/components/ui/button.tsx` | CVA variants: `default` (solid primary), `outline`, `secondary`, `ghost`, `link`, `destructive`. Sizes `sm/default/lg/icon`. Focus ring + `disabled:opacity-50` built in. |
 | **Inputs** | `src/components/ui/input.tsx` | `h-10`, `rounded-md`, `border-input`, `bg-background`, focus-visible ring, `disabled` states. |
 | **Textarea / Select / Checkbox / Radio / Switch** | `src/components/ui/{textarea,select,checkbox,radio-group,switch}.tsx` | Same token + focus conventions. |
