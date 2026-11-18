@@ -8,7 +8,7 @@ import Logo from "@/components/common/Logo";
 import { cinematicToken, cinematicVars, useMsThemeVars } from "@/lib/msTokens";
 import { useCinematicTheme } from "@/hooks/useCinematicTheme";
 import { rememberPackageIntent } from "@/lib/packageIntent";
-import type { HomeNav } from "@/pages/marketing/homeContent";
+import type { HomeNav } from "@/components/common/legacyNav";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -76,10 +76,10 @@ interface SectionLink {
 }
 
 /**
- * Anchors of the public landing ("/"), taken from the `homeNav` prop (the
- * page owns its copy: `HOME_CONTENT.nav`). Rendered ONLY when `isHome` and the
- * page passes it: the dashboard, client and legal pages never show them, so
- * marketing copy can change without touching the internal app's navigation.
+ * Section anchors for the `homeNav` prop (shape and legacy copy in `legacyNav.ts`).
+ * Rendered ONLY when `isHome` and the page passes it. No page passes it any more
+ * (the public site has its own header, `SiteHeader`): the dashboard, client and
+ * legal pages never show them.
  */
 const NO_SECTIONS: readonly SectionLink[] = [];
 

@@ -1,4 +1,4 @@
-> **Estado: Sustituida el 2026-11-17 por la landing web-first (`src/pages/marketing/homeContent.ts`).**
+> **Estado: Sustituida el 2026-11-17 por la landing web-first (`homeContent.ts`, retirada a su vez por el sitio nuevo: `src/pages/marketing/siteContent.ts`).**
 
 # Feature Specification: Landing cinemática + Servicios Productizados de IA
 

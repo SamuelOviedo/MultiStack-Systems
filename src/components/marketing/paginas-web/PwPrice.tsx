@@ -20,17 +20,7 @@ interface PwPriceProps {
  * «Solicitar …», que guarda la intención de paquete y abre /solicitudes?paquete=<id>; el del Combo es el principal
  * y el del Plan Estándar es el secundario.
  */
-export const PwPlan = ({
-  plan,
-  badge,
-  featured,
-}: {
-  plan: PaginasWebPricePackage;
-  /** Etiqueta sobre el nombre (la home marca el Combo como «Recomendado para empezar»). */
-  badge?: string;
-  /** Tarjeta destacada: borde y fondo de marca. */
-  featured?: boolean;
-}) => {
+export const PwPlan = ({ plan }: { plan: PaginasWebPricePackage }) => {
   const cardId = packageCardId(plan.id);
   const nameId = `${cardId}-nombre`;
   const amountId = `${cardId}-precio`;
@@ -41,9 +31,8 @@ export const PwPlan = ({
       id={cardId}
       data-package={plan.id}
       aria-labelledby={`${nameId} ${amountId}`}
-      className={featured ? "ms-pw-plan ms-home-plan--featured" : "ms-pw-plan"}
+      className="ms-pw-plan"
     >
-      {badge && <p className="ms-home-badge">{badge}</p>}
       <h3 id={nameId} className="ms-pw-h3">
         {plan.name}
       </h3>

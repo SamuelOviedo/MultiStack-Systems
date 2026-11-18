@@ -65,6 +65,13 @@ describe("Login · aviso de paquete", () => {
     expect(screen.getByRole("note").textContent).toContain("Estás solicitando el Plan Estándar (L 3,5003500 lempiras).");
   });
 
+  it("con el Intermedio dice «el Plan Intermedio (L 7,500)»", () => {
+    rememberPackageIntent("intermedio");
+    renderAt(<Login />);
+
+    expect(screen.getByRole("note").textContent).toContain("Estás solicitando el Plan Intermedio (L 7,5007500 lempiras).");
+  });
+
   it("no borra la intención: la usa Mis solicitudes después de iniciar sesión", () => {
     rememberPackageIntent("combo-emprendedor");
     renderAt(<Login />);

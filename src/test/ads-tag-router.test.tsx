@@ -205,6 +205,29 @@ describe("navegación SPA", () => {
   });
 });
 
+// Un enlace antiguo de la home (`/#planes`…) pasa un instante por «/» antes de que LegacyHomeGate lo lleve a su vista. Esa
+// parada no es una visita a la home: AdsTagRouteSync no la mide. Aquí no hay LegacyHomeGate: lo que se prueba es la guarda
+// de AdsTagRouteSync por sí sola, sin depender del orden de los efectos de la página (que hoy la haría innecesaria).
+describe("anclas antiguas de la home", () => {
+  it.each(["#planes", "#combo-emprendedor", "#contacto", "#servicios"])(
+    "/?gclid=PRUEBA%s: la parada en «/» antes de la redirección no carga la etiqueta ni cuenta un page_view",
+    async (hash) => {
+      await boot({ url: `/?gclid=PRUEBA${hash}` });
+      expectNothingLoaded();
+    },
+  );
+
+  it.each(["#inicio", "#por-que-elegirnos", "#proceso", "#preguntas", "#solicitar"])(
+    "/?gclid=PRUEBA%s se queda en la home: sí carga la etiqueta y cuenta un solo page_view de «/»",
+    async (hash) => {
+      await boot({ url: `/?gclid=PRUEBA${hash}` });
+      expect(scriptTags()).toHaveLength(1);
+      fireTagLoad();
+      expect(pageViews()).toEqual([{ page_location: `${ORIGIN}/?gclid=PRUEBA`, page_referrer: "" }]);
+    },
+  );
+});
+
 describe("historial y pushState de otro código", () => {
   it("al revés: el router dice ruta privada pero el navegador está en una permitida, sin eventos", async () => {
     const analytics = await boot({ url: "/" });

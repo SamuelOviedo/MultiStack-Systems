@@ -12,10 +12,11 @@ import {
   buildPackageRequest,
   requiresLauConsent,
 } from "@/lib/packageRequest";
-import { PACKAGES } from "@/lib/webPackages";
+import { PACKAGES, SITE_PLANS } from "@/lib/webPackages";
 
 const COMBO = PACKAGES.find((pkg) => pkg.id === "combo-emprendedor")!;
 const STANDARD = PACKAGES.find((pkg) => pkg.id === "estandar")!;
+const INTERMEDIO = SITE_PLANS.find((pkg) => pkg.id === "intermedio")!;
 
 describe("buildPackageRequest · textos exactos", () => {
   it("Combo con negocio y mensaje: título y descripción exactos", () => {
@@ -41,6 +42,22 @@ describe("buildPackageRequest · textos exactos", () => {
       description: [
         "Paquete solicitado: Plan Estándar (L 3,500)",
         "Esta solicitud no es un pago ni un contrato.",
+      ].join("\n"),
+    });
+  });
+
+  it("Intermedio con negocio y mensaje: título y descripción exactos, sin línea de consentimiento", () => {
+    expect(
+      buildPackageRequest(INTERMEDIO, { consentLau: false, businessName: "Ferretería Sol", message: "Quiero aparecer en Google." }),
+    ).toEqual({
+      title: "Solicitud: Plan Intermedio",
+      description: [
+        "Paquete solicitado: Plan Intermedio (L 7,500)",
+        "Esta solicitud no es un pago ni un contrato.",
+        "",
+        "Negocio: Ferretería Sol",
+        "Mensaje del cliente:",
+        "> Quiero aparecer en Google.",
       ].join("\n"),
     });
   });
@@ -77,6 +94,12 @@ describe("buildPackageRequest · textos exactos", () => {
     expect(buildPackageRequest(STANDARD, { consentLau: true }).description).not.toContain("LAU Graphic");
     expect(requiresLauConsent(COMBO)).toBe(true);
     expect(requiresLauConsent(STANDARD)).toBe(false);
+  });
+
+  it("de los tres planes del sitio, solo el Combo pide el consentimiento de LAU Graphic", () => {
+    expect(SITE_PLANS.filter(requiresLauConsent).map((pkg) => pkg.id)).toEqual(["combo-emprendedor"]);
+    // Como en el Estándar, una casilla en true no escribe la línea: el Intermedio no comparte datos con LAU Graphic.
+    expect(buildPackageRequest(INTERMEDIO, { consentLau: true }).description).not.toContain("LAU Graphic");
   });
 });
 
@@ -138,6 +161,10 @@ describe("buildPackageRequest · consentimiento", () => {
 
   it("el Estándar no exige consentimiento", () => {
     expect(() => buildPackageRequest(STANDARD, { consentLau: false })).not.toThrow();
+  });
+
+  it("el Intermedio tampoco exige consentimiento", () => {
+    expect(() => buildPackageRequest(INTERMEDIO, { consentLau: false })).not.toThrow();
   });
 });
 

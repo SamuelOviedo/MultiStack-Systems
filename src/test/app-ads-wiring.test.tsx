@@ -163,11 +163,16 @@ async function mountApp(url: string, { clientStartup = false }: MountOptions = {
   });
 }
 
-// El h1 de la home web-first (HOME_CONTENT.hero.title).
+// El h1 de la home (SITE_CONTENT.hero.title.plainText).
 const findHome = () => screen.findByRole("heading", { level: 1, name: "Páginas web para negocios en Honduras" }, WAIT);
 const findLanding = () => screen.findByRole("heading", { level: 1, name: "Páginas web en Honduras" }, WAIT);
 const findPrivacy = () => screen.findByRole("heading", { level: 1, name: "Política de Privacidad" }, WAIT);
 const findTerms = () => screen.findByRole("heading", { level: 1, name: "Términos del Servicio" }, WAIT);
+// El h1 de cada vista nueva del sitio (SITE_CONTENT.plansView / servicesView / contactView).
+const findPlans = () => screen.findByRole("heading", { level: 1, name: "Planes claros, en lempiras" }, WAIT);
+const findServices = () =>
+  screen.findByRole("heading", { level: 1, name: "Tecnología que trabaja para tu negocio" }, WAIT);
+const findContact = () => screen.findByRole("heading", { level: 1, name: "Cuéntanos qué necesitas" }, WAIT);
 const findLogin = () => screen.findByRole("heading", { level: 2, name: "Iniciar sesión" }, WAIT);
 /** /auth/update-password sin sesión de recuperación: la pantalla solo ofrece pedir un enlace nuevo. */
 const findNoRecoverySession = () =>
@@ -258,6 +263,49 @@ describe("App · las otras rutas públicas lazy (legales)", () => {
   );
 });
 
+// La Política de Privacidad (apartado 2.5) limita la etiqueta a inicio, /paginas-web, la Política y los Términos: las
+// vistas nuevas del sitio quedan fuera de ADS_ROUTES y no cargan ni script ni dataLayer.
+describe("App · las vistas del sitio (/planes, /servicios, /contacto) no cargan la etiqueta", () => {
+  it.each([
+    ["/planes", findPlans],
+    ["/servicios", findServices],
+    ["/contacto", findContact],
+  ])(
+    "%s no carga ni el script ni el dataLayer, con la etiqueta configurada",
+    async (path, findPage) => {
+      await mountApp(path);
+      expect(await findPage()).toBeInTheDocument();
+      expectNothingLoaded();
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    "un enlace antiguo (/?gclid=PRUEBA#contacto) llega a /contacto con su gclid y la parada en «/» no cuenta ningún page_view",
+    async () => {
+      await mountApp("/?gclid=PRUEBA&utm_source=x#contacto");
+      expect(await findContact()).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/contacto");
+      expect(window.location.search).toBe("?gclid=PRUEBA&utm_source=x");
+      expect(window.location.hash).toBe("");
+      // «/» sí es una ruta de la etiqueta: sin la guarda de AdsTagRouteSync la parada de un instante la habría cargado.
+      expectNothingLoaded();
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    "un enlace antiguo con ancla (/#planes) sale de «/» y no deja script ni page_view en ningún momento",
+    async () => {
+      await mountApp("/?gclid=PRUEBA#planes");
+      expect(await findPlans()).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/planes");
+      expectNothingLoaded();
+    },
+    TEST_TIMEOUT,
+  );
+});
+
 describe("App · «/» y navegación dentro del SPA", () => {
   it(
     "«/» muestra la home y carga UN script con un page_view",
@@ -280,7 +328,7 @@ describe("App · «/» y navegación dentro del SPA", () => {
       fireTagLoad();
       expect(pageViews()).toHaveLength(1);
 
-      click("button", "Política de Privacidad");
+      click("link", "Política de privacidad");
       expect(await findPrivacy()).toBeInTheDocument();
       expect(window.location.pathname).toBe("/politica-de-privacidad");
 
@@ -388,7 +436,7 @@ describe("App · rutas privadas y redirecciones: nada se carga", () => {
       expect(before).toBe(3); // js, config y el page_view de «/»
       expect(gtagScripts()).toHaveLength(1);
 
-      click("link", "[ ACCEDER ]");
+      click("link", "[ mi panel ]"); // /solicitudes sin sesión: ProtectedRoute redirige a /login
       expect(await findLogin()).toBeInTheDocument();
       expect(window.location.pathname).toBe("/login");
       expect(layerEntries()).toHaveLength(before);
@@ -416,7 +464,7 @@ describe("App · rutas privadas y redirecciones: nada se carga", () => {
       expect(window.gtag).toBeUndefined();
       expect(window.dataLayer).toBeUndefined();
 
-      click("link", "[ ACCEDER ]");
+      click("link", "[ mi panel ]"); // /solicitudes sin sesión: ProtectedRoute redirige a /login
       expect(await findLogin()).toBeInTheDocument();
       expect(window.location.pathname).toBe("/login");
 
@@ -536,6 +584,9 @@ describe("App · con una sesión guardada en localStorage no se carga nada", () 
   it.each([
     ["/", findHome],
     ["/paginas-web", findLanding],
+    ["/planes", findPlans],
+    ["/servicios", findServices],
+    ["/contacto", findContact],
   ])(
     "%s: la clave sb-prueba-auth-token deja la etiqueta inerte",
     async (path, findPage) => {

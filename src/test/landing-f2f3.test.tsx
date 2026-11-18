@@ -1,5 +1,5 @@
 // Quedan solo lo que sigue vivo tras retirar la landing de IA: el prefill de ContactForm (lo usa la home con los
-// mensajes de HOME_CONTENT) y las variantes de la barra («overlay» sigue en el Navbar).
+// mensajes de la home anterior) y las variantes de la barra («overlay» sigue en el Navbar).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";

@@ -168,6 +168,23 @@ describe("isAdsRoute", () => {
   });
 });
 
+// La Política de Privacidad (apartado 2.5) dice que la etiqueta se carga SOLO en inicio, /paginas-web, la propia Política
+// y los Términos. Las vistas nuevas del sitio no están en esa lista y no deben estarlo sin cambiar la Política.
+describe("isAdsRoute · las vistas del sitio no cargan la etiqueta", () => {
+  it.each(["/planes", "/planes/", "/servicios", "/servicios/", "/contacto", "/contacto/"])(
+    "rechaza %j (no es una ruta de la Política)",
+    (pathname) => {
+      expect(isAdsRoute(pathname)).toBe(false);
+    },
+  );
+
+  it("ninguna de las tres está en ADS_ROUTES", () => {
+    for (const route of ["/planes", "/servicios", "/contacto"]) {
+      expect(ADS_ROUTES as readonly string[]).not.toContain(route);
+    }
+  });
+});
+
 describe("getAdsTagId", () => {
   it.each([
     [TAG_ID, TAG_ID],
@@ -340,6 +357,9 @@ describe("sanitizePageLocation", () => {
     "/auth/reset-password",
     "/auth/update-password",
     "/ruta-inexistente",
+    "/planes",
+    "/servicios?gclid=A",
+    "/contacto/",
     "/Paginas-Web",
     "/%70aginas-web?gclid=A",
     "/paginas-web;x=1",
@@ -934,6 +954,9 @@ describe("syncAdsTag · rutas no permitidas", () => {
     "/auth/reset-password",
     "/auth/update-password",
     "/ruta-inexistente",
+    "/planes",
+    "/servicios",
+    "/contacto",
   ])("%s: ni script, ni gtag, ni dataLayer", async (path) => {
     const analytics = await loadConfigured();
     setUrl(path);
@@ -949,7 +972,18 @@ describe("syncAdsTag · rutas no permitidas", () => {
     fireTagLoad();
     const before = layerEntries().length;
     expect(before).toBe(3); // js, config y el page_view de «/»
-    for (const path of ["/client/SECRET", "/dashboard", "/solicitudes", "/login", "/signup", "/auth/callback", "/ruta-inexistente"]) {
+    for (const path of [
+      "/client/SECRET",
+      "/dashboard",
+      "/solicitudes",
+      "/login",
+      "/signup",
+      "/auth/callback",
+      "/ruta-inexistente",
+      "/planes",
+      "/servicios",
+      "/contacto",
+    ]) {
       setUrl(`${path}?gclid=ZZZ#access_token=SECRET`);
       analytics.syncAdsTag(path);
     }
@@ -1437,7 +1471,18 @@ describe("trackContactConversion", () => {
     expect(scriptTags()).toHaveLength(0);
   });
 
-  it.each(["/client/SECRET", "/dashboard", "/solicitudes", "/login", "/signup", "/auth/callback", "/ruta-inexistente"])(
+  it.each([
+    "/client/SECRET",
+    "/dashboard",
+    "/solicitudes",
+    "/login",
+    "/signup",
+    "/auth/callback",
+    "/ruta-inexistente",
+    "/planes",
+    "/servicios",
+    "/contacto",
+  ])(
     "en %s (ruta no permitida) no envía nada",
     async (path) => {
       const analytics = await loadConfigured();

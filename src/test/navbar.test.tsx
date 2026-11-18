@@ -16,7 +16,7 @@ import Navbar from "@/components/common/Navbar";
 import { useScrollSpy } from "@/hooks/useScrollSpy";
 import { PACKAGE_INTENT_KEY } from "@/lib/packageIntent";
 import { getOpenTicketsCount } from "@/lib/tickets";
-import { HOME_CONTENT } from "@/pages/marketing/homeContent";
+import { LEGACY_HOME_NAV } from "@/components/common/legacyNav";
 
 type IOCallback = (entries: Partial<IntersectionObserverEntry>[]) => void;
 let ioCallbacks: IOCallback[] = [];
@@ -38,8 +38,8 @@ const cross = (id: string, isIntersecting: boolean) =>
     for (const cb of ioCallbacks) cb([{ target: document.getElementById(id)!, isIntersecting }]);
   });
 
-// Las anclas de la home: salen de HOME_CONTENT.nav (Combo, Planes, Proceso, Preguntas, Contacto).
-const SECTIONS = HOME_CONTENT.nav.items.map((item) => `<section id="${item.href.slice(1)}"></section>`).join("");
+// Las anclas de la navegación antigua de la home: salen de LEGACY_HOME_NAV (Combo, Planes, Proceso, Preguntas, Contacto).
+const SECTIONS = LEGACY_HOME_NAV.items.map((item) => `<section id="${item.href.slice(1)}"></section>`).join("");
 
 beforeEach(() => {
   themeState.resolvedTheme = "dark";
@@ -85,7 +85,7 @@ describe("Navbar", () => {
   const renderAt = (path: string, variant?: "default" | "overlay", withHomeNav = true) =>
     render(
       <MemoryRouter initialEntries={[path]}>
-        <Navbar variant={variant} homeNav={withHomeNav ? HOME_CONTENT.nav : undefined} />
+        <Navbar variant={variant} homeNav={withHomeNav ? LEGACY_HOME_NAV : undefined} />
       </MemoryRouter>,
     );
 
@@ -97,10 +97,10 @@ describe("Navbar", () => {
     expect(screen.getByRole("button", { name: "Combo" })).not.toHaveAttribute("aria-current");
   });
 
-  it("en la home muestra los enlaces de HOME_CONTENT.nav y el botón «Solicitar Combo» hacia /solicitudes?paquete=", () => {
+  it("en la home muestra los enlaces de LEGACY_HOME_NAV y el botón «Solicitar Combo» hacia /solicitudes?paquete=", () => {
     renderAt("/");
-    expect(HOME_CONTENT.nav.items.map((i) => i.label)).toEqual(["Combo", "Planes", "Proceso", "Preguntas", "Contacto"]);
-    for (const item of HOME_CONTENT.nav.items) {
+    expect(LEGACY_HOME_NAV.items.map((i) => i.label)).toEqual(["Combo", "Planes", "Proceso", "Preguntas", "Contacto"]);
+    for (const item of LEGACY_HOME_NAV.items) {
       expect(screen.getByRole("button", { name: item.label })).toBeInTheDocument();
     }
     const cta = screen.getByRole("link", { name: "Solicitar Combo Emprendedor" });
@@ -136,12 +136,12 @@ describe("Navbar", () => {
     session.userType = type;
     renderAt("/");
     expect(screen.queryByRole("link", { name: /Solicitar Combo/ })).toBeNull();
-    for (const item of HOME_CONTENT.nav.items) expect(screen.getByRole("button", { name: item.label })).toBeInTheDocument();
+    for (const item of LEGACY_HOME_NAV.items) expect(screen.getByRole("button", { name: item.label })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Abrir menú" }));
     const dialog = await screen.findByRole("dialog", {}, { timeout: 5000 });
     expect(within(dialog).queryByRole("link", { name: /Solicitar Combo/ })).toBeNull();
-    for (const item of HOME_CONTENT.nav.items) expect(within(dialog).getByRole("button", { name: new RegExp(item.label) })).toBeInTheDocument();
+    for (const item of LEGACY_HOME_NAV.items) expect(within(dialog).getByRole("button", { name: new RegExp(item.label) })).toBeInTheDocument();
     await closeDrawer(dialog);
   });
 
@@ -171,7 +171,7 @@ describe("Navbar", () => {
     const onHomeNavigate = vi.fn();
     const { container } = render(
       <MemoryRouter initialEntries={["/"]}>
-        <Navbar homeNav={HOME_CONTENT.nav} onHomeNavigate={onHomeNavigate} />
+        <Navbar homeNav={LEGACY_HOME_NAV} onHomeNavigate={onHomeNavigate} />
       </MemoryRouter>,
     );
 

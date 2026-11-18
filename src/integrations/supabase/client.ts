@@ -1,4 +1,4 @@
-// Originally generated (Lovable). Hand-edited: the hardcoded fallback project
+// Originally generated. Hand-edited: the hardcoded fallback project
 // was removed and the configuration is validated before creating the client.
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
