@@ -15,6 +15,7 @@ import { ADS_ROUTES } from "@/lib/analytics";
 import { routeMetaToPageMeta } from "@/lib/pageMeta";
 import { PRIVACY_POLICY_VERSION } from "@/lib/packageRequest";
 import { HOME_META, ROUTE_META, SITE_ORIGIN } from "@/lib/routeMeta";
+import { lempiras, SITE_PLANS } from "@/lib/webPackages";
 import PoliticaDePrivacidad from "@/pages/legal/PoliticaDePrivacidad";
 import TerminosDelServicio from "@/pages/legal/TerminosDelServicio";
 import { PAGINAS_WEB_CONTENT } from "@/pages/marketing/paginasWebContent";
@@ -107,18 +108,41 @@ describe("index.html", () => {
     }
   });
 
-  it("la home se posiciona como páginas web para negocios en Honduras en title, description y og:title", () => {
+  it("la home se posiciona como páginas web para negocios en Honduras: el país en el title y el og:title, la ubicación en la description", () => {
     for (const [name, value] of [
       ["title", indexDoc().title],
       ["description", indexMeta("name", "description")],
       ["og:title", indexMeta("property", "og:title")],
     ] as const) {
       expect(value, name).toMatch(/p[aá]ginas web/i);
-      expect(value, name).toMatch(/Honduras/);
-      // Nada de la narrativa anterior de IA, y sin precios en las metas.
-      expect(value, name).not.toMatch(/\bIA\b|24\/7|\bRAG\b|n8n|cero papel|productizad|piloto autom[aá]tico/i);
+      // Nada de la narrativa antigua de IA (24/7, RAG, n8n...). «IA» suelta sí puede aparecer: el copy aprobado nombra la IA
+      // como uno de los servicios.
+      expect(value, name).not.toMatch(/24\/7|\bRAG\b|n8n|cero papel|productizad|piloto autom[aá]tico/i);
+    }
+    expect(indexDoc().title, "title").toMatch(/Honduras/);
+    expect(indexMeta("property", "og:title"), "og:title").toMatch(/Honduras/);
+    // La description sitúa al negocio: el país o la ciudad desde donde trabaja.
+    expect(indexMeta("name", "description"), "description").toMatch(/Honduras|Siguatepeque/);
+
+    // Los títulos no llevan precio. La description y el og:description pueden llevar uno solo, el «desde» del plan más
+    // barato, y no a mano: sale de SITE_PLANS (la prueba de paridad de metas compara el texto completo).
+    const lowest = lempiras(Math.min(...SITE_PLANS.map((plan) => plan.priceLempiras)));
+    for (const [name, value] of [
+      ["title", indexDoc().title],
+      ["og:title", indexMeta("property", "og:title")],
+    ] as const) {
       expect(value, name).not.toMatch(/\bL\s?\d|lempiras|\d,\d{3}/i);
     }
+    for (const [name, value] of [
+      ["description", indexMeta("name", "description")],
+      ["og:description", indexMeta("property", "og:description")],
+    ] as const) {
+      const prices = value!.match(/\bL\s?\d+(?:,\d{3})*/g) ?? [];
+      expect(prices.length, name).toBeLessThanOrEqual(1);
+      for (const price of prices) expect(price, name).toBe(lowest);
+      expect(value, name).not.toMatch(/lempiras/i);
+    }
+
     expect(indexDoc().title.length).toBeLessThanOrEqual(60);
     expect(indexMeta("name", "description")!.length).toBeLessThanOrEqual(155);
   });

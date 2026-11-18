@@ -1,0 +1,522 @@
+/* ==========================================================================
+   Sitio público (ámbito `.ms-site`)
+   --------------------------------------------------------------------------
+   Base visual del rediseño del sitio público: paleta, utilidades, animaciones y la entrada del hero. Lo importa
+   SiteLayout. Reglas de este archivo:
+
+   - Todo selector va dentro de `.ms-site` (directo o con `:where(.ms-site)`): fuera de ese ámbito no cambia nada,
+     así que el acceso, el panel, el portal, /paginas-web y las páginas legales se ven igual. Sin `:root`, `html`
+     ni `body`. Los @keyframes son globales por naturaleza y por eso llevan el prefijo `ms-site-`.
+   - Los tokens usan el espacio de nombres `--site-*` y no tocan `--background`, `--primary`… (shadcn, HSL).
+     Son canales oklch sin alfa: tailwind.config.ts los expone como `bg-site-card`, `text-site-primary/60`, etc.
+   - El sitio es solo oscuro: no hay variante clara ni depende de la clase `dark` de <html>.
+   - `:where(.ms-site) …:is(…):is(…)` es a propósito: da especificidad (0,0,2), por encima de las reglas globales
+     de index.css (h1…h6, p, `*`: 0,0,1 y 0,0,0) y por debajo de cualquier utilidad de Tailwind (0,1,0). Así el
+     reinicio gana a lo global, pero `text-3xl` o `text-site-primary` puestos en un título siguen mandando. Sirve
+     igual sin importar el orden en que el navegador reciba las hojas.
+   - Con `prefers-reduced-motion: reduce` todo queda visible y quieto.
+   ========================================================================== */
+
+@import "./site-fonts.css";
+
+/* ---- Tokens ----------------------------------------------------------- */
+
+.ms-site {
+  --site-radius: 0.875rem;
+
+  /* Marca: medianoche #080D13, teal #137590 -> #068DB3 y blanco. Canales: L C H. */
+  --site-background: 0.155 0.014 250;
+  --site-foreground: 0.98 0.005 230;
+  --site-surface: 0.19 0.018 245;
+  --site-card: 0.2 0.02 245;
+  --site-card-foreground: 0.98 0.005 230;
+  --site-popover: 0.2 0.02 245;
+  --site-popover-foreground: 0.98 0.005 230;
+  --site-primary: 0.6 0.12 225;
+  /* Teal para TEXTO pequeño: el teal de marca no llega a 4,5:1 sobre la tarjeta destacada (accent) ni sobre los chips. Misma
+     tonalidad y croma, más claro (L 0,65). Fondos, bordes, brillos e íconos siguen con --site-primary. */
+  --site-primary-text: 0.65 0.12 225;
+  --site-primary-deep: 0.5 0.09 220;
+  --site-primary-foreground: 0.99 0 0;
+  --site-secondary: 0.25 0.025 240;
+  --site-secondary-foreground: 0.98 0.005 230;
+  --site-muted: 0.23 0.02 245;
+  --site-muted-foreground: 0.72 0.025 235;
+  /* Texto atenuado del hero, que va sobre el brillo teal de las ondas (con --site-muted-foreground daba 3,2 a 4,3:1). */
+  --site-hero-muted: 0.78 0.025 235;
+  --site-accent: 0.27 0.04 225;
+  --site-accent-foreground: 0.98 0.005 230;
+  --site-destructive: 0.65 0.2 25;
+  --site-destructive-foreground: 0.99 0 0;
+  --site-success: 0.75 0.15 160;
+  --site-ring: 0.6 0.12 225;
+  /* Blanco; el alfa (9 % y 14 %) lo pone tailwind.config.ts para poder escalarlo con `/60`. */
+  --site-border: 1 0 0;
+  --site-input: 1 0 0;
+
+  /* Degradado de los botones e insignias con texto blanco. Con la punta clara anterior (L 0,60) el blanco daba 3,7:1;
+     las dos puntas bajan hasta que el blanco llega a 4,5:1 en todo el recorrido, también con el brillo del hover. */
+  --site-gradient-brand: linear-gradient(135deg, oklch(0.47 0.09 220), oklch(0.52 0.12 225));
+  --site-gradient-text: linear-gradient(100deg, oklch(0.98 0 0) 10%, oklch(0.75 0.11 220) 60%, oklch(0.6 0.12 225));
+  --site-glow-primary: 0 0 0 1px oklch(0.6 0.12 225 / 40%), 0 20px 60px -15px oklch(0.6 0.12 225 / 55%);
+  --site-shadow-card: 0 30px 80px -30px oklch(0 0 0 / 70%);
+
+  color-scheme: dark;
+  background-color: oklch(var(--site-background));
+  color: oklch(var(--site-foreground));
+  font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ms-site ::selection {
+  background: oklch(0.6 0.12 225 / 40%);
+  color: oklch(var(--site-foreground));
+}
+
+/* ---- Reinicio frente a las reglas globales de index.css ---------------- */
+
+/* index.css fija h1…h6 en Sora con color y tamaño del panel: aquí heredan y se estilan con utilidades. */
+:where(.ms-site) :is(h1, h2, h3, h4, h5, h6):is(h1, h2, h3, h4, h5, h6) {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+/* index.css fija `p` en 15 px, interlineado 1.7 y el color del cuerpo del panel. */
+:where(.ms-site) p:is(p) {
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+/* Borde por defecto (`border` sin color), como la referencia; sustituye al `* { border-color }` de index.css. */
+:where(.ms-site) :is(div, span, a, button, p, ul, ol, li, section, article, header, footer, nav, main, aside, img, svg, input, textarea, select, hr, table, thead, tbody, tr, th, td, dl, dt, dd, form, label, fieldset, figure, figcaption, blockquote, pre, code, details, summary, h1, h2, h3, h4, h5, h6) {
+  border-color: oklch(var(--site-border) / 0.09);
+}
+
+/* Foco visible de base; las utilidades `focus-visible:*` (0,2,0) ganan a esta regla (0,1,0). */
+:where(.ms-site) :focus-visible {
+  outline: 2px solid oklch(var(--site-ring));
+  outline-offset: 2px;
+}
+
+/* La cabecera es `sticky` (64 px). Al recorrer la página con Mayús+Tab el navegador deja el elemento enfocado en el borde
+   superior de la ventana, debajo de la cabecera, y el foco queda tapado (WCAG 2.4.11). El margen de desplazamiento lo
+   deja por debajo de ella. Sin especificidad (:where): cualquier `scroll-mt-*` puesto en un elemento sigue mandando. */
+:where(.ms-site) :where(a[href], button, input, textarea, select, [tabindex]:not([tabindex="-1"])) {
+  scroll-margin-top: 5rem;
+}
+
+/* ---- Utilidades de la referencia -------------------------------------- */
+
+.ms-site .bg-grid {
+  background-image:
+    linear-gradient(to right, oklch(1 0 0 / 5%) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 5%) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 40%, transparent 100%);
+}
+
+.ms-site .bg-brand {
+  background-image: var(--site-gradient-brand);
+}
+
+.ms-site .text-gradient {
+  background-image: var(--site-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ms-site .glow {
+  box-shadow: var(--site-glow-primary);
+}
+
+.ms-site .shadow-card {
+  box-shadow: var(--site-shadow-card);
+}
+
+.ms-site .glass {
+  background: oklch(0.22 0.02 245 / 55%);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid oklch(1 0 0 / 9%);
+}
+
+/* Hover del vidrio: sustituye el fondo por el acento (la referencia usa `hover:bg-accent`). Solo con ratón. */
+@media (hover: hover) and (pointer: fine) {
+  .ms-site .glass.glass-hover:hover {
+    background: oklch(var(--site-accent));
+  }
+}
+
+.ms-site .orb {
+  background: radial-gradient(circle, oklch(0.6 0.12 225 / 45%), transparent 65%);
+  filter: blur(40px);
+}
+
+/* ---- Animaciones ------------------------------------------------------- */
+
+@keyframes ms-site-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+@keyframes ms-site-blink {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes ms-site-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ms-site-scan {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(400%);
+  }
+}
+@keyframes ms-site-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes ms-site-typing-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.ms-site .animate-float {
+  animation: ms-site-float 6s ease-in-out infinite;
+}
+.ms-site .animate-blink {
+  animation: ms-site-blink 1s steps(1) infinite;
+}
+.ms-site .animate-rise {
+  animation: ms-site-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.ms-site .animate-scan {
+  animation: ms-site-scan 3.5s linear infinite;
+}
+.ms-site .animate-marquee {
+  animation: ms-site-marquee 30s linear infinite;
+}
+.ms-site .animate-typing-dot {
+  animation: ms-site-typing-dot 1.2s ease-in-out infinite;
+}
+
+/* ---- Entrada del hero -------------------------------------------------- */
+/* El estado final es el estilo base: sin animación (movimiento reducido, sin soporte) todo queda visible. */
+
+@keyframes ms-site-hero-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+}
+@keyframes ms-site-hero-word {
+  from {
+    opacity: 0;
+    transform: translateY(0.22em);
+    filter: blur(8px);
+  }
+}
+@keyframes ms-site-hero-pill {
+  from {
+    opacity: 0;
+    transform: translateY(14px) rotate(-8deg) scale(0.72);
+    filter: blur(8px);
+  }
+}
+@keyframes ms-site-hero-type {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+@keyframes ms-site-hero-caret-move {
+  from {
+    left: 0;
+  }
+}
+@keyframes ms-site-hero-caret-off {
+  to {
+    opacity: 0;
+  }
+}
+
+.ms-site .hero-in {
+  animation: ms-site-hero-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0s) both;
+}
+.ms-site .hero-word {
+  display: inline-block;
+  animation: ms-site-hero-word 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0s) both;
+}
+.ms-site .hero-pill {
+  animation: ms-site-hero-pill 0.62s cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0s) both;
+}
+
+/* Escribe recortando el texto sobre su ancho real; el cursor avanza al mismo ritmo y se apaga al terminar.
+   Hace falta `--chars` (nº de caracteres) en el elemento `.hero-typewriter`. */
+.ms-site .hero-typewriter {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+.ms-site .hero-typewriter > .hero-typed {
+  display: inline-block;
+  animation: ms-site-hero-type calc(var(--chars) * 28ms) steps(var(--chars)) 0.35s both;
+}
+.ms-site .hero-typewriter > .hero-caret {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  translate: 1px -50%;
+  animation:
+    ms-site-hero-caret-move calc(var(--chars) * 28ms) steps(var(--chars)) 0.35s both,
+    ms-site-blink 0.55s steps(1) infinite,
+    ms-site-hero-caret-off 0.01s linear calc(0.95s + var(--chars) * 28ms) forwards;
+}
+
+/* ---- Transiciones con duración y curva propias ------------------------------------------------ */
+/* Tailwind no genera las clases de duración y de curva con valor arbitrario entre corchetes: con
+   tailwindcss-animate las marca ambiguas y la transición cae a 150 ms con la curva por omisión. Por eso
+   estos tiempos viven aquí. Van con `.ms-site` (0,2,0) para ganar a `transition-transform` y
+   `transition-[…]` (0,1,0), que fijan su propia duración y curva. La propiedad la sigue poniendo la
+   utilidad de transición del elemento. */
+
+/* Píldoras del titular: la de la píldora (hover) y la del carril vertical que desliza de una a otra. */
+.ms-site .site-pill-tilt {
+  transition-duration: 250ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ms-site .site-pill-reel {
+  transition-duration: 560ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Fichas de tecnología del bento. */
+.ms-site .site-tile-press {
+  transition-duration: 250ms;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+/* Solo la curva de entrada de las fichas y las barras del bento; la duración la pone la utilidad de duración del elemento (300 o 500 ms). */
+.ms-site .site-ease-enter {
+  transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* ---- Menú móvil del encabezado ---------------------------------------- */
+/* Se abre decenas de veces al día de forma ocasional: breve, ease-out y sin rebote. */
+
+@keyframes ms-site-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.ms-site .site-menu-in {
+  animation: ms-site-menu-in 0.16s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ---- Entrada al hacer scroll (hook useRevealInView) ------------------- */
+/* Solo existe `data-site-reveal` si JavaScript armó la animación; sin él nada se oculta. */
+
+@keyframes ms-site-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ms-site [data-site-reveal="hidden"] {
+    opacity: 0;
+  }
+  /* `backwards`: sostiene el estado inicial durante el retardo del escalonado y suelta `transform` al terminar,
+     para que un `hover:-translate-y-1` del mismo elemento siga funcionando. */
+  .ms-site [data-site-reveal="in"] {
+    animation: ms-site-reveal 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) var(--reveal-delay, 0s) backwards;
+  }
+}
+
+/* ---- GlowCard ---------------------------------------------------------- */
+/* Borde, foco de luz y cuadrícula siguen al cursor con --gx/--gy, que el componente escribe en `.gc-fx` (un
+   elemento aparte del contenido: el cambio de la variable no recalcula estilos de la tarjeta). */
+
+.ms-site .gc {
+  --gc-r: calc(var(--site-radius) + 12px);
+  border-radius: var(--gc-r);
+}
+.ms-site .gc[data-radius="2xl"] {
+  --gc-r: calc(var(--site-radius) + 8px);
+}
+.ms-site .gc[data-radius="3xl"] {
+  --gc-r: calc(var(--site-radius) + 12px);
+}
+
+.ms-site .gc-fx {
+  --gx: 0px;
+  --gy: 0px;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.ms-site .gc-base,
+.ms-site .gc-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.ms-site .gc-face {
+  position: absolute;
+  inset: 1px;
+  overflow: hidden;
+  border-radius: calc(var(--gc-r) - 1px);
+}
+.ms-site .gc-spot,
+.ms-site .gc-grid {
+  position: absolute;
+  inset: 0;
+}
+
+.ms-site .gc-edge,
+.ms-site .gc-spot,
+.ms-site .gc-grid {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.ms-site .gc-edge {
+  background: radial-gradient(240px circle at var(--gx) var(--gy), oklch(0.6 0.12 225 / 0.9), transparent 70%);
+}
+.ms-site .gc-spot {
+  background: radial-gradient(380px circle at var(--gx) var(--gy), oklch(0.6 0.12 225 / 0.14), transparent 65%);
+}
+.ms-site .gc-grid {
+  background-image:
+    linear-gradient(oklch(1 0 0 / 8%) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(1 0 0 / 8%) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(220px circle at var(--gx) var(--gy), black, transparent 75%);
+  mask-image: radial-gradient(220px circle at var(--gx) var(--gy), black, transparent 75%);
+}
+.ms-site .gc-fx[data-glow] :is(.gc-edge, .gc-spot, .gc-grid) {
+  opacity: 1;
+  transition-duration: 0.3s;
+}
+
+/* ---- WavesShader ------------------------------------------------------- */
+/* Degradado de respaldo (sin WebGL, movimiento reducido o antes de que cargue el shader); el lienzo aparece encima
+   con un fundido cuando dibuja su primer cuadro. Mismos colores de la paleta, de abajo hacia arriba. */
+
+.ms-site .waves {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(to top, #068db3 0%, #137590 30%, #0b2533 68%, #080d13 100%);
+}
+.ms-site .waves > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+}
+.ms-site .waves[data-state="live"] > canvas {
+  opacity: 1;
+}
+
+/* Velo bajo el texto del hero. El velo central de Hero.tsx (0,55 -> 0,15) deja el subtítulo y las etiquetas de los datos
+   sobre el brillo teal de las ondas: el texto atenuado daba entre 3,2 y 4,3:1. Este velo oscurece solo la franja del
+   texto (elipse centrada abajo, que se desvanece sin llegar a los bordes), así que las ondas siguen vivas a los lados. */
+.ms-site .hero-text-veil {
+  background: radial-gradient(
+    ellipse 560px 40% at 50% 70%,
+    oklch(var(--site-background) / 0.34),
+    oklch(var(--site-background) / 0.22) 55%,
+    transparent 100%
+  );
+}
+
+/* ---- Bento de servicios ------------------------------------------------ */
+/* Entradas cortas de la terminal, el chat y la ayuda del stack. El estado final es el estilo base: sin animación
+   (movimiento reducido) todo queda visible. Salida rápida y entrada con ease-out fuerte, sin rebote. */
+
+@keyframes ms-site-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes ms-site-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@keyframes ms-site-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ms-site-swap-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+
+.ms-site .animate-line-in {
+  animation: ms-site-line-in 0.25s ease-out both;
+}
+.ms-site .animate-bubble-in {
+  animation: ms-site-bubble-in 0.3s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.ms-site .animate-fade-in {
+  animation: ms-site-fade-in 0.2s ease-out both;
+}
+.ms-site .animate-swap-in {
+  animation: ms-site-swap-in 0.15s ease-out both;
+}
+
+/* ---- Movimiento reducido ---------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-site,
+  .ms-site *,
+  .ms-site *::before,
+  .ms-site *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .ms-site .hero-caret {
+    display: none;
+  }
+}

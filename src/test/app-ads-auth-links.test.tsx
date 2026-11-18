@@ -230,9 +230,14 @@ async function mountApp(url: string): Promise<void> {
   });
 }
 
-// El h1 de la home web-first (HOME_CONTENT.hero.title).
+// El h1 de la home (SITE_CONTENT.hero.title.plainText).
 const findHome = () => screen.findByRole("heading", { level: 1, name: "Páginas web para negocios en Honduras" }, WAIT);
 const findLanding = () => screen.findByRole("heading", { level: 1, name: "Páginas web en Honduras" }, WAIT);
+// El h1 de cada vista nueva del sitio (SITE_CONTENT.plansView / servicesView / contactView).
+const findPlans = () => screen.findByRole("heading", { level: 1, name: "Planes claros, en lempiras" }, WAIT);
+const findServices = () =>
+  screen.findByRole("heading", { level: 1, name: "Tecnología que trabaja para tu negocio" }, WAIT);
+const findContact = () => screen.findByRole("heading", { level: 1, name: "Cuéntanos qué necesitas" }, WAIT);
 const findLogin = () => screen.findByRole("heading", { level: 2, name: "Iniciar sesión" }, WAIT);
 /** /auth/update-password con una recuperación pendiente: el formulario para elegir la contraseña nueva. */
 const findNewPasswordForm = () => screen.findByRole("heading", { level: 2, name: "Crea una nueva contraseña" }, WAIT);
@@ -243,10 +248,18 @@ const click = (role: "link" | "button", name: string): void => {
   fireEvent.click(screen.getAllByRole(role, { name })[0]);
 };
 
-const LANDINGS: Array<{ path: string; find: () => Promise<HTMLElement> }> = [
-  { path: "/", find: findHome },
-  { path: "/paginas-web", find: findLanding },
+// `ads`: la ruta está en la lista blanca de la etiqueta (ADS_ROUTES, apartado 2.5 de la Política). Las tres vistas del
+// sitio (/planes, /servicios, /contacto) NO lo están: ahí un enlace de correo tampoco carga la etiqueta, y un anónimo
+// sin hash tampoco.
+const LANDINGS: Array<{ path: string; find: () => Promise<HTMLElement>; ads: boolean }> = [
+  { path: "/", find: findHome, ads: true },
+  { path: "/paginas-web", find: findLanding, ads: true },
+  { path: "/planes", find: findPlans, ads: false },
+  { path: "/servicios", find: findServices, ads: false },
+  { path: "/contacto", find: findContact, ads: false },
 ];
+const ADS_LANDINGS = LANDINGS.filter((landing) => landing.ads);
+const SITE_VIEWS = LANDINGS.filter((landing) => !landing.ads);
 
 const CASES = LINKS.flatMap((link) => LANDINGS.map((landing) => ({ link, landing })));
 
@@ -305,8 +318,8 @@ describe("App con supabase-js real · un enlace de correo de auth aterriza en un
     TEST_TIMEOUT,
   );
 
-  // Sin este control los 12 casos de arriba podrían pasar porque la etiqueta nunca se carga en esta configuración.
-  it.each(LANDINGS)(
+  // Sin este control los casos de arriba podrían pasar porque la etiqueta nunca se carga en esta configuración.
+  it.each(ADS_LANDINGS)(
     "control: un anónimo en $path sin hash sí inyecta el script y, tras el load, envía el page_view",
     async ({ path, find }) => {
       await mountApp(path);
@@ -321,6 +334,18 @@ describe("App con supabase-js real · un enlace de correo de auth aterriza en un
       expect(layerEntries().map((entry) => entry[0])).toEqual(["js", "config", "event"]);
       expect(pageViews()).toEqual([{ page_location: `${ORIGIN}${path}`, page_referrer: "" }]);
       expect(requests).toEqual([]); // sin enlace no hay llamadas a Supabase
+    },
+    TEST_TIMEOUT,
+  );
+
+  // Contra-control: con la misma configuración (etiqueta válida, sin sesión, sin hash) las vistas del sitio no la cargan.
+  it.each(SITE_VIEWS)(
+    "contra-control: un anónimo en $path sin hash no inyecta el script ni crea gtag",
+    async ({ path, find }) => {
+      await mountApp(path);
+      expect(await find()).toBeInTheDocument();
+      expectNoTag();
+      expect(requests).toEqual([]);
     },
     TEST_TIMEOUT,
   );

@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import Logo from "@/components/common/Logo";
 import { getTechonHref, isExternalHref } from "@/lib/products";
-import { HOME_CONTENT } from "@/pages/marketing/homeContent";
+import { LEGACY_FOOTER, LEGACY_HOME_NAV } from "@/components/common/legacyNav";
 import type { CSSProperties } from "react";
 import { DevCredit } from "../../../snippets/credito-multistack/DevCredit";
 
@@ -60,9 +60,9 @@ const Footer = () => {
           <div
             style={{ fontFamily: MONO, fontSize: "12.5px", lineHeight: 1.7, color: "var(--text2)" }}
           >
-            {HOME_CONTENT.footer.description}
+            {LEGACY_FOOTER.description}
             <br />
-            {HOME_CONTENT.footer.location}
+            {LEGACY_FOOTER.location}
           </div>
         </div>
 
@@ -70,7 +70,7 @@ const Footer = () => {
         <div>
           <div style={colTitle}>MultiStack</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {HOME_CONTENT.nav.items.map((item) => (
+            {LEGACY_HOME_NAV.items.map((item) => (
               <button
                 key={item.href}
                 type="button"

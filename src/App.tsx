@@ -10,6 +10,8 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
 import BrandLoader from "@/components/common/BrandLoader";
 import RecoveryRedirect from "@/components/auth/RecoveryRedirect";
+import LegacyHomeGate from "@/components/common/LegacyHomeGate";
+import { legacyHomeDestination } from "@/lib/legacyHomeHash";
 
 // Pages cargadas al inicio (rutas públicas críticas — no se lazy-load)
 import Index from "./pages/marketing/Index.tsx";
@@ -17,6 +19,14 @@ import { preloadPanelForPath } from "./components/admin/preloadPanel.ts";
 import PanelLoader from "./components/admin/PanelLoader.tsx";
 
 // Lazy-load: cada página genera su propio chunk
+// Las vistas del sitio público (/planes, /servicios, /contacto): un chunk cada una. Los cargadores se nombran para poder
+// pedir el chunk antes del primer render. La home es eager (arriba): lazy medía +0,30 s de LCP (1,40 s a 1,70 s).
+const loadPlanes            = () => import("./pages/marketing/Planes.tsx");
+const loadServicios         = () => import("./pages/marketing/Servicios.tsx");
+const loadContacto          = () => import("./pages/marketing/Contacto.tsx");
+const Planes                = lazy(loadPlanes);
+const Servicios             = lazy(loadServicios);
+const Contacto              = lazy(loadContacto);
 // Armazón del panel del administrador: chunk propio, fuera de la entrada.
 const AdminShell            = lazy(() => import("./components/admin/AdminShell.tsx"));
 const Login                 = lazy(() => import("./pages/auth/Login.tsx"));
@@ -40,6 +50,19 @@ const PaginasWeb = lazy(() => import("./pages/marketing/PaginasWeb.tsx"));
 
 // Visita directa a una pantalla del panel con armazón: pide el armazón y la página a la vez (rutas en FIRST_PAGE, ver preloadPanel.ts).
 preloadPanelForPath(window.location.pathname);
+
+// Visita directa a una vista del sitio público: pide su chunk ya, en paralelo con el arranque, para que el BrandLoader
+// dure lo menos posible. Una ancla antigua de la home que hoy es otra vista (/#planes) pide el chunk de esa vista. La
+// home no se precarga: va en el chunk de entrada.
+const SITE_CHUNKS = new Map<string, () => Promise<unknown>>([
+  ["/planes", loadPlanes],
+  ["/servicios", loadServicios],
+  ["/contacto", loadContacto],
+]);
+const initialPath = legacyHomeDestination(window.location)?.split("?")[0] ?? window.location.pathname;
+SITE_CHUNKS.get(initialPath.length > 1 && initialPath.endsWith("/") ? initialPath.slice(0, -1) : initialPath)
+  ?.()
+  .catch(() => undefined); // si falla, el lazy de la ruta lo reintenta y lo muestra
 
 const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
@@ -68,7 +91,10 @@ const App = () => (
           <RecoveryRedirect />
           <Suspense fallback={<RouteFallback />}>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<LegacyHomeGate><Index /></LegacyHomeGate>} />
+              <Route path="/planes" element={<Planes />} />
+              <Route path="/servicios" element={<Servicios />} />
+              <Route path="/contacto" element={<Contacto />} />
               <Route path="/paginas-web" element={<PaginasWeb />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />

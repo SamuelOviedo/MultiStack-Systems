@@ -1,110 +1,40 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import Navbar from "@/components/common/Navbar";
-import Footer from "@/components/common/Footer";
-import type { ContactPrefill } from "@/components/marketing/ContactForm";
-import HomeCombo from "@/components/marketing/home/HomeCombo";
-import HomeFinalCta from "@/components/marketing/home/HomeFinalCta";
-import HomeHero from "@/components/marketing/home/HomeHero";
-import HomePlans from "@/components/marketing/home/HomePlans";
-import HomeProcess from "@/components/marketing/home/HomeProcess";
-import HomeServices from "@/components/marketing/home/HomeServices";
-import HomeWhy from "@/components/marketing/home/HomeWhy";
-import PwContact from "@/components/marketing/paginas-web/PwContact";
-import PwFaq from "@/components/marketing/paginas-web/PwFaq";
-import { CONTACT_MESSAGE_ID } from "@/components/marketing/paginas-web/ids";
-import { useCinematicTheme } from "@/hooks/useCinematicTheme";
-import { useRevealOnScroll } from "@/hooks/useRevealOnScroll";
-import { cinematicVars } from "@/lib/msTokens";
-import { HOME_CONTENT as CONTENT, HOME_SECTION_IDS, type HomeService } from "./homeContent";
+import { useEffect } from "react";
+import { Hero } from "@/components/site/home/Hero";
+import { HomePlans } from "@/components/site/home/HomePlans";
+import { Portfolio } from "@/components/site/home/Portfolio";
+import { ProjectTracker } from "@/components/site/home/ProjectTracker";
+import { ServicesBento } from "@/components/site/home/ServicesBento";
+import { WhyAndProcess } from "@/components/site/home/WhyAndProcess";
+import { SiteLayout } from "@/components/site/SiteLayout";
+import { applyPageMeta, routeMetaToPageMeta } from "@/lib/pageMeta";
+import { HOME_META } from "@/lib/routeMeta";
+import { SITE_PLANS } from "@/lib/webPackages";
+import { SITE_CONTENT as CONTENT } from "./siteContent";
+import { siteFooterProps, siteHeaderProps } from "./siteLayoutProps";
 
-const COMBO_ID = CONTENT.combo.packageId;
-// El otro paquete de la tarjeta de planes: el contenido los trae en orden, Combo primero.
-const STANDARD_ID = CONTENT.plans.packages.filter((pkg) => pkg.id !== COMBO_ID)[0].id;
-
-const prefersReducedMotion = () =>
-  typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const HOME_PAGE_META = routeMetaToPageMeta(HOME_META);
+const HEADER = siteHeaderProps(CONTENT);
+const FOOTER = siteFooterProps(CONTENT);
 
 /**
- * Home pública: MultiStack Systems como negocio de páginas web. Combo Emprendedor primero, Plan Estándar
- * después; el software a medida y los agentes de IA son servicios secundarios, solo bajo cotización. Todo el
- * texto y las cifras salen de HOME_CONTENT (homeContent.ts), que a su vez toma los precios de PACKAGES.
- * `/paginas-web` sigue siendo una landing aparte.
+ * Home pública (`/`): páginas web para negocios en Honduras. Se importa de forma eager en App (va en el chunk de
+ * entrada): lazy retrasaba el LCP de la home. Las vistas /planes, /servicios y /contacto sí son lazy. Todo el texto
+ * sale de SITE_CONTENT (siteContent.ts) y los planes de SITE_PLANS (webPackages.ts).
  */
 const Index = () => {
-  const { hash, key, search } = useLocation();
-  const navigate = useNavigate();
-  // Tokens MS con los tonos AA del conjunto cinemático (los mismos de /paginas-web); contrastes en msTokens.ts.
-  const vars = cinematicVars(useCinematicTheme());
-  const rootRef = useRef<HTMLDivElement>(null);
-  useRevealOnScroll(rootRef);
-
-  // Solo la acción de una persona crea el prefill: ContactForm mueve el foco al nombre al recibirlo.
-  const [contactPrefill, setContactPrefill] = useState<ContactPrefill>();
-  const defaultPrefillApplied = useRef(false);
-
-  // Con hash en la URL (p. ej. /#planes al volver de otra ruta) el navegador no encuentra la ancla a tiempo. `key`
-  // cambia con cada navegación, también hacia el mismo hash: el segundo CTA de servicio vuelve a desplazar.
-  useEffect(() => {
-    const id = hash.replace(/^#/, "");
-    if (!id) return;
-    const frame = requestAnimationFrame(() => {
-      document.getElementById(id)?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [hash, key]);
-
-  // CTA de un servicio: reemplaza el mensaje por el de ese servicio (cada clic aplica de nuevo: nonce nuevo) y va a
-  // #contacto con el router. La navegación nativa a un ancla quitaría el foco que ContactForm acaba de poner en el nombre.
-  // Conserva la query (gclid y demás identificadores de Ads: sin ellos la conversión sale sin atribución) y reemplaza la
-  // entrada del historial en vez de apilar otra.
-  const requestService = useCallback(
-    (service: HomeService) => {
-      setContactPrefill((prev) => ({ text: service.messagePrefill, nonce: (prev?.nonce ?? 0) + 1 }));
-      navigate({ search, hash: HOME_SECTION_IDS.contact }, { replace: true });
-    },
-    [navigate, search],
-  );
-
-  // Llegada a #contacto desde la barra: prellena el mensaje por defecto una sola vez y sin pisar lo que la
-  // persona ya escribió. El valor del campo se lee del DOM porque ContactForm es dueño de su estado.
-  const requestDefaultPrefill = useCallback((id: string) => {
-    if (id !== HOME_SECTION_IDS.contact || defaultPrefillApplied.current) return;
-    const field = document.getElementById(CONTACT_MESSAGE_ID);
-    if (field instanceof HTMLTextAreaElement && field.value.trim() !== "") return;
-    defaultPrefillApplied.current = true;
-    setContactPrefill((prev) => prev ?? { text: CONTENT.contact.messagePrefill, nonce: 1 });
-  }, []);
+  // Los metas de la home están en index.html (la entrada directa ya los trae); esto los reafirma al llegar desde otra
+  // vista del SPA, por si esa los reemplazó y su limpieza no corrió todavía.
+  useEffect(() => applyPageMeta(HOME_PAGE_META), []);
 
   return (
-    <>
-      <Navbar homeNav={CONTENT.nav} onHomeNavigate={requestDefaultPrefill} />
-      <div
-        ref={rootRef}
-        className="ms-landing ms-home"
-        style={{
-          ...vars,
-          minHeight: "100vh",
-          width: "100%",
-          fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
-          background: "var(--bg)",
-          color: "var(--text)",
-        }}
-      >
-        <main>
-          <HomeHero hero={CONTENT.hero} primaryPackageId={COMBO_ID} />
-          <HomeCombo combo={CONTENT.combo} />
-          <HomePlans plans={CONTENT.plans} />
-          <HomeWhy why={CONTENT.why} />
-          <HomeProcess process={CONTENT.process} />
-          <HomeServices services={CONTENT.services} onRequest={requestService} />
-          <PwFaq faq={CONTENT.faq} alt />
-          <HomeFinalCta cta={CONTENT.finalCta} comboId={COMBO_ID} standardId={STANDARD_ID} />
-          <PwContact contact={CONTENT.contact} prefill={contactPrefill} />
-        </main>
-        <Footer />
-      </div>
-    </>
+    <SiteLayout header={HEADER} footer={FOOTER}>
+      <Hero hero={CONTENT.hero} />
+      <ServicesBento bento={CONTENT.bento} />
+      <HomePlans content={CONTENT.homePlans} plans={SITE_PLANS} cardText={CONTENT.planCard} />
+      <Portfolio content={CONTENT.portfolio} />
+      <WhyAndProcess content={CONTENT.why} />
+      <ProjectTracker content={CONTENT.tracker} />
+    </SiteLayout>
   );
 };
 

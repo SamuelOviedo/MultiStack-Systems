@@ -80,32 +80,58 @@ describe("routeHeadPlugin · cómo se registra", () => {
 });
 
 describe("routeHeadPlugin · con el index.html del repositorio", () => {
-  it("emite exactamente un archivo, paginas-web/index.html, con el head de la ruta", async () => {
+  it("emite un archivo por cada ruta con metas propias: la landing de Ads y las vistas del sitio, cada uno con su head", async () => {
     quiet();
 
-    const { emitFile, error } = await runGenerateBundle(routeHeadPlugin(), realBundle());
+    const { emitFile, emitted, error } = await runGenerateBundle(routeHeadPlugin(), realBundle());
 
     expect(error).toBeUndefined();
-    expect(emitFile).toHaveBeenCalledTimes(1);
-    expect(emitFile).toHaveBeenCalledWith({
-      type: "asset",
-      fileName: "paginas-web/index.html",
-      source: withRouteHead(INDEX_HTML, LANDING),
-    });
+    // Las cuatro rutas públicas con metas propias, en el orden de ROUTE_META; la home no entra (es index.html).
+    expect(Object.keys(ROUTE_META).sort()).toEqual(["/contacto", "/paginas-web", "/planes", "/servicios"]);
+    expect(emitFile).toHaveBeenCalledTimes(Object.keys(ROUTE_META).length);
+    expect(emitted.map((file) => file.fileName)).toEqual(
+      Object.keys(ROUTE_META).map((route) => `${route.replace(/^\//, "")}/index.html`),
+    );
+    for (const [route, meta] of Object.entries(ROUTE_META)) {
+      const fileName = `${route.replace(/^\//, "")}/index.html`;
+      expect(emitted.find((file) => file.fileName === fileName), fileName).toEqual({
+        type: "asset",
+        fileName,
+        source: withRouteHead(INDEX_HTML, meta),
+      });
+    }
   });
 
-  it("el archivo emitido trae el title, el canonical y la og:image de la landing y ninguno de los de la home", async () => {
+  it.each(["/planes", "/servicios", "/contacto", "/paginas-web"] as const)(
+    "el archivo de %s trae su title, su canonical y su og:image y ninguno de los de la home ni de otra ruta",
+    async (route) => {
+      quiet();
+
+      const { emitted } = await runGenerateBundle(routeHeadPlugin(), realBundle());
+      const { source } = emitted.find((file) => file.fileName === `${route.slice(1)}/index.html`)!;
+      const meta = ROUTE_META[route];
+
+      expect(source).toContain(`<title>${meta.title}</title>`);
+      expect(source).toContain(`<link rel="canonical" href="${meta.canonical}" />`);
+      expect(source).toContain(`<meta property="og:image" content="${meta.ogImage}" />`);
+      expect(source).not.toContain(`<title>${HOME_META.title}</title>`);
+      expect(source).not.toContain(`<link rel="canonical" href="${HOME_META.canonical}" />`);
+      for (const [other, otherMeta] of Object.entries(ROUTE_META)) {
+        if (other !== route) expect(source, other).not.toContain(`<title>${otherMeta.title}</title>`);
+      }
+      expect(source).not.toMatch(/name="keywords"/);
+    },
+  );
+
+  it("el archivo de /paginas-web sigue llevando la og:image propia de la landing, no la de la home", async () => {
     quiet();
 
     const { emitted } = await runGenerateBundle(routeHeadPlugin(), realBundle());
-    const { source } = emitted[0];
+    const { source } = emitted.find((file) => file.fileName === "paginas-web/index.html")!;
 
-    expect(source).toContain(`<title>${LANDING.title}</title>`);
-    expect(source).toContain(`<link rel="canonical" href="${LANDING.canonical}" />`);
+    expect(LANDING.ogImage).not.toBe(HOME_META.ogImage);
     expect(source).toContain(`<meta property="og:image" content="${LANDING.ogImage}" />`);
-    expect(source).not.toContain(HOME_META.title);
     expect(source).not.toContain(`<meta property="og:image" content="${HOME_META.ogImage}" />`);
-    expect(source).not.toMatch(/name="keywords"/);
   });
 
   it("no emite la home y deja intacto el index.html del bundle", async () => {
@@ -142,7 +168,8 @@ describe("routeHeadPlugin · cuando el build no puede emitir la cabecera", () =>
     const { emitFile, error } = await runGenerateBundle(routeHeadPlugin(), bundleWith({ type: "asset", source: broken }));
 
     expect(error).toBeInstanceOf(Error);
-    expect((error as Error).message).toContain("/paginas-web");
+    // El plugin recorre ROUTE_META en orden y se detiene en la primera ruta con el head roto.
+    expect((error as Error).message).toContain(Object.keys(ROUTE_META)[0]);
     expect((error as Error).message).toContain("canonical");
     expect(emitFile).not.toHaveBeenCalled();
   });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import {
   CONTACT_LIMITS,
   ContactInvalidError,
@@ -31,11 +31,68 @@ const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: "11.5px", color:
 
 const errorStyle: CSSProperties = { fontFamily: MONO, fontSize: "11px", color: "var(--danger)" };
 
+const alertStyle: CSSProperties = { fontFamily: MONO, fontSize: "11px", color: "var(--danger)" };
+
+const columnStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: "10px", minWidth: 0 };
+
 /** Texto para prellenar el mensaje. `nonce` permite reaplicar el mismo texto. */
 export interface ContactPrefill {
   text: string;
   nonce: number;
 }
+
+/** Atributos de estilo de un elemento: `className`, `style` o los dos. */
+interface Look {
+  className?: string;
+  style?: CSSProperties;
+}
+
+/**
+ * Aspecto del formulario: solo estilo, nunca comportamiento ni textos. Por omisión es el de los tokens MS en línea
+ * (`var(--text)`, `var(--primary)`…) de la landing de Ads `/paginas-web`. El sitio público rediseñado (`.ms-site`, donde
+ * esas variables no existen) pasa el suyo por la prop `look` (components/site/contactFormLook.tsx). Va como prop y no
+ * como variante interna para que el aspecto del sitio no viaje en el chunk de `/paginas-web`.
+ */
+export interface ContactFormLook {
+  form: Look;
+  /** Envuelve la etiqueta, el campo y su error. En `ms` no añade nodo (los campos van sueltos en el formulario). */
+  Group: (props: { children: ReactNode }) => ReactNode;
+  pair: Look;
+  column: Look;
+  label: Look;
+  field: (kind: "input" | "textarea", invalid: boolean) => Look;
+  error: Look;
+  success: Look;
+  button: (loading: boolean) => Look;
+  alert: Look;
+}
+
+const MS_LOOK: ContactFormLook = {
+  form: { className: "ms-contact-form", style: { display: "flex", flexDirection: "column", gap: "10px" } },
+  Group: ({ children }) => children,
+  pair: { className: "ms-contact-pair" },
+  column: { style: columnStyle },
+  label: { style: labelStyle },
+  field: (kind, invalid) => ({
+    style: { ...fieldStyle, ...(kind === "textarea" ? { resize: "vertical" } : {}), ...(invalid ? invalidStyle : {}) },
+  }),
+  error: { style: errorStyle },
+  success: { style: { fontFamily: MONO, fontSize: "12px", color: "var(--success)" } },
+  button: (loading) => ({
+    style: {
+      padding: "11px",
+      borderRadius: "8px",
+      fontSize: "13.5px",
+      fontWeight: 600,
+      color: "var(--btn-primary-text)",
+      background: "var(--primary)",
+      border: "none",
+      cursor: loading ? "not-allowed" : "pointer",
+      opacity: loading ? 0.6 : 1,
+    },
+  }),
+  alert: { style: alertStyle },
+};
 
 const EMPTY_FORM: ContactPayload = { name: "", phone: "", email: "", message: "" };
 
@@ -51,7 +108,15 @@ const honeypotStyle: CSSProperties = { position: "absolute", left: "-10000px", w
  * menos uno de los dos para poder responder. Los errores aparecen tras el
  * primer intento de envío y se actualizan en vivo.
  */
-const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; prefill?: ContactPrefill }) => {
+const ContactForm = ({
+  idPrefix = "ms-contact",
+  prefill,
+  look = MS_LOOK,
+}: {
+  idPrefix?: string;
+  prefill?: ContactPrefill;
+  look?: ContactFormLook;
+}) => {
   const [form, setForm] = useState<ContactPayload>(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "rate-limited" | "unavailable" | "invalid">("idle");
@@ -59,6 +124,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
   // Cerrojo síncrono del envío: `status` es el estado ya pintado, así que dos eventos submit antes de que React repinte
   // verían los dos "idle". El ref se activa en el mismo instante en que se decide enviar.
   const sendingRef = useRef(false);
+  const { Group } = look;
 
   // Prefill desde un CTA de servicio: reemplaza el mensaje y deja el foco en el
   // primer campo (nombre) sin interrumpir el scroll suave del llamador.
@@ -127,7 +193,7 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
       .join(" ") || undefined;
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="ms-contact-form" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+    <form onSubmit={handleSubmit} noValidate {...look.form}>
       <div aria-hidden="true" style={honeypotStyle}>
         <label htmlFor={id("hp")}>Dejar este campo vacío</label>
         <input
@@ -144,33 +210,35 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
           onChange={update("website")}
         />
       </div>
-      <label htmlFor={id("name")} style={labelStyle}>
-        Nombre completo
-      </label>
-      <input
-        ref={nameRef}
-        id={id("name")}
-        type="text"
-        value={form.name}
-        onChange={update("name")}
-        placeholder="Nombre y apellido"
-        disabled={status === "loading"}
-        autoComplete="name"
-        required
-        maxLength={CONTACT_LIMITS.nameMax}
-        aria-invalid={!!shown.name}
-        aria-describedby={describedBy("name")}
-        style={{ ...fieldStyle, ...(shown.name ? invalidStyle : {}) }}
-      />
-      {shown.name && (
-        <div id={id("name-error")} style={errorStyle}>
-          {shown.name}
-        </div>
-      )}
+      <Group>
+        <label htmlFor={id("name")} {...look.label}>
+          Nombre completo
+        </label>
+        <input
+          ref={nameRef}
+          id={id("name")}
+          type="text"
+          value={form.name}
+          onChange={update("name")}
+          placeholder="Nombre y apellido"
+          disabled={status === "loading"}
+          autoComplete="name"
+          required
+          maxLength={CONTACT_LIMITS.nameMax}
+          aria-invalid={!!shown.name}
+          aria-describedby={describedBy("name")}
+          {...look.field("input", !!shown.name)}
+        />
+        {shown.name && (
+          <div id={id("name-error")} {...look.error}>
+            {shown.name}
+          </div>
+        )}
+      </Group>
 
-      <div className="ms-contact-pair">
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: 0 }}>
-          <label htmlFor={id("phone")} style={labelStyle}>
+      <div {...look.pair}>
+        <div {...look.column}>
+          <label htmlFor={id("phone")} {...look.label}>
             Número de teléfono (opcional)
           </label>
           <input
@@ -185,16 +253,16 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
             maxLength={CONTACT_LIMITS.phoneMax}
             aria-invalid={!!shown.phone || contactInvalid}
             aria-describedby={describedBy("phone")}
-            style={{ ...fieldStyle, ...(shown.phone || contactInvalid ? invalidStyle : {}) }}
+            {...look.field("input", !!shown.phone || contactInvalid)}
           />
           {shown.phone && (
-            <div id={id("phone-error")} style={errorStyle}>
+            <div id={id("phone-error")} {...look.error}>
               {shown.phone}
             </div>
           )}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: 0 }}>
-          <label htmlFor={id("email")} style={labelStyle}>
+        <div {...look.column}>
+          <label htmlFor={id("email")} {...look.label}>
             Correo electrónico (opcional)
           </label>
           <input
@@ -208,82 +276,70 @@ const ContactForm = ({ idPrefix = "ms-contact", prefill }: { idPrefix?: string; 
             maxLength={CONTACT_LIMITS.emailMax}
             aria-invalid={!!shown.email || contactInvalid}
             aria-describedby={describedBy("email")}
-            style={{ ...fieldStyle, ...(shown.email || contactInvalid ? invalidStyle : {}) }}
+            {...look.field("input", !!shown.email || contactInvalid)}
           />
           {shown.email && (
-            <div id={id("email-error")} style={errorStyle}>
+            <div id={id("email-error")} {...look.error}>
               {shown.email}
             </div>
           )}
         </div>
       </div>
       {contactInvalid && (
-        <div id={id("contact-error")} style={errorStyle}>
+        <div id={id("contact-error")} {...look.error}>
           {shown.contact}
         </div>
       )}
 
-      <label htmlFor={id("message")} style={labelStyle}>
-        Mensaje
-      </label>
-      <textarea
-        id={id("message")}
-        value={form.message}
-        onChange={update("message")}
-        placeholder="Cuéntanos qué necesitas construir…"
-        rows={3}
-        disabled={status === "loading"}
-        required
-        aria-invalid={!!shown.message}
-        aria-describedby={describedBy("message")}
-        style={{ ...fieldStyle, resize: "vertical", ...(shown.message ? invalidStyle : {}) }}
-      />
-      {shown.message && (
-        <div id={id("message-error")} style={errorStyle}>
-          {shown.message}
-        </div>
-      )}
+      <Group>
+        <label htmlFor={id("message")} {...look.label}>
+          Mensaje
+        </label>
+        <textarea
+          id={id("message")}
+          value={form.message}
+          onChange={update("message")}
+          placeholder="Cuéntanos qué necesitas construir…"
+          rows={3}
+          disabled={status === "loading"}
+          required
+          aria-invalid={!!shown.message}
+          aria-describedby={describedBy("message")}
+          {...look.field("textarea", !!shown.message)}
+        />
+        {shown.message && (
+          <div id={id("message-error")} {...look.error}>
+            {shown.message}
+          </div>
+        )}
+      </Group>
 
       {status === "success" ? (
-        <div role="status" style={{ fontFamily: MONO, fontSize: "12px", color: "var(--success)" }}>
+        <div role="status" {...look.success}>
           ¡Mensaje enviado! Te responderemos a la brevedad.
         </div>
       ) : (
-        <button
-          type="submit"
-          disabled={status === "loading"}
-          style={{
-            padding: "11px",
-            borderRadius: "8px",
-            fontSize: "13.5px",
-            fontWeight: 600,
-            color: "var(--btn-primary-text)",
-            background: "var(--primary)",
-            border: "none",
-            cursor: status === "loading" ? "not-allowed" : "pointer",
-            opacity: status === "loading" ? 0.6 : 1,
-          }}
-        >
+        <button type="submit" disabled={status === "loading"} {...look.button(status === "loading")}>
           {status === "loading" ? "Enviando…" : "Enviar mensaje"}
         </button>
       )}
       {status === "error" && (
-        <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
+        <div role="alert" {...look.alert}>
           No pudimos enviar tu mensaje. Inténtalo de nuevo.
         </div>
       )}
       {status === "rate-limited" && (
-        <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
+        <div role="alert" {...look.alert}>
           Has alcanzado el límite de envíos. Inténtalo de nuevo más tarde.
         </div>
       )}
       {status === "unavailable" && (
-        <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
+        <div role="alert" {...look.alert}>
           El formulario no está disponible temporalmente. Inténtalo de nuevo más tarde.
         </div>
       )}
       {status === "invalid" && (
-        <div role="alert" style={{ fontFamily: MONO, fontSize: "11px", color: "var(--danger)" }}>
+        <div role="alert" {...look.alert}>
           No pudimos procesar tu mensaje. Revisa los datos ingresados e inténtalo de nuevo.
         </div>
       )}
