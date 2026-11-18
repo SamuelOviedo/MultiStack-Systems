@@ -1,4 +1,5 @@
 import Logo from "@/components/common/Logo";
+import { DevCredit } from "../../../snippets/credito-multistack/DevCredit";
 import { SiteLink } from "./SiteLink";
 
 export interface SiteFooterLink {
@@ -34,7 +35,8 @@ const LINK = "rounded-sm transition-colors duration-200 hover:text-site-foregrou
  * Pie del sitio público (port del `Footer` de la referencia): logotipo oficial, texto de marca y columnas de
  * enlaces. Todos los textos y enlaces llegan por props (los trae siteContent.ts); el pie del sitio enlaza a
  * `/politica-de-privacidad` y `/terminos-del-servicio` desde esas columnas. Los enlaces internos conservan la
- * query de atribución de Ads (SiteLink).
+ * query de atribución de Ads (SiteLink). La barra inferior lleva el copyright y el crédito «Desarrollado por MultiStack
+ * Systems» (DevCredit en modo sitio propio, estándar docs/standards/CREDITO-MULTISTACK.md); su ubicación está en site.css.
  */
 export function SiteFooter({ tagline, columns, copyright, logoLabel = "MultiStack Systems" }: SiteFooterProps) {
   return (
@@ -70,7 +72,16 @@ export function SiteFooter({ tagline, columns, copyright, logoLabel = "MultiStac
           </div>
         ))}
       </div>
-      <div className="border-t border-site-border py-5 text-center text-xs text-site-muted-foreground">{copyright}</div>
+      {/* Barra inferior. `.site-foot-bar` (site.css) es el contenedor de la container query en `ch` que decide si el crédito
+          va al lado del copyright o debajo; el copyright conserva su caja y su centrado en los dos casos. */}
+      <div className="site-foot-bar border-t border-site-border py-5 text-center text-xs text-site-muted-foreground">
+        <div className="site-foot-line">
+          <p className="site-foot-copy">{copyright}</p>
+          <span className="site-foot-sep" aria-hidden="true" />
+          {/* Sitio propio (estándar del crédito, sección 15): enlace a la home, misma pestaña, sin UTM ni rel. */}
+          <DevCredit ownSite className="site-foot-credit" />
+        </div>
+      </div>
     </footer>
   );
 }

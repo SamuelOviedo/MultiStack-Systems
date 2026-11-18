@@ -505,6 +505,76 @@
   animation: ms-site-swap-in 0.15s ease-out both;
 }
 
+/* ---- Pie: crédito «Desarrollado por MultiStack Systems» ---------------- */
+/* DevCredit en modo sitio propio (docs/standards/CREDITO-MULTISTACK.md, secciones 4, 8 y 15). Aquí solo va su ubicación:
+   el CSS del componente no se toca. Por defecto el crédito está en su propia línea, bajo el copyright y centrado como él.
+   Al lado solo si la barra mide 136ch o más, medido sobre la barra (`.site-foot-bar`, que lleva `text-xs`, así que `ch`
+   sigue al texto agrandado o al tamaño mínimo de fuente, cosa que un corte en px no hace). Al lado, el crédito sale del flujo
+   y se ancla al borde derecho de `.site-foot-line` (que mide lo mismo que el copyright): el copyright no cambia de ancho ni
+   de posición, sigue centrado. 136ch deja sitio a los dos lados: copyright, separador y crédito caben en el semiancho. */
+.ms-site .site-foot-bar {
+  container-type: inline-size;
+  /* Opacidad en reposo del crédito (propiedad pública del estándar, sección 9). El gris del copyright al 70 % da 4,27:1
+     sobre el fondo del pie (< 4,5:1); al 75 % da 4,71:1 y el crédito sigue siendo más tenue que el copyright (7,49:1). */
+  --ms-credit-opacity: 0.75;
+}
+.ms-site .site-foot-line {
+  position: relative;
+  width: fit-content;
+  margin-inline: auto;
+}
+/* Debajo: 3 px de aire sobre el crédito. El texto en negrita del enlace tiene un área de impacto (la del cuadro de contenido
+   de la fuente) que sobresale por arriba de su caja, y sin este margen un toque en el borde inferior del copyright
+   (`elementFromPoint`) cae en el enlace. */
+.ms-site .site-foot-line .site-foot-credit {
+  display: flex;
+  width: fit-content;
+  margin-block: 3px 0;
+  margin-inline: auto;
+}
+.ms-site .site-foot-line .site-foot-sep {
+  display: none;
+}
+/* Táctil, crédito debajo: el área de 44 px crece 28 px hacia abajo; se recupera el relleno inferior de la barra (20 px)
+   porque debajo no hay otro enlace. */
+@media (pointer: coarse) {
+  .ms-site .site-foot-line .site-foot-credit {
+    margin-bottom: -20px;
+  }
+}
+@container (min-width: 136ch) {
+  .ms-site .site-foot-line .site-foot-credit {
+    position: absolute;
+    top: 0;
+    left: 100%;
+    margin: 0 0 0 29px;
+  }
+  .ms-site .site-foot-line .site-foot-sep {
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    width: 1px;
+    height: 12px;
+    margin-left: 14px;
+    transform: translateY(-50%);
+    background: oklch(var(--site-border) / 0.14);
+  }
+  /* Táctil, crédito al lado: el área de 44 px se reparte a ambos lados del texto (14 px arriba y 14 abajo, sobre la
+     línea de 16 px) para que quede dentro de la barra, y el borde de arriba la deja alineada con el copyright. Primero el
+     valor fijo, para navegadores sin la unidad lh. */
+  @media (pointer: coarse) {
+    .ms-site .site-foot-line .site-foot-credit {
+      padding-top: 14px;
+      padding-top: max(14px, calc((44px - 1lh) / 2));
+      padding-bottom: 14px;
+      padding-bottom: max(14px, calc((44px - 1lh) / 2));
+      margin-top: -14px;
+      margin-top: calc(-1 * max(14px, calc((44px - 1lh) / 2)));
+    }
+  }
+}
+
 /* ---- Movimiento reducido ---------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

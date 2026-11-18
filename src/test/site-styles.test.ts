@@ -58,7 +58,8 @@ describe("site.css: aislamiento", () => {
   });
 
   it("no redefine los tokens de shadcn ni de la landing (solo --site-* y variables locales)", () => {
-    const allowed = /^--(site-|gx$|gy$|gc-r$|delay$|chars$|reveal-delay$)/;
+    // `--ms-credit-opacity` es la propiedad pública del crédito del pie (estándar, sección 9): el pie la ajusta sin editar el snippet.
+    const allowed = /^--(site-|gx$|gy$|gc-r$|delay$|chars$|reveal-delay$|ms-credit-opacity$)/;
     root.walkDecls(/^--/, (decl) => {
       if (/^--(delay|chars|reveal-delay)$/.test(decl.prop)) return; // solo se leen
       expect(decl.prop, decl.prop).toMatch(allowed);

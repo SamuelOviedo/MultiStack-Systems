@@ -286,6 +286,27 @@ test.describe("Accesibilidad medida en el navegador (WCAG 2.2)", () => {
         const small = await page.evaluate(() => {
           const out: string[] = [];
           const controls = document.querySelectorAll<HTMLElement>("a[href], button, input:not([type=hidden]), textarea, select, [role=checkbox], [role=button]");
+          const boxes = [...controls]
+            .filter((el) => {
+              const style = getComputedStyle(el);
+              return style.visibility !== "hidden" && style.display !== "none" && !el.closest("[hidden]");
+            })
+            .map((el) => ({ el, box: el.getBoundingClientRect() }))
+            .filter(({ box }) => box.width > 0 && box.height > 0);
+          const spaced = (el: HTMLElement) => {
+            const me = el.getBoundingClientRect();
+            const cx = me.left + me.width / 2;
+            const cy = me.top + me.height / 2;
+            return boxes.every(({ el: other, box }) => {
+              if (other === el || other.contains(el) || el.contains(other)) return true;
+              const ocx = box.left + box.width / 2;
+              const ocy = box.top + box.height / 2;
+              if ((box.width < 24 || box.height < 24) && Math.hypot(cx - ocx, cy - ocy) < 24) return false;
+              const dx = Math.max(box.left - cx, 0, cx - box.right);
+              const dy = Math.max(box.top - cy, 0, cy - box.bottom);
+              return Math.hypot(dx, dy) >= 12;
+            });
+          };
           for (const el of controls) {
             const style = getComputedStyle(el);
             if (style.visibility === "hidden" || style.display === "none" || el.closest("[hidden]")) continue;
@@ -298,7 +319,9 @@ test.describe("Accesibilidad medida en el navegador (WCAG 2.2)", () => {
             if (after.position === "absolute" && after.content !== "none") continue;
             // Enlace dentro de una frase: la excepción de «en línea» de 2.5.8.
             if (style.display === "inline" && el.closest("p, li")) continue;
-            if (w < 24 || h < 24) out.push(`${(el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 40)} ${Math.round(w)}x${Math.round(h)}`);
+            // Excepción de espaciado de 2.5.8: un objetivo menor de 24x24 vale si un círculo de 24 px centrado en él no toca
+            // a otro objetivo ni al círculo de otro objetivo también menor (p. ej. el crédito del pie, con puntero fino).
+            if ((w < 24 || h < 24) && !spaced(el)) out.push(`${(el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 40)} ${Math.round(w)}x${Math.round(h)}`);
           }
           return out;
         });
@@ -331,6 +354,8 @@ test.describe("Accesibilidad medida en el navegador (WCAG 2.2)", () => {
           for (let node = walker.nextNode(); node; node = walker.nextNode()) {
             const el = node.parentElement;
             if (!el || !node.nodeValue?.trim() || el.closest("[hidden], script, style, .sr-only")) continue;
+            // El crédito del pie va atenuado a propósito (opacidad en reposo del estándar, 4,5:1 medido en pie-credito.spec.ts).
+            if (el.closest("a[aria-label^=\"Desarrollado por\"]")) continue;
             const { width, height } = el.getBoundingClientRect();
             if (width < 2 || height < 2) continue;
             let opacity = 1;
