@@ -12,8 +12,6 @@ import { test, expect, type Page } from "@playwright/test";
 const ANCHOS = [320, 360, 390, 1440] as const;
 // Rutas con el pie anterior (src/components/common/Footer.tsx): hoy solo /paginas-web.
 const RUTAS_PIE_ANTERIOR = ["/paginas-web"] as const;
-// Por debajo de 360 px la tarjeta del hero de la home (ajena al pie) ya desborda el documento: ahí el desborde se mide en el pie.
-const ANCHO_DOCUMENTO_MIN = 360;
 // Gutter mínimo a cada lado: el crédito no invade el relleno lateral del pie.
 const GUTTER = 16;
 const NOMBRE = "Desarrollado por MultiStack Systems";
@@ -68,8 +66,9 @@ for (const pie of PIES) {
           scroll: document.documentElement.scrollWidth,
           ancho: document.documentElement.clientWidth,
         }));
-        if (ancho >= ANCHO_DOCUMENTO_MIN) expect(medidas.scroll).toBeLessThanOrEqual(medidas.ancho);
-        // En todos los anchos: el pie no desborda y el crédito queda dentro, sin invadir el relleno lateral.
+        // En todos los anchos, 320 incluido, el documento no desborda; y el pie no desborda y el crédito queda dentro, sin
+        // invadir el relleno lateral.
+        expect(medidas.scroll).toBeLessThanOrEqual(medidas.ancho);
         const caja = await page.evaluate(() => {
           const el = document.querySelector("footer")!;
           const enlace = el.querySelector("a[href=\"/\"][aria-label^=\"Desarrollado\"]")!.getBoundingClientRect();

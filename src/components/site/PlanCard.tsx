@@ -53,7 +53,15 @@ export function PlanCard({ plan, text, as: Heading = "h3" }: PlanCardProps) {
           </li>
         ))}
       </ul>
-      <SiteButton asChild variant={plan.highlight ? "hero" : "glass"} size="lg" className="mt-7 w-full">
+      {/* Bajo `sm` el rótulo puede partirse en dos líneas: con `nowrap` («Solicitar Combo Emprendedor») la pista de la
+          cuadrícula no baja de 327 px y la tarjeta se sale del contenedor a 360 px o menos. Con la primera línea completa a
+          360 px y más, el aspecto es el de siempre. */}
+      <SiteButton
+        asChild
+        variant={plan.highlight ? "hero" : "glass"}
+        size="lg"
+        className="mt-7 w-full max-sm:h-auto max-sm:min-h-10 max-sm:whitespace-normal max-sm:px-4 max-sm:py-2 max-sm:text-center"
+      >
         <SiteLink to={packageRequestPath(plan.id)} packageId={plan.id}>
           {text.requestLabel(plan.name)}
         </SiteLink>

@@ -302,6 +302,16 @@
     ms-site-blink 0.55s steps(1) infinite,
     ms-site-hero-caret-off 0.01s linear calc(0.95s + var(--chars) * 28ms) forwards;
 }
+/* Por debajo de 360 px la insignia en una línea (unos 314 px) no cabe en el contenedor y la recorta la sección. Ahí el
+   texto puede partirse en dos líneas; el cursor, que sigue el borde derecho de una sola línea, no se dibuja. */
+@media (max-width: 359px) {
+  .ms-site .hero-typewriter {
+    white-space: normal;
+  }
+  .ms-site .hero-typewriter > .hero-caret {
+    display: none;
+  }
+}
 
 /* ---- Transiciones con duración y curva propias ------------------------------------------------ */
 /* Tailwind no genera las clases de duración y de curva con valor arbitrario entre corchetes: con

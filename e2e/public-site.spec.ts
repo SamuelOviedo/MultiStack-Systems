@@ -25,6 +25,7 @@ const SIZES = [
   { width: 768, height: 1024 },
   { width: 390, height: 844 },
   { width: 360, height: 740 },
+  { width: 320, height: 640 },
 ] as const;
 
 /** Intercepta todo lo que no es de la app: responde vacío con un tipo válido y guarda las URL pedidas. */
@@ -69,7 +70,7 @@ test.beforeEach(async ({ context, baseURL }) => {
   await isolate(context, baseURL ?? "http://localhost:8080");
 });
 
-test.describe("Cada vista, en cinco anchos", () => {
+test.describe("Cada vista, en seis anchos", () => {
   for (const view of VIEWS) {
     for (const size of SIZES) {
       test(`${view.name} a ${size.width} px: sin scroll horizontal, sin errores de consola y con el H1 visible`, async ({ page }) => {
@@ -93,6 +94,20 @@ test.describe("Cada vista, en cinco anchos", () => {
           }
         });
         await expect.poll(overflow, { message: "scroll horizontal al recorrer la página" }).toBeLessThanOrEqual(0);
+
+        // El documento no desborda, pero una sección con `overflow: hidden` (p. ej. la de /planes) puede estar recortando una
+        // tarjeta: ningún elemento visible rebasa el borde del viewport, salvo los decorativos y la tabla que se desplaza.
+        const cut = await page.evaluate(() => {
+          const out: string[] = [];
+          for (const el of document.body.querySelectorAll("*")) {
+            if (el.closest('[aria-hidden="true"], [hidden], .sr-only, .overflow-x-auto')) continue;
+            const { left, right, width, height } = el.getBoundingClientRect();
+            if (width === 0 || height === 0) continue;
+            if (left < -0.5 || right > window.innerWidth + 0.5) out.push(`${el.tagName.toLowerCase()} ${(el.textContent ?? "").trim().slice(0, 30)} [${Math.round(left)}, ${Math.round(right)}]`);
+          }
+          return out.slice(0, 5);
+        });
+        expect(cut, "elementos que rebasan el viewport (aunque una sección los recorte)").toEqual([]);
 
         expect(errors).toEqual([]);
       });
