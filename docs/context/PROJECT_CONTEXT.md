@@ -455,7 +455,7 @@ export async function getFoo(id: string): Promise<MiTipo[]> {
 - ~~`AuthCallback` redirigía hardcoded a `/dashboard`~~ — corregido con redirect por `userType`
 - ~~`ProtectedRoute` mandaba `user_type: 2` a `/` (landing)~~ — corregido a `/solicitudes`
 - ~~Cero tests escritos~~ — base de tests funcional: 12 tests Vitest + 6 tests Playwright
-- ~~`playwright.config.ts` roto~~ (`lovable-agent-playwright-config` no instalado) — reemplazado con config estándar
+- ~~`playwright.config.ts` roto~~ (la configuración de Playwright de la plantilla original no estaba instalada) — reemplazado con config estándar
 
 ### Inconsistencias conocidas
 
