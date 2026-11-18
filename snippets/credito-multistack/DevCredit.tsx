@@ -2,9 +2,7 @@
 // Es el port de credito.css: mismo marcado, mismas custom properties --ms-credit-* (esas no se hashean). Ver docs/standards.
 import styles from './DevCredit.module.css'
 
-export type DevCreditProps = {
-  /** Slug del cliente: va en utm_source del enlace. */
-  clientSlug: string
+type DevCreditBase = {
   /** Alineación cuando el crédito ocupa su propia línea. Sin valor queda en línea, donde lo coloque el sitio. */
   align?: 'start' | 'center' | 'end'
   /** auto hereda el color del contenedor; dark = texto claro (pie oscuro); light = texto oscuro (pie claro). */
@@ -13,16 +11,45 @@ export type DevCreditProps = {
   className?: string
 }
 
+export type DevCreditProps = DevCreditBase &
+  (
+    | {
+        /** Modo cliente (el de los sitios que entregamos): slug del cliente, va en utm_source del enlace. */
+        clientSlug: string
+        ownSite?: false
+        href?: never
+      }
+    | {
+        /** Modo sitio propio: solo para los sitios de MultiStack. Enlace interno, misma pestaña, sin UTM ni nofollow. Nunca en sitios de clientes. */
+        ownSite: true
+        /** Destino interno: una ruta que empieza por «/» (el tipo rechaza URLs absolutas). Por defecto, la home. */
+        href?: `/${string}`
+        clientSlug?: never
+      }
+  )
+
+const CLIENT_LABEL = 'Desarrollado por MultiStack Systems (se abre en una pestaña nueva)'
+const OWN_LABEL = 'Desarrollado por MultiStack Systems'
+// «/${string}» deja pasar «//otro.sitio» y «/\otro.sitio», que el navegador resuelve como otro origen: se cae a la home.
+// El analizador de URL también quita TAB, LF y CR de cualquier posición («/<TAB>/otro.sitio» pasa a «//otro.sitio»): se rechaza todo carácter de control.
+// eslint-disable-next-line no-control-regex -- los controles son justo lo que se rechaza
+const INTERNAL_PATH = /^\/(?![/\\])[^\u0000-\u001f\u007f\\]*$/
+
 // Los ids son fijos porque <use> y el degradado los referencian: un solo crédito por página.
-export function DevCredit({ clientSlug, align, tone = 'auto', className }: DevCreditProps) {
-  const href = `https://www.multistacksystems.com/?utm_source=${encodeURIComponent(clientSlug)}&utm_medium=referral&utm_campaign=credito-footer`
+export function DevCredit({ clientSlug, ownSite, href, align, tone = 'auto', className }: DevCreditProps) {
+  // Los enlaces de cliente salen a otro sitio: pestaña nueva, noopener, nofollow y UTM. El propio es interno.
+  const link = ownSite
+    ? { href: href && INTERNAL_PATH.test(href) ? href : '/', 'aria-label': OWN_LABEL }
+    : {
+        href: `https://www.multistacksystems.com/?utm_source=${encodeURIComponent(clientSlug)}&utm_medium=referral&utm_campaign=credito-footer`,
+        target: '_blank',
+        rel: 'noopener nofollow',
+        'aria-label': CLIENT_LABEL,
+      }
   return (
     <a
       className={className ? `${styles.credit} ${className}` : styles.credit}
-      href={href}
-      target="_blank"
-      rel="noopener nofollow"
-      aria-label="Desarrollado por MultiStack Systems (se abre en una pestaña nueva)"
+      {...link}
       data-align={align}
       data-tone={tone === 'auto' ? undefined : tone}
     >

@@ -3,6 +3,7 @@ import Logo from "@/components/common/Logo";
 import { getTechonHref, isExternalHref } from "@/lib/products";
 import { HOME_CONTENT } from "@/pages/marketing/homeContent";
 import type { CSSProperties } from "react";
+import { DevCredit } from "../../../snippets/credito-multistack/DevCredit";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -49,7 +50,7 @@ const Footer = () => {
     >
       <div
         className="ms-footer-grid"
-        style={{ maxWidth: "1200px", margin: "0 auto", padding: "56px 32px 28px" }}
+        style={{ maxWidth: "1200px", margin: "0 auto" }}
       >
         {/* Col 1 — brand */}
         <div>
@@ -147,10 +148,10 @@ const Footer = () => {
       </div>
 
       <div
+        className="ms-footer-bar"
         style={{
           maxWidth: "1200px",
           margin: "0 auto",
-          padding: "18px 32px",
           borderTop: "1px solid var(--border-soft)",
           fontFamily: MONO,
           fontSize: "12px",
@@ -159,6 +160,10 @@ const Footer = () => {
       >
         © 2026 MultiStack Systems. Todos los derechos reservados.
         <span style={{ animation: "ms-blink 1.1s steps(1) infinite" }}>_</span>
+        {/* Separador y crédito: el CSS de .ms-footer-bar los pone al lado del copyright o en su propia línea. */}
+        <span className="ms-footer-bar__sep" aria-hidden="true" />
+        {/* Sitio propio (estándar del crédito, sección 15): enlace a la home, misma pestaña, sin UTM. */}
+        <DevCredit ownSite className="ms-footer-bar__credit" />
       </div>
     </footer>
   );

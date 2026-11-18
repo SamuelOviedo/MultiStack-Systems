@@ -43,7 +43,9 @@ import { DevCredit } from './DevCredit'
 
 | Prop | Tipo | Por defecto | Qué hace |
 | --- | --- | --- | --- |
-| `clientSlug` | `string` (obligatoria) | — | Va en `utm_source` del enlace (pasa por `encodeURIComponent`). |
+| `clientSlug` | `string` (obligatoria en modo cliente) | — | Va en `utm_source` del enlace (pasa por `encodeURIComponent`). |
+| `ownSite` | `true` | sin valor | Activa el modo sitio propio (sección 15). **Solo para los sitios de MultiStack.** Excluye a `clientSlug`. |
+| `href` | `` `/${string}` `` (solo con `ownSite`) | `'/'` | Destino interno del modo sitio propio: una ruta con «/» inicial; el tipo rechaza URLs absolutas. Un valor que empiece por `//` o `/\` (otro origen para el navegador) se ignora y el enlace va a `/`. |
 | `align` | `'start' \| 'center' \| 'end'` | sin valor | Sin valor queda en línea (`inline-flex`), donde lo coloque el sitio. Con valor ocupa su propia línea (`display: flex; width: fit-content`) alineado al inicio, centro o final. |
 | `tone` | `'auto' \| 'light' \| 'dark'` | `'auto'` | Color del texto (sección 9). |
 | `className` | `string` | — | Se suma a la clase del componente. Solo para ubicarlo; el aspecto se ajusta con `tone` y las custom properties. |
@@ -131,7 +133,7 @@ Las políticas de spam de Google incluyen entre sus ejemplos de spam de enlaces 
 
 ## 8. Accesibilidad
 
-- **Nombre accesible:** `aria-label="Desarrollado por MultiStack Systems (se abre en una pestaña nueva)"`. Empieza por el texto visible y avisa de la pestaña nueva.
+- **Nombre accesible (sitio de cliente):** `aria-label="Desarrollado por MultiStack Systems (se abre en una pestaña nueva)"`. Empieza por el texto visible y avisa de la pestaña nueva. En modo `ownSite`, sin el aviso (sección 15).
 - **SVG ocultos:** isotipo y flecha llevan `aria-hidden="true"` y `focusable="false"`, sin `<title>`.
 - **Foco visible:** en `:focus-visible` hay un contorno de 2 px, separado 3 px, con esquinas de 2 px y del color del texto (`currentColor`), a opacidad 1. No uses `outline: none`.
 - **Área de toque:** con `(pointer: coarse)` el enlace mide al menos 44 px de alto sin cambiar el tamaño del texto. El área crece **solo hacia abajo** (`padding-bottom: max(26px, 44px - 1lh)`), para no tapar la línea de arriba: si el crédito va bajo el copyright, tocar el copyright no debe abrir el enlace. Ese padding añade alto en táctil; el sitio puede recuperar parte con un margen inferior negativo, siempre que el área de toque no llegue a otro enlace. Si debajo hay otro enlace y arriba hay sitio libre, redirige el padding con CSS del sitio. En navegadores sin la unidad `lh` quedan 26 px fijos, que no llegan a 44 si la línea heredada mide menos de 18 px. Compruébalo con `document.elementFromPoint` en varios puntos del copyright: el toque tiene que caer en el copyright, no en el enlace.
@@ -201,7 +203,7 @@ Si ninguno de los dos llega a 3:1 sobre ese fondo, el fondo no cumple el estánd
 - Cambiar las proporciones o la composición del isotipo, o fijar ancho y alto con otra proporción.
 - Usar un PNG (`<img>` o `background-image`) para el isotipo, ni retrazarlo desde un PNG. Es SVG inline: sin peticiones externas, hereda `currentColor` y permite animar el `_`.
 - Cambiar el texto ancla, añadirle palabras clave o traducir el nombre de la marca.
-- Quitar o cambiar `rel="noopener nofollow"`, `target="_blank"` o los UTM.
+- Quitar o cambiar `rel="noopener nofollow"`, `target="_blank"` o los UTM. La única excepción es el modo `ownSite` de los sitios de MultiStack (sección 15), que no se usa en sitios de clientes.
 - Poner más de un crédito por página, o renderizarlo dos veces (por ejemplo una copia para móvil y otra para escritorio). Los ids `ms-credit-m` y `ms-credit-g` son fijos porque el `<use>` y el degradado los referencian, y la segunda copia apuntaría a la primera. La demo estática tiene dos créditos solo para enseñar ambos tonos y sufija con `-2` los ids del segundo.
 - Mover, reordenar, ensanchar o restilar elementos del footer del cliente para hacerle sitio.
 - Quitar el anillo de foco, el `aria-label` o el `aria-hidden` de los SVG.
@@ -228,18 +230,54 @@ De los trazos del archivo maestro editable de la marca (privado), sin trazar nin
 - **Anillo de foco en táctil:** rodea el área de toque (el texto y el espacio de debajo), no solo el texto. Solo se ve con un teclado conectado a un dispositivo táctil.
 - **Idioma:** los textos están en español y no hay prop para cambiarlos. En un sitio en otro idioma hay que traducir a la vez «Desarrollado por» y el `aria-label`.
 - **Peso 600:** si la fuente del cliente no lo incluye, el navegador usará el más cercano disponible para «MultiStack Systems».
+- **Anchos muy estrechos:** con la fuente del pie de MultiStack (JetBrains Mono a 12 px) el crédito mide unos 286 px y no se parte (`nowrap`, sección 5), así que necesita 286 px de contenido en la barra. Con 16 px de relleno por lado (el gutter que usa nuestro pie en anchos de 480 px o menos) cabe justo desde 320 px de ventana. Por debajo de unos 318 px invade el relleno derecho y por debajo de unos 302 px provoca scroll horizontal. Por debajo de unos 300 px el crédito puede no caber, y el estándar no lo garantiza. Con 32 px de relleno ya invade a 320 px; en un sitio de cliente el relleno del footer no se toca (sección 4), así que ahí hay que comprobarlo a 320 px.
+- **Umbral en `ch` y fuente de reserva:** en la primera carga Chromium resuelve la container query de la sección 4 con la métrica de la fuente de reserva, y no la vuelve a evaluar cuando llega la fuente web; sí la reevalúa al cambiar el tamaño de la ventana. Medido con el pie de MultiStack, con 118ch el corte «al lado» o «debajo» cae en torno a 780 px de contenido con la fuente de reserva (1ch = 6,6 px) y en torno a 850 px con JetBrains Mono (1ch = 7,2 px); según la fuente de reserva del sistema el rango es de unos 780 a 860 px. En ese tramo el crédito puede quedar al lado aunque el cálculo con la fuente real lo bajara; sigue sin solaparse, porque el copyright, el separador y el crédito juntos miden entre 700 y 730 px.
+- **Táctil, altura de la barra:** con puntero táctil la barra crece unos 8 px (de 55 a 63 px a 1440 px, medido) aunque el crédito vaya al lado del copyright, por la zona de toque de 44 px (sección 8). Con ratón la altura es la misma con o sin crédito.
 
 ## 14. Lista de comprobación para cada sitio nuevo
 
-- [ ] El crédito está acordado en la cotización.
-- [ ] `utm_source` lleva el slug del cliente; el enlace abre en pestaña nueva con `rel="noopener nofollow"`.
+- [ ] (Sitio de cliente) El crédito está acordado en la cotización.
+- [ ] (Sitio de cliente) `utm_source` lleva el slug del cliente; el enlace abre en pestaña nueva con `rel="noopener nofollow"`.
 - [ ] Hay un solo crédito en la página.
 - [ ] Cada elemento del footer conserva ancho y posición horizontal antes y después (compara cajas y capturas), y ningún selector del cliente pisa el crédito.
 - [ ] Tamaño igual al del copyright; la fuente del sitio tiene peso 600.
 - [ ] Contraste: texto en reposo ≥ 4,5:1 e isotipo activo ≥ 3:1; si no, `tone` o color sólido.
-- [ ] Teclado: Tab llega al crédito, el foco se ve y Enter abre el enlace correcto en pestaña nueva.
+- [ ] Teclado: Tab llega al crédito, el foco se ve y Enter abre el enlace correcto (sitio de cliente: en pestaña nueva; `ownSite`: en la misma).
 - [ ] `prefers-reduced-motion: reduce`: solo cambia el color; sin desplazamiento, crecimiento ni parpadeo.
 - [ ] Se ve bien en 375, 768 y 1440 px; en móvil va en su propia línea.
 - [ ] En táctil el alto del enlace es de 44 px o más, y tocar el copyright no abre el enlace.
 - [ ] Con tamaño mínimo de fuente de 16 px y con zoom solo de texto, el crédito no se monta sobre ningún otro elemento en ningún ancho.
 - [ ] Sin dependencias nuevas; tipos y build del sitio en verde.
+- [ ] Solo en sitios propios de MultiStack: `ownSite` (o la versión estática de la sección 15) con `href` interno, sin `target`, `rel` ni UTM, y `aria-label` sin el aviso de pestaña nueva. En un sitio de cliente, nunca. **Sustituye** a los puntos marcados «(sitio de cliente)» de esta lista (acuerdo en la cotización, UTM con pestaña nueva y `rel`, y «Enter abre… en pestaña nueva»); el resto de los puntos valen igual.
+
+## 15. Sitios propios de MultiStack
+
+Los sitios de MultiStack (multistacksystems.com y los que sean nuestros) usan **el mismo componente** en un modo mínimo. El enlace es interno y no sale del sitio, así que no hay pestaña nueva, ni UTM, ni `nofollow` (no es un enlace a un tercero). Todo lo demás es idéntico al modo cliente: isotipo SVG inline y sus ids, clases, `tone`, `align`, hover, foco, área táctil de 44 px, movimiento reducido y las reglas de las secciones 4, 5, 8, 9 y 10.
+
+**No se usa en sitios de clientes.** Allí el enlace sigue siendo el de la sección 6, con `clientSlug`, UTM, `target="_blank"` y `rel="noopener nofollow"`. El acuerdo con el cliente (sección 1) tampoco aplica a nuestros propios sitios.
+
+### React
+
+```tsx
+// Se importa desde snippets/credito-multistack/: una sola fuente, sin copiar el componente.
+import { DevCredit } from '<ruta-relativa>/snippets/credito-multistack/DevCredit'
+
+<DevCredit ownSite tone="auto" />               {/* href="/" */}
+<DevCredit ownSite href="/paginas-web" />      {/* otro destino interno */}
+```
+
+Las props son una unión: o `clientSlug` (modo cliente) o `ownSite` (y opcionalmente `href`, una ruta con «/» inicial: el tipo rechaza URLs absolutas); TypeScript no admite las dos. En modo propio, `<a href="/">` es un enlace normal: dentro de una SPA la navegación recarga la página y aterriza arriba, y eso es aceptable.
+
+### Estática
+
+El mismo bloque de `credito.html`, cambiando solo tres cosas en la etiqueta de apertura:
+
+```html
+<a class="ms-credit" href="/" aria-label="Desarrollado por MultiStack Systems">…</a>
+```
+
+- `href="/"` (o la ruta interna que corresponda), sin `?utm_*`.
+- Sin `target` y sin `rel`.
+- `aria-label` sin «(se abre en una pestaña nueva)».
+
+El interior (SVG, `<b>`, flecha) y los atributos `data-tone` y `data-align` no cambian. React y estático siguen siendo la misma pieza (sección 2).

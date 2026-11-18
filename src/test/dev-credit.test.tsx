@@ -104,3 +104,92 @@ describe("DevCredit · isotipo", () => {
     expect(link().querySelector("svg")).toHaveAttribute("viewBox", "0 0 888.5 703.2");
   });
 });
+
+describe("DevCredit · modo sitio propio", () => {
+  const OWN_NAME = "Desarrollado por MultiStack Systems";
+  const own = () => screen.getByRole("link", { name: OWN_NAME });
+
+  it("enlaza a la home por defecto, en la misma pestaña, sin rel ni UTM", () => {
+    render(<DevCredit ownSite />);
+    expect(own()).toHaveAttribute("href", "/");
+    expect(own()).not.toHaveAttribute("target");
+    expect(own()).not.toHaveAttribute("rel");
+    expect(own().getAttribute("href")).not.toMatch(/utm_|multistacksystems\.com/);
+  });
+
+  it("admite otro destino interno y sigue sin target, rel ni UTM", () => {
+    render(<DevCredit ownSite href="/paginas-web" />);
+    expect(own()).toHaveAttribute("href", "/paginas-web");
+    expect(own()).not.toHaveAttribute("target");
+    expect(own()).not.toHaveAttribute("rel");
+  });
+
+  it("el tipo de href solo admite rutas internas (tsc lo comprueba)", () => {
+    // Si el tipo volviera a ser `string`, cada @ts-expect-error sobraría y tsc fallaría.
+    // @ts-expect-error una URL absoluta no es una ruta interna
+    const a = <DevCredit ownSite href="https://example.com" />;
+    // @ts-expect-error sin «/» inicial tampoco
+    const b = <DevCredit ownSite href="paginas-web" />;
+    // @ts-expect-error el href es solo del modo propio
+    const c = <DevCredit clientSlug="acme" href="/paginas-web" />;
+    expect([a, b, c]).toHaveLength(3);
+  });
+
+  it("un href que el navegador resolvería a otro origen cae a la home", () => {
+    // Se salta el tipo a propósito: «/${string}» admite «//…» y «/\…», que son externas.
+    const externos = ["//example.com", "/\\example.com", "/\\\\example.com"] as unknown as `/${string}`[];
+    for (const externo of externos) {
+      const { unmount } = render(<DevCredit ownSite href={externo} />);
+      expect(own()).toHaveAttribute("href", "/");
+      unmount();
+    }
+  });
+
+  it("un href con caracteres de control, que el analizador de URL quita para resolver otro origen, cae a la home", () => {
+    // «/<TAB>/host» se analiza como «//host»; el NUL y el resto de controles tampoco son una ruta interna.
+    const externos = ["/\t/example.com", "/\n/example.com", "/\r/example.com", "/\u0000/example.com"] as unknown as `/${string}`[];
+    for (const externo of externos) {
+      const { unmount } = render(<DevCredit ownSite href={externo} />);
+      expect(own()).toHaveAttribute("href", "/");
+      unmount();
+    }
+  });
+
+  it("las rutas internas válidas siguen pasando tal cual", () => {
+    for (const ruta of ["/", "/planes", "/planes?x=1#a"] as const) {
+      const { unmount } = render(<DevCredit ownSite href={ruta} />);
+      expect(own()).toHaveAttribute("href", ruta);
+      unmount();
+    }
+  });
+
+  it("el nombre accesible no avisa de pestaña nueva y abre con el texto visible", () => {
+    render(<DevCredit ownSite />);
+    expect(own().getAttribute("aria-label")).toBe("Desarrollado por MultiStack Systems");
+    expect(own().textContent).toBe("Desarrollado por MultiStack Systems");
+    expect(screen.queryByRole("link", { name: NAME })).toBeNull();
+  });
+
+  it("el isotipo, la flecha y las variantes son idénticos a los del modo cliente", () => {
+    const { container: client } = render(<DevCredit clientSlug="acme" tone="dark" align="center" className="pie" />);
+    const { container: propio } = render(<DevCredit ownSite tone="dark" align="center" className="pie" />);
+    const a = client.querySelector("a")!;
+    const b = propio.querySelector("a")!;
+    expect([...b.children].map((el) => el.outerHTML)).toEqual([...a.children].map((el) => el.outerHTML));
+    expect(b.className).toBe(a.className);
+    expect(b.getAttribute("data-tone")).toBe(a.getAttribute("data-tone"));
+    expect(b.getAttribute("data-align")).toBe(a.getAttribute("data-align"));
+    // Mismo texto (el ancla): el modo no cambia lo visible.
+    expect(b.textContent).toBe(a.textContent);
+  });
+
+  it("los SVG siguen ocultos a los lectores de pantalla", () => {
+    render(<DevCredit ownSite />);
+    const svgs = own().querySelectorAll("svg");
+    expect(svgs).toHaveLength(2);
+    for (const svg of svgs) {
+      expect(svg).toHaveAttribute("aria-hidden", "true");
+      expect(svg).toHaveAttribute("focusable", "false");
+    }
+  });
+});

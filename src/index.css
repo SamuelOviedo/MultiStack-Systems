@@ -232,8 +232,40 @@
 .ms-foot-link { transition: color .2s; }
 .ms-foot-link:hover { color: var(--primary); }
 
+/* Barra inferior del pie con el crédito «Desarrollado por MultiStack Systems» (DevCredit en modo ownSite). Según el
+   estándar (docs/standards/CREDITO-MULTISTACK.md, sección 4) el crédito va en su propia línea y solo al lado del
+   copyright si la barra mide 118ch o más. La medida es en ch porque sigue al texto (zoom de texto, tamaño mínimo de
+   fuente); un corte en px no. Sin container queries se queda en su propia línea. El separador solo se ve al lado. */
+.ms-footer-bar { container-type: inline-size; padding: 18px var(--ms-footer-gutter); }
+/* Relleno lateral del pie (columnas y barra con el mismo gutter). A 320px el crédito mide unos 286px y no se parte
+   (nowrap, estándar sección 5): con 32px de relleno invadiría el borde, así que en anchos estrechos baja a 16px. */
+.ms-footer-grid, .ms-footer-bar { --ms-footer-gutter: 32px; }
+@media (max-width: 480px) {
+  .ms-footer-grid, .ms-footer-bar { --ms-footer-gutter: 16px; }
+}
+.ms-footer-bar .ms-footer-bar__credit { display: flex; width: fit-content; }
+.ms-footer-bar__sep { display: none; }
+/* En táctil el área de toque crece 26px hacia abajo; se recupera el relleno inferior de la barra (18px) porque debajo
+   no hay otro enlace. */
+@media (pointer: coarse) {
+  .ms-footer-bar .ms-footer-bar__credit { margin-bottom: -18px; }
+}
+/* Tema oscuro: el gris del copyright al 70 % da 4,1:1 (< 4,5:1). Al 80 % da 5,0:1 y conserva el tono del pie. */
+.dark .ms-footer-bar { --ms-credit-opacity: .8; }
+@container (min-width: 118ch) {
+  .ms-footer-bar .ms-footer-bar__credit { display: inline-flex; }
+  .ms-footer-bar__sep {
+    display: inline-block;
+    width: 1px;
+    height: 12px;
+    margin-inline: 14px;
+    vertical-align: middle;
+    background: var(--border);
+  }
+}
+
 /* Responsive landing grids (inline styles can't carry media queries) */
-.ms-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 40px; }
+.ms-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 40px; padding: 56px var(--ms-footer-gutter) 28px; }
 
 @media (max-width: 920px) {
   .ms-footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
