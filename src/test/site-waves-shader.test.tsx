@@ -1,5 +1,6 @@
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MOTION_STORAGE_KEY } from "@/components/site/motionPause";
 import { WavesShader } from "@/components/site/WavesShader";
 
 // jsdom no tiene WebGL: `getContext` devuelve null (y avisa «not implemented» por consola). Cada prueba decide qué
@@ -60,6 +61,7 @@ function fakeGl() {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   frames = new Map();
   nextFrame = 1;
   getContext = vi.fn(() => null);
@@ -98,6 +100,7 @@ afterEach(() => {
   cleanup(); // antes de quitar los stubs: el desmontaje usa cancelIdleCallback y cancelAnimationFrame
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  localStorage.clear();
 });
 
 const wrapper = (container: HTMLElement) => container.firstElementChild as HTMLElement;
@@ -181,5 +184,90 @@ describe("WavesShader", () => {
     act(() => void canvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true })));
     await waitFor(() => expect(wrapper(container)).toHaveAttribute("data-state", "fallback"));
     expect(wrapper(container).querySelector("canvas")).toBeNull();
+  });
+
+  describe("pausa de las animaciones (WCAG 2.2.2)", () => {
+    /** Entrega los cuadros pedidos y devuelve cuántos eran. */
+    const flush = (now: number) => {
+      const pending = [...frames.values()];
+      frames.clear();
+      act(() => pending.forEach((cb) => cb(now)));
+      return pending.length;
+    };
+    const pauseNow = (paused: boolean) =>
+      act(() => {
+        localStorage.setItem(MOTION_STORAGE_KEY, paused ? "paused" : "running");
+        window.dispatchEvent(new StorageEvent("storage", { key: MOTION_STORAGE_KEY }));
+      });
+
+    it("al pausar deja de pedir cuadros, queda en `paused` con el último cuadro y al reanudar sigue sin soltar el contexto", async () => {
+      const { gl, loseContext } = fakeGl();
+      getContext.mockReturnValue(gl);
+      const { container } = render(<WavesShader />);
+      await waitFor(() => expect(wrapper(container).querySelector("canvas")).not.toBeNull());
+      flush(16);
+      expect(wrapper(container)).toHaveAttribute("data-state", "live");
+      expect(flush(32)).toBe(1); // en marcha: cada cuadro pide el siguiente
+
+      pauseNow(true);
+      expect(wrapper(container)).toHaveAttribute("data-state", "paused");
+      expect(wrapper(container).querySelector("canvas")).not.toBeNull(); // conserva el último cuadro
+      expect(frames.size).toBe(0); // cancelado el que estaba pedido
+      const drawn = gl.drawArrays.mock.calls.length;
+      expect(flush(48)).toBe(0);
+      expect(gl.drawArrays).toHaveBeenCalledTimes(drawn);
+      expect(loseContext).not.toHaveBeenCalled();
+      expect(getContext).toHaveBeenCalledTimes(1); // no reinició el contexto
+
+      pauseNow(false);
+      expect(wrapper(container)).toHaveAttribute("data-state", "live");
+      expect(frames.size).toBe(1);
+      flush(64);
+      expect(gl.drawArrays.mock.calls.length).toBeGreaterThan(drawn);
+    });
+
+    it("en pausa, volver a la pestaña o a la vista no reanuda el dibujo", async () => {
+      const { gl } = fakeGl();
+      getContext.mockReturnValue(gl);
+      const { container } = render(<WavesShader />);
+      await waitFor(() => expect(wrapper(container).querySelector("canvas")).not.toBeNull());
+      flush(16);
+      pauseNow(true);
+      const drawn = gl.drawArrays.mock.calls.length;
+      // La pestaña vuelve a ser visible: sin la pausa, esto pediría un cuadro.
+      act(() => void document.dispatchEvent(new Event("visibilitychange")));
+      expect(frames.size).toBe(0);
+      expect(flush(48)).toBe(0);
+      expect(gl.drawArrays).toHaveBeenCalledTimes(drawn);
+    });
+
+    it("pausado desde antes de cargar: no descarga el shader y se ve el degradado; al reanudar lo carga", async () => {
+      localStorage.setItem(MOTION_STORAGE_KEY, "paused");
+      const { gl } = fakeGl();
+      getContext.mockReturnValue(gl);
+      const { container } = render(<WavesShader />);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(getContext).not.toHaveBeenCalled();
+      expect(wrapper(container).querySelector("canvas")).toBeNull();
+      expect(wrapper(container)).toHaveAttribute("data-state", "fallback");
+
+      pauseNow(false);
+      await waitFor(() => expect(wrapper(container).querySelector("canvas")).not.toBeNull());
+      flush(16);
+      expect(wrapper(container)).toHaveAttribute("data-state", "live");
+    });
+
+    it("pausado con el lienzo montado y sin primer cuadro: dibuja uno y se queda quieto", async () => {
+      const { gl } = fakeGl();
+      getContext.mockReturnValue(gl);
+      const { container } = render(<WavesShader />);
+      await waitFor(() => expect(wrapper(container).querySelector("canvas")).not.toBeNull());
+      expect(gl.drawArrays).not.toHaveBeenCalled();
+
+      pauseNow(true);
+      expect(gl.drawArrays).toHaveBeenCalledTimes(1);
+      expect(wrapper(container)).toHaveAttribute("data-state", "paused");
+      expect(frames.size).toBe(0);
+    });
   });
 });

@@ -7,6 +7,8 @@ import lauTitular from "@/assets/site/hero/lau-titular.webp";
 import multistackServicios from "@/assets/site/hero/multistack-servicios.webp";
 import { cn } from "../cn";
 import { HeroCta, SiteButton } from "../SiteButton";
+import { MotionToggle } from "../MotionToggle";
+import { useMotionPaused } from "../motionPause";
 import { SiteLink } from "../SiteLink";
 import { useReducedMotion } from "../useReducedMotion";
 import { WavesShader } from "../WavesShader";
@@ -24,7 +26,7 @@ const delay = (seconds: number) => ({ "--delay": `${seconds}s` }) as CSSProperti
 
 /**
  * Un solo reloj para las dos píldoras: alternan, nunca cambian a la vez. Se detiene cuando `running` es falso
- * (fuera de pantalla, con el cursor sobre el titular o con movimiento reducido).
+ * (fuera de pantalla, con el cursor sobre el titular, con movimiento reducido o con las animaciones pausadas).
  */
 function useAlternatingTick(running: boolean, intervalMs: number): number {
   const [tick, setTick] = useState(0);
@@ -84,8 +86,9 @@ export function Hero({ hero }: HeroProps) {
   const ref = useRef<HTMLElement>(null);
   const inView = useInView(ref, { amount: 0.3 });
   const reduced = useReducedMotion();
+  const [paused] = useMotionPaused();
   const [hovering, setHovering] = useState(false);
-  const tick = useAlternatingTick(inView && !reduced && !hovering, TICK_MS);
+  const tick = useAlternatingTick(inView && !reduced && !paused && !hovering, TICK_MS);
   // La primera píldora cambia en los ticks impares y la segunda en los pares: nunca a la vez.
   const project = Math.floor((tick + 1) / 2) % PROJECT_SHOTS.length;
   const feature = Math.floor(tick / 2) % hero.featurePills.length;
@@ -108,6 +111,10 @@ export function Hero({ hero }: HeroProps) {
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-b from-transparent to-site-background"
       />
+
+      {/* Esquina superior derecha: sobre la franja oscura de las ondas, sin tapar la insignia (empieza a 64 px) ni el
+          titular, y visible en móvil. Va primero en el orden del teclado: quien lo necesita lo encuentra antes del movimiento. */}
+      <MotionToggle labels={hero.motionToggle} className="absolute right-3 top-3 z-10 sm:right-5 sm:top-4" />
 
       <div className="mx-auto flex min-h-[640px] max-w-6xl flex-col items-center justify-center px-5 pb-24 pt-16 text-center md:min-h-[760px] md:pt-20">
         <p className="hero-in inline-flex items-center gap-2.5 rounded-full border border-site-border bg-site-background/60 px-4 py-2 font-mono text-xs text-site-muted-foreground backdrop-blur-md">
@@ -198,8 +205,11 @@ export function Hero({ hero }: HeroProps) {
 
         <dl className="hero-in mt-12 grid w-full max-w-lg grid-cols-3 gap-6 border-t border-white/10 pt-6" style={delay(0.95)}>
           {hero.facts.map((fact) => (
-            <div key={fact.label}>
-              <dt className="text-xl font-bold md:text-2xl">
+            // `dt` es la etiqueta y `dd` el valor (el orden semántico: «desde» y luego «L 3,500»). `flex-col-reverse` deja
+            // el valor arriba y la etiqueta debajo, como se ve.
+            <div key={fact.label} className="flex flex-col-reverse">
+              <dt className="text-xs text-site-hero-muted">{fact.label}</dt>
+              <dd className="text-xl font-bold md:text-2xl">
                 {fact.valueSpoken ? (
                   <>
                     <span aria-hidden="true">{fact.value}</span>
@@ -208,8 +218,7 @@ export function Hero({ hero }: HeroProps) {
                 ) : (
                   fact.value
                 )}
-              </dt>
-              <dd className="text-xs text-site-hero-muted">{fact.label}</dd>
+              </dd>
             </div>
           ))}
         </dl>

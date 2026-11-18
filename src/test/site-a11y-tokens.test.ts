@@ -125,7 +125,7 @@ describe("contraste AA de los pares de color del sitio", () => {
     for (const bg of BACKGROUNDS) expect(contrast(color("--site-primary"), color(bg)), bg).toBeGreaterThanOrEqual(AA);
   });
 
-  it("el anillo de foco (ring) frente a la medianoche cumple 3:1 de componente de interfaz (WCAG 1.4.11)", () => {
+  it("el anillo de foco frente a la medianoche cumple 3:1 de componente de interfaz (WCAG 1.4.11)", () => {
     expect(contrast(color("--site-ring"), color("--site-background"))).toBeGreaterThanOrEqual(AA_LARGE);
   });
 

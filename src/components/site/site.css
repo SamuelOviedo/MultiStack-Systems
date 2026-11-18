@@ -62,7 +62,10 @@
   --site-shadow-card: 0 30px 80px -30px oklch(0 0 0 / 70%);
 
   color-scheme: dark;
+  /* Respaldo en hex antes de cada oklch(): midnight #080D13 y el blanco azulado del texto. */
+  background-color: #080d13;
   background-color: oklch(var(--site-background));
+  color: #f5f9fb;
   color: oklch(var(--site-foreground));
   font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
   font-size: 1rem;
@@ -70,9 +73,25 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* Un hex antes de `oklch(var(--x))` no sirve de respaldo: en un navegador sin oklch esa declaración es válida al leerla e
+   inválida al calcularla, y queda en `unset` (fondo transparente, texto heredado) sin volver a la línea anterior. Para ese
+   caso está el bloque `@supports not (color: oklch(0 0 0))`, que repite los colores en hex y va después de las reglas
+   que reemplaza (a igual especificidad, la última manda). */
 .ms-site ::selection {
+  background: rgb(6 142 179 / 40%);
   background: oklch(0.6 0.12 225 / 40%);
+  color: #f5f9fb;
   color: oklch(var(--site-foreground));
+}
+@supports not (color: oklch(0 0 0)) {
+  .ms-site {
+    background-color: #080d13;
+    color: #f5f9fb;
+  }
+  .ms-site ::selection {
+    background: rgb(6 142 179 / 40%);
+    color: #f5f9fb;
+  }
 }
 
 /* ---- Reinicio frente a las reglas globales de index.css ---------------- */
@@ -127,11 +146,19 @@
   background-image: var(--site-gradient-brand);
 }
 
+/* Texto con degradado. Primero un color liso (el teal claro del tramo medio): es lo que se ve si el navegador no entiende
+   oklch o `background-clip: text`. El degradado y el texto transparente solo se activan si entiende las dos cosas, así
+   que el texto nunca queda invisible. */
 .ms-site .text-gradient {
-  background-image: var(--site-gradient-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #4ebede;
+}
+@supports (color: oklch(0 0 0)) and ((-webkit-background-clip: text) or (background-clip: text)) {
+  .ms-site .text-gradient {
+    background-image: var(--site-gradient-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 }
 
 .ms-site .glow {
@@ -228,6 +255,17 @@
 }
 .ms-site .animate-typing-dot {
   animation: ms-site-typing-dot 1.2s ease-in-out infinite;
+}
+
+/* Pausa de las animaciones en bucle (WCAG 2.2.2). SiteLayout pone `data-motion="paused"` en `.ms-site` cuando la persona
+   pulsa «Pausar animaciones». Solo se pausan las que no terminan (las `infinite`); las de entrada duran menos de un
+   segundo y pausarlas a medias dejaría contenido invisible. El cursor del hero (parpadeo infinito dentro de una lista de
+   animaciones) se oculta. Si añades un `infinite` nuevo, agrégalo aquí: una prueba lo exige. */
+.ms-site[data-motion="paused"] :is(.animate-float, .animate-blink, .animate-scan, .animate-marquee, .animate-typing-dot) {
+  animation-play-state: paused;
+}
+.ms-site[data-motion="paused"] .hero-caret {
+  display: none;
 }
 
 /* ---- Entrada del hero -------------------------------------------------- */
@@ -458,7 +496,7 @@
   opacity: 0;
   transition: opacity 0.7s ease;
 }
-.ms-site .waves[data-state="live"] > canvas {
+.ms-site .waves:is([data-state="live"], [data-state="paused"]) > canvas {
   opacity: 1;
 }
 
@@ -518,10 +556,15 @@
 /* ---- Pie: crédito «Desarrollado por MultiStack Systems» ---------------- */
 /* DevCredit en modo sitio propio (docs/standards/CREDITO-MULTISTACK.md, secciones 4, 8 y 15). Aquí solo va su ubicación:
    el CSS del componente no se toca. Por defecto el crédito está en su propia línea, bajo el copyright y centrado como él.
-   Al lado solo si la barra mide 136ch o más, medido sobre la barra (`.site-foot-bar`, que lleva `text-xs`, así que `ch`
-   sigue al texto agrandado o al tamaño mínimo de fuente, cosa que un corte en px no hace). Al lado, el crédito sale del flujo
-   y se ancla al borde derecho de `.site-foot-line` (que mide lo mismo que el copyright): el copyright no cambia de ancho ni
-   de posición, sigue centrado. 136ch deja sitio a los dos lados: copyright, separador y crédito caben en el semiancho. */
+   Al lado solo si la barra mide 86em o más, medido sobre la barra (`.site-foot-bar`, que lleva `text-xs`: 86em son 1032 px con
+   la fuente de 12 px, y la medida sigue al texto agrandado o al tamaño mínimo de fuente, cosa que un corte en px no hace).
+   Es `em` y no `ch` a propósito: `ch` es el ancho del glifo «0» de la fuente que se esté usando, y en la primera carga
+   Chromium lo mide con la fuente de reserva (más estrecha que Poppins). El corte caía entre unos 870 y 933 px, donde aún
+   no cabía el crédito con la fuente real, y la página tenía scroll horizontal hasta que cargaba la fuente. `em` es el
+   tamaño de la fuente de la barra, sin depender de los glifos. Al lado, el crédito sale del flujo y se ancla al borde
+   derecho de `.site-foot-line` (que mide lo mismo que el copyright): el copyright no cambia de ancho ni de posición,
+   sigue centrado. Con Poppins, el copyright, el separador y el crédito necesitan unos 934 px de barra (354 + 2 × (29 + 261)): 86em deja
+   49 px de aire a cada lado del crédito. */
 .ms-site .site-foot-bar {
   container-type: inline-size;
   /* Opacidad en reposo del crédito (propiedad pública del estándar, sección 9). El gris del copyright al 70 % da 4,27:1
@@ -552,7 +595,7 @@
     margin-bottom: -20px;
   }
 }
-@container (min-width: 136ch) {
+@container (min-width: 86em) {
   .ms-site .site-foot-line .site-foot-credit {
     position: absolute;
     top: 0;

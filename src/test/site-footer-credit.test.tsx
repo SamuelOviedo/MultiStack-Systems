@@ -105,9 +105,9 @@ describe("site.css · ubicación del crédito", () => {
   const containers: postcss.AtRule[] = [];
   css.walkAtRules("container", (rule) => void containers.push(rule));
 
-  it("decide «al lado o debajo» con una container query en ch sobre la barra, no con un corte en px", () => {
+  it("decide «al lado o debajo» con una container query en em sobre la barra, ni en px ni en ch (ch depende de la fuente de reserva)", () => {
     expect(containers).toHaveLength(1);
-    expect(containers[0].params).toMatch(/^\(min-width:\s*\d+ch\)$/);
+    expect(containers[0].params).toMatch(/^\(min-width:\s*\d+(\.\d+)?em\)$/);
     let barra = false;
     css.walkRules((rule) => {
       if (rule.selector === ".ms-site .site-foot-bar") {

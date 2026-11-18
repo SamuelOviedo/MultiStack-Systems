@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { cn } from "./cn";
+import { useMotionPaused } from "./motionPause";
 import { useReducedMotion } from "./useReducedMotion";
 import type { WavesShaderCanvasProps } from "./WavesShaderCanvas";
 
@@ -47,17 +48,22 @@ function afterFirstPaint(task: () => void): () => void {
  * - Con `prefers-reduced-motion: reduce` no se monta el lienzo ni se descarga el chunk.
  * - El lienzo dibuja solo a la vista y con la pestaña visible, a una resolución interna reducida (DPR máximo 2 ×
  *   `resolution`), y devuelve el contexto WebGL al navegador al desmontarse.
- * - `data-state`: `fallback` (degradado), `loading` (lienzo montado, sin primer cuadro) o `live`.
+ * - Con las animaciones pausadas (botón del hero, WCAG 2.2.2) el lienzo deja de pedir cuadros y conserva el último; si
+ *   aún no se había cargado, no se descarga el chunk y se ve el degradado. Al reanudar sigue desde donde estaba.
+ * - `data-state`: `fallback` (degradado), `loading` (lienzo montado, sin primer cuadro), `live` o `paused` (lienzo
+ *   detenido en su último cuadro).
  */
 export function WavesShader({ colors = BRAND_WAVES, className, resolution = 0.5 }: WavesShaderProps) {
   const reduced = useReducedMotion();
+  const [paused] = useMotionPaused();
   const [Canvas, setCanvas] = useState<CanvasComponent | null>(null);
   const [state, setState] = useState<"fallback" | "loading" | "live">("fallback");
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     if (reduced) setState("fallback");
-    if (reduced || unavailable) return;
+    // En pausa no se pide el chunk: el degradado hace de imagen quieta. Al reanudar, se carga.
+    if (reduced || paused || unavailable) return;
     let alive = true;
     const cancel = afterFirstPaint(() => {
       import("./WavesShaderCanvas")
@@ -74,7 +80,7 @@ export function WavesShader({ colors = BRAND_WAVES, className, resolution = 0.5 
       alive = false;
       cancel();
     };
-  }, [reduced, unavailable]);
+  }, [reduced, paused, unavailable]);
 
   const onLive = useCallback(() => setState("live"), []);
   const onUnavailable = useCallback(() => {
@@ -83,10 +89,19 @@ export function WavesShader({ colors = BRAND_WAVES, className, resolution = 0.5 
   }, []);
 
   const showCanvas = Canvas !== null && !reduced && !unavailable;
+  const shown = !showCanvas ? "fallback" : paused && state === "live" ? "paused" : state;
 
   return (
-    <div aria-hidden="true" data-state={showCanvas ? state : "fallback"} className={cn("waves", className)}>
-      {showCanvas && <Canvas colors={colors} resolution={resolution} onLive={onLive} onUnavailable={onUnavailable} />}
+    <div aria-hidden="true" data-state={shown} className={cn("waves", className)}>
+      {showCanvas && (
+        <Canvas
+          colors={colors}
+          resolution={resolution}
+          paused={paused}
+          onLive={onLive}
+          onUnavailable={onUnavailable}
+        />
+      )}
     </div>
   );
 }

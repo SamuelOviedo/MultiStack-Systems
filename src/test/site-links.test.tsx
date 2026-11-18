@@ -20,7 +20,7 @@ describe("withPreservedSearch", () => {
     expect(withPreservedSearch("/login", search, "/")).toBe(`/login?gclid=${GCLID}&utm_source=google`);
   });
 
-  it("misma página (ancla o misma ruta): conserva TODA la query, como requestService de la home", () => {
+  it("misma página (ancla o misma ruta): conserva TODA la query, como al ir a un ancla de la home", () => {
     const search = "?gclid=abc&utm_source=x&foo=bar";
     expect(withPreservedSearch("#contacto", search, "/")).toBe("/?gclid=abc&utm_source=x&foo=bar#contacto");
     expect(withPreservedSearch("/#planes", search, "/")).toBe("/?gclid=abc&utm_source=x&foo=bar#planes");

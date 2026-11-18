@@ -134,14 +134,20 @@ export interface WavesShaderCanvasProps {
   colors: readonly [string, string, string, string];
   /** Escala de resolución interna (0.5 = la mitad); las ondas son suaves y no lo notan. */
   resolution: number;
+  /** `true`: no pide más cuadros y deja el último (si aún no dibujó ninguno, dibuja uno). Al volver a `false` sigue. */
+  paused: boolean;
   /** Se llama una vez, tras dibujar el primer cuadro. */
   onLive: () => void;
   /** Se llama si no hay WebGL, el shader no compila o el contexto se pierde: el padre deja el degradado de respaldo. */
   onUnavailable: () => void;
 }
 
-export default function WavesShaderCanvas({ colors, resolution, onLive, onUnavailable }: WavesShaderCanvasProps) {
+export default function WavesShaderCanvas({ colors, resolution, paused, onLive, onUnavailable }: WavesShaderCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // La pausa cambia sin reiniciar el contexto WebGL: el efecto principal la lee por ref y registra `syncPause`.
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const syncPause = useRef<() => void>(() => {});
   // Los callbacks del padre no deben reiniciar el contexto WebGL al cambiar de identidad.
   const callbacks = useRef({ onLive, onUnavailable });
   callbacks.current = { onLive, onUnavailable };
@@ -269,7 +275,17 @@ export default function WavesShaderCanvas({ colors, resolution, onLive, onUnavai
     };
     // Se dibuja solo con el lienzo a la vista y la pestaña visible.
     const start = () => {
-      if (raf === null && visible && !document.hidden) raf = requestAnimationFrame(tick);
+      if (raf === null && visible && !document.hidden && !pausedRef.current) raf = requestAnimationFrame(tick);
+    };
+    // Pausa o reanuda: en pausa se corta el bucle y, si el lienzo aún no mostraba nada, se dibuja un cuadro.
+    syncPause.current = () => {
+      if (disposed) return;
+      if (pausedRef.current) {
+        stop();
+        if (firstFrame) draw();
+      } else {
+        start();
+      }
     };
 
     const observer = new IntersectionObserver(([entry]) => {
@@ -294,10 +310,11 @@ export default function WavesShaderCanvas({ colors, resolution, onLive, onUnavai
     canvas.addEventListener("webglcontextlost", onLost);
 
     resize();
-    start();
+    syncPause.current();
 
     return () => {
       disposed = true;
+      syncPause.current = () => {};
       observer.disconnect();
       resizeObserver.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
@@ -305,6 +322,8 @@ export default function WavesShaderCanvas({ colors, resolution, onLive, onUnavai
       release(!canvas.isConnected);
     };
   }, [colorKey, resolution]);
+
+  useEffect(() => syncPause.current(), [paused]);
 
   return <canvas ref={canvasRef} aria-hidden="true" />;
 }

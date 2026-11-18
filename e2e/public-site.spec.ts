@@ -129,7 +129,7 @@ test.describe("Cabecera y navegación", () => {
   test("menú móvil: abre, Escape lo cierra y devuelve el foco, y al elegir una vista navega y se cierra", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    const toggle = page.getByRole("button", { name: "Abrir menú" });
+    const toggle = page.getByRole("button", { name: "Menú", exact: true });
     const panel = page.getByRole("navigation", { name: "Menú principal" });
 
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -391,5 +391,150 @@ test.describe("Accesibilidad medida en el navegador (WCAG 2.2)", () => {
         for (const rail of state.rails) expect(rail).toBe("translateY(0%)");
       });
     }
+  });
+});
+
+// Pausa de las animaciones en bucle (WCAG 2.2.2, nivel A): un botón en la esquina del hero detiene a la vez las píldoras
+// del titular, el shader de ondas, la terminal y el chat del bento y los @keyframes infinitos, y recuerda la elección.
+test.describe("Pausa de animaciones (WCAG 2.2.2)", () => {
+  const PAUSAR = "Pausar animaciones";
+  const REANUDAR = "Reanudar animaciones";
+  const STORAGE_KEY = "ms-site-motion";
+
+  const boton = (page: Page, nombre: string) => page.getByRole("button", { name: nombre });
+  /** Los dos carriles de las píldoras: el desplazamiento vertical dice cuál se ve. */
+  const carriles = (page: Page) => page.evaluate(() => [...document.querySelectorAll<HTMLElement>("h1 .site-pill-reel")].map((rail) => rail.style.transform));
+  const ondas = (page: Page) => page.locator("#inicio .waves");
+
+  test("en reposo corre; al pulsarlo, las píldoras no cambian en 3 s y el shader queda en pausa; al reanudar siguen", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await expect(boton(page, PAUSAR)).toBeVisible();
+    await expect(page.locator(".ms-site")).toHaveAttribute("data-motion", "running");
+
+    // Control: sin pausa las píldoras sí cambian (si no, la prueba de abajo no demostraría nada).
+    const inicial = await carriles(page);
+    await expect.poll(() => carriles(page), { timeout: 6000 }).not.toEqual(inicial);
+    // El shader carga tras el primer pintado; el WebGL del navegador sin cabeza lo permite.
+    await expect(ondas(page)).toHaveAttribute("data-state", "live", { timeout: 10_000 });
+
+    await boton(page, PAUSAR).click();
+    await expect(boton(page, REANUDAR)).toBeVisible();
+    await expect(page.locator(".ms-site")).toHaveAttribute("data-motion", "paused");
+    await expect(ondas(page)).toHaveAttribute("data-state", "paused");
+    await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), STORAGE_KEY)).toBe("paused");
+
+    const congeladas = await carriles(page);
+    await page.waitForTimeout(3000); // dos intervalos de las píldoras (1,5 s) como mínimo
+    expect(await carriles(page)).toEqual(congeladas);
+    await expect(ondas(page)).toHaveAttribute("data-state", "paused");
+
+    await boton(page, REANUDAR).click();
+    await expect(page.locator(".ms-site")).toHaveAttribute("data-motion", "running");
+    await expect(ondas(page)).toHaveAttribute("data-state", "live");
+    await expect.poll(() => carriles(page), { timeout: 6000 }).not.toEqual(congeladas);
+  });
+
+  test("detiene también los keyframes infinitos de site.css y deja la terminal y el chat del bento en su estado final", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    // En el bento el cursor y los puntos de «escribiendo» solo existen en algunos pasos, y site.css tiene más keyframes
+    // infinitos sin uso hoy: se prueban todos con sondas dentro de .ms-site, que usan las mismas clases.
+    const CLASES = ["animate-float", "animate-blink", "animate-scan", "animate-marquee", "animate-typing-dot"];
+    await page.evaluate((clases) => {
+      for (const clase of clases) {
+        const sonda = document.createElement("div");
+        sonda.className = clase;
+        sonda.dataset.sonda = clase;
+        document.querySelector(".ms-site")!.appendChild(sonda);
+      }
+    }, CLASES);
+    const estados = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-sonda]")].map((el) => getComputedStyle(el).animationPlayState));
+    expect(await estados()).toEqual(CLASES.map(() => "running"));
+
+    await boton(page, PAUSAR).click();
+    expect(await estados()).toEqual(CLASES.map(() => "paused"));
+    // Ninguna animación infinita queda corriendo (las de entrada son finitas y no cuentan; el cursor del hero se oculta).
+    const corriendo = await page.evaluate(
+      () => document.getAnimations().filter((a) => a.playState === "running" && a.effect?.getComputedTiming().iterations === Infinity).length,
+    );
+    expect(corriendo).toBe(0);
+
+    // Terminal y chat, ya con la pausa puesta: sin cursor ni puntos y con el contenido completo a la vista.
+    await page.locator(".animate-bubble-in").last().scrollIntoViewIfNeeded();
+    const bento = await page.evaluate(() => ({
+      cursores: document.querySelectorAll(".animate-blink:not([data-sonda])").length,
+      puntos: document.querySelectorAll(".animate-typing-dot:not([data-sonda])").length,
+      lineas: document.querySelectorAll(".animate-line-in").length,
+      burbujas: document.querySelectorAll(".animate-bubble-in").length,
+    }));
+    expect(bento.cursores).toBe(0);
+    expect(bento.puntos).toBe(0);
+    expect(bento.lineas).toBeGreaterThanOrEqual(10); // las 10 líneas de la terminal
+    expect(bento.burbujas).toBeGreaterThanOrEqual(4); // y los 4 mensajes del chat
+  });
+
+  test("recuerda la elección: tras recargar sigue en pausa y las píldoras no se mueven", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await boton(page, PAUSAR).click();
+    await page.reload();
+    await expect(boton(page, REANUDAR)).toBeVisible();
+    await expect(page.locator(".ms-site")).toHaveAttribute("data-motion", "paused");
+    const antes = await carriles(page);
+    await page.waitForTimeout(3000);
+    expect(await carriles(page)).toEqual(antes);
+    // Con la pausa guardada el shader ni se descarga: queda el degradado.
+    await expect(ondas(page)).toHaveAttribute("data-state", "fallback");
+  });
+
+  for (const size of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 640 }] as const) {
+    test(`a ${size.width} px el botón se ve, mide 24 px o más y no tapa la insignia, el titular ni los botones`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await page.goto("/");
+      const b = boton(page, PAUSAR);
+      await expect(b).toBeInViewport({ ratio: 1 });
+      const caja = (await b.boundingBox())!;
+      expect(caja.width).toBeGreaterThanOrEqual(24);
+      expect(caja.height).toBeGreaterThanOrEqual(24);
+      const tapados = await page.evaluate((r) => {
+        const choca = (el: Element) => {
+          const o = el.getBoundingClientRect();
+          return o.width > 0 && o.left < r.x + r.width && o.right > r.x && o.top < r.y + r.height && o.bottom > r.y;
+        };
+        const candidatos = ["#inicio p", "#inicio h1", "#inicio a", "#inicio dl"];
+        return candidatos.flatMap((q) => [...document.querySelectorAll(q)].filter(choca).map((el) => `${q}: ${(el.textContent ?? "").trim().slice(0, 25)}`));
+      }, caja);
+      expect(tapados).toEqual([]);
+    });
+  }
+
+  test("se alcanza con el teclado, tiene foco visible y Enter/Espacio lo alternan", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    const b = boton(page, PAUSAR);
+    let enfocado = false;
+    for (let i = 0; i < 20 && !enfocado; i += 1) {
+      await page.keyboard.press("Tab");
+      enfocado = await b.evaluate((el) => el === document.activeElement);
+    }
+    expect(enfocado, "el botón no recibió el foco con Tab").toBe(true);
+    const anillo = await b.evaluate((el) => getComputedStyle(el).boxShadow);
+    expect(anillo).not.toBe("none");
+    await page.keyboard.press("Enter");
+    await expect(boton(page, REANUDAR)).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(boton(page, PAUSAR)).toBeFocused();
+  });
+
+  test.describe("con prefers-reduced-motion: reduce", () => {
+    test.use({ reducedMotion: "reduce" });
+
+    test("el botón no se dibuja: no hay nada en movimiento que pausar", async ({ page }) => {
+      await page.goto("/");
+      await expect(h1(page)).toBeVisible();
+      await expect(boton(page, PAUSAR)).toHaveCount(0);
+      await expect(boton(page, REANUDAR)).toHaveCount(0);
+    });
   });
 });

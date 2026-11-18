@@ -2,14 +2,19 @@ import { test, expect, type Page } from "@playwright/test";
 
 // Crédito «Desarrollado por MultiStack Systems» en el pie de la home, de /planes (pie del sitio nuevo) y de /paginas-web
 // (pie anterior), en modo sitio propio del estándar docs/standards/CREDITO-MULTISTACK.md. Sin red: lo que no es el origen
-// de la app se aborta. El pie del sitio nuevo usa Poppins y JetBrains Mono locales, así que se mide con la fuente real (se
-// espera a document.fonts.ready); el pie anterior usa las de Google Fonts, que aquí no cargan, y se mide con la de reserva
-// (más estrecha). Se comprueba visibilidad, desbordamiento, área de toque, qué recibe un toque en el copyright, disposición
+// de la app se aborta. El pie del sitio nuevo usa Poppins, que es local, así que se mide con la fuente real (se espera a
+// document.fonts.ready); JetBrains Mono y las fuentes del pie anterior llegan de Google Fonts, que aquí no carga, y se miden
+// con la de reserva (más estrecha). Se comprueba visibilidad, desbordamiento, área de toque, qué recibe un toque en el copyright, disposición
 // y contraste.
 
 // 320 px es el ancho de los móviles más estrechos: ahí el crédito (unos 286 px, sin partirse) cabe justo en la barra
 // con el relleno de 16 px del pie. Por debajo de unos 300 px puede no caber (estándar, sección 13).
-const ANCHOS = [320, 360, 390, 1440] as const;
+// 870, 900 y 933 px son la franja donde el pie nuevo llegó a desbordar en la primera carga (el corte en `ch` se evaluaba con
+// la fuente de reserva): ahora el corte es en `em` y no depende de los glifos.
+const ANCHOS = [320, 360, 390, 870, 900, 933, 1440] as const;
+// El pie anterior (/paginas-web) tiene su propio corte en `ch` (index.css) y no se toca aquí: se sigue midiendo en los cuatro
+// anchos de siempre.
+const ANCHOS_PIE_ANTERIOR = [320, 360, 390, 1440] as const;
 // Rutas con el pie anterior (src/components/common/Footer.tsx): hoy solo /paginas-web.
 const RUTAS_PIE_ANTERIOR = ["/paginas-web"] as const;
 // Gutter mínimo a cada lado: el crédito no invade el relleno lateral del pie.
@@ -23,22 +28,29 @@ type Pie = {
   /** Elemento del copyright; sin valor, el copyright es el primer nodo de texto de la barra. */
   copia: string | null;
   separador: string;
+  /** Anchos de ventana en los que se mide este pie. */
+  anchos: readonly number[];
+  /** Desde este ancho de ventana el crédito va al lado del copyright (en el pie nuevo, la barra mide 86em: 1032 px a 12 px). */
+  ladoDesde: number;
 };
 
-const NUEVO = { barra: ".site-foot-bar", copia: ".site-foot-copy", separador: ".site-foot-sep" } as const;
+const NUEVO = { barra: ".site-foot-bar", copia: ".site-foot-copy", separador: ".site-foot-sep", anchos: ANCHOS, ladoDesde: 1032 } as const;
 const PIES: readonly Pie[] = [
   { ruta: "/", ...NUEVO },
   { ruta: "/planes", ...NUEVO },
-  { ruta: "/paginas-web", barra: ".ms-footer-bar", copia: null, separador: ".ms-footer-bar__sep" },
+  { ruta: "/paginas-web", barra: ".ms-footer-bar", copia: null, separador: ".ms-footer-bar__sep", anchos: ANCHOS_PIE_ANTERIOR, ladoDesde: 1000 },
 ];
 
 // Táctil real: hasTouch + isMobile hacen verdadero (pointer: coarse), que es lo que activa el área de 44 px.
 test.use({ hasTouch: true, isMobile: true });
 
-async function abrirPie(page: Page, ruta: string) {
-  await page.route("**/*", (route) => {
+/** `retrasoFuentesMs`: retrasa los woff2 locales para que la página pase un rato con la fuente de reserva. */
+async function abrirPie(page: Page, ruta: string, retrasoFuentesMs = 0) {
+  await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
-    return url.hostname === "localhost" || url.hostname === "127.0.0.1" ? route.continue() : route.abort();
+    if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") return route.abort();
+    if (retrasoFuentesMs > 0 && url.pathname.endsWith(".woff2")) await new Promise((resolve) => setTimeout(resolve, retrasoFuentesMs));
+    return route.continue();
   });
   await page.goto(ruta);
   const credito = page.getByRole("link", { name: NOMBRE });
@@ -52,7 +64,7 @@ async function abrirPie(page: Page, ruta: string) {
 }
 
 for (const pie of PIES) {
-  for (const ancho of ANCHOS) {
+  for (const ancho of pie.anchos) {
     test.describe(`${pie.ruta} a ${ancho}px`, () => {
       test.use({ viewport: { width: ancho, height: 800 } });
 
@@ -149,7 +161,7 @@ for (const pie of PIES) {
           const sep = getComputedStyle(el.querySelector(separador)!).display;
           return { copyAbajo: copy.bottom, enlaceArriba: enlace.top, copyDerecha: copy.right, enlaceIzquierda: enlace.left, sep };
         }, pie);
-        if (ancho >= 1000) {
+        if (ancho >= pie.ladoDesde) {
           expect(d.sep).not.toBe("none");
           expect(d.enlaceIzquierda).toBeGreaterThan(d.copyDerecha);
           expect(d.enlaceArriba).toBeLessThan(d.copyAbajo);
@@ -236,6 +248,30 @@ for (const ruta of ["/", "/planes"] as const) {
         expect(Math.abs(d.centro - d.ancho / 2)).toBeLessThanOrEqual(1);
         expect(d.enlaceDerecha).toBeLessThanOrEqual(d.ancho);
         await expect(credito).toBeInViewport();
+      });
+
+      test("primera carga: sin scroll horizontal en ningún cuadro, ni con la fuente de reserva ni al llegar Poppins", async ({ page }) => {
+        // Se mide desde el primer cuadro del documento (addInitScript) y las fuentes tardan 700 ms a propósito: así la
+        // página pasa un rato con la fuente de reserva, que es donde el corte en `ch` decidía mal.
+        await page.addInitScript(() => {
+          const w = window as unknown as { __desborde: number; __cuadros: number };
+          w.__desborde = 0;
+          w.__cuadros = 0;
+          const medir = () => {
+            const d = document.documentElement;
+            if (d) w.__desborde = Math.max(w.__desborde, d.scrollWidth - d.clientWidth);
+            w.__cuadros += 1;
+            requestAnimationFrame(medir);
+          };
+          requestAnimationFrame(medir);
+        });
+        const credito = await abrirPie(page, ruta, 700);
+        const antes = await page.evaluate(() => (window as unknown as { __cuadros: number }).__cuadros);
+        // Dos cuadros más con la fuente ya cargada (abrirPie esperó a document.fonts.ready).
+        await page.waitForFunction((n) => (window as unknown as { __cuadros: number }).__cuadros >= n + 2, antes);
+        await expect(credito).toBeVisible();
+        const desborde = await page.evaluate(() => (window as unknown as { __desborde: number }).__desborde);
+        expect(desborde).toBeLessThanOrEqual(0);
       });
 
       test("tiene el tamaño y la fuente del copyright", async ({ page }) => {

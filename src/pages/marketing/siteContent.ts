@@ -138,6 +138,8 @@ export interface SiteHero {
   readonly secondaryCta: PaginasWebLink;
   /** Desde, dominio y hosting, y entrega. */
   readonly facts: readonly PaginasWebFact[];
+  /** Botón que pausa y reanuda las animaciones en bucle (WCAG 2.2.2). El texto dice lo que hará al pulsarlo. */
+  readonly motionToggle: { readonly pause: string; readonly resume: string };
 }
 
 export interface SiteBentoService {
@@ -432,7 +434,8 @@ export function buildSiteContent(
         { label: "Servicios", href: SITE_PATHS.servicios },
         { label: "Contacto", href: SITE_PATHS.contacto },
       ],
-      menuLabel: "Abrir menú",
+      // Solo «Menú»: el botón lleva aria-expanded, que ya dice si está abierto («Menú, expandido»).
+      menuLabel: "Menú",
       panel: { label: "[ mi panel ]", href: SITE_PATHS.panel },
       cta: { label: "Cotizar mi web", href: SITE_PATHS.planes },
     },
@@ -481,6 +484,7 @@ export function buildSiteContent(
           label: `${days === 1 ? "hábil" : "hábiles"} de entrega`,
         },
       ],
+      motionToggle: { pause: "Pausar animaciones", resume: "Reanudar animaciones" },
     },
 
     bento: {

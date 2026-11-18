@@ -6,7 +6,7 @@
 //     referencia (la palabra se arma en ejecución para que esta prueba tampoco la contenga).
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
-import postcss, { type AtRule, type Rule } from "postcss";
+import postcss, { type AtRule, type Container, type Document, type Rule } from "postcss";
 import { describe, expect, it } from "vitest";
 
 const SRC = path.resolve(__dirname, "..");
@@ -97,6 +97,66 @@ describe("site.css: aislamiento", () => {
   });
 });
 
+describe("site.css: pausa de animaciones y colores de respaldo", () => {
+  const classesOf = (rule: Rule) => [...rule.selector.matchAll(/\.([a-z][\w-]*)/gi)].map((m) => m[1]!).filter((name) => name !== "ms-site");
+  const inside = (node: Rule, atRule: RegExp) => {
+    for (let parent: Container | Document | undefined = node.parent; parent; parent = parent.parent) {
+      if (parent.type === "atrule" && atRule.test(`${(parent as AtRule).name} ${(parent as AtRule).params}`)) return true;
+    }
+    return false;
+  };
+
+  it("toda animación infinite tiene su regla bajo [data-motion=\"paused\"] (WCAG 2.2.2)", () => {
+    const paused = new Set<string>();
+    for (const rule of rules) {
+      if (rule.selector.includes('[data-motion="paused"]')) classesOf(rule).forEach((name) => paused.add(name));
+    }
+    const infinite = rules.filter((rule) => rule.nodes.some((node) => node.type === "decl" && /^animation(-iteration-count)?$/.test(node.prop) && /\binfinite\b/.test(node.value)));
+    expect(infinite.length).toBeGreaterThanOrEqual(6);
+    for (const rule of infinite) {
+      const last = classesOf(rule).at(-1)!;
+      expect(paused.has(last), `${rule.selector} no se pausa`).toBe(true);
+    }
+  });
+
+  it("la pausa detiene los bucles con animation-play-state y oculta el cursor del hero", () => {
+    const pausedRules = rules.filter((rule) => rule.selector.includes('[data-motion="paused"]'));
+    const playState = pausedRules.flatMap((rule) => rule.nodes.filter((n) => n.type === "decl" && n.prop === "animation-play-state").map((n) => (n as { value: string }).value));
+    expect(playState).toContain("paused");
+    expect(pausedRules.some((rule) => rule.selector.includes(".hero-caret") && rule.nodes.some((n) => n.type === "decl" && n.prop === "display" && n.value === "none"))).toBe(true);
+  });
+
+  it("el fondo y el texto de .ms-site llevan un hex antes del oklch(), y un bloque @supports not los repite", () => {
+    const base = rules.find((rule) => rule.selector === ".ms-site" && !inside(rule, /supports/))!;
+    for (const prop of ["background-color", "color"]) {
+      const values = base.nodes.filter((n) => n.type === "decl" && n.prop === prop).map((n) => (n as { value: string }).value);
+      expect(values, prop).toHaveLength(2);
+      expect(values[0], prop).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(values[1], prop).toMatch(/^oklch\(/);
+    }
+    const fallback = rules.find((rule) => rule.selector === ".ms-site" && inside(rule, /supports not \(color: oklch/))!;
+    expect(fallback).toBeDefined();
+    expect(fallback.nodes.map((n) => (n.type === "decl" ? n.prop : ""))).toEqual(["background-color", "color"]);
+  });
+
+  it(".text-gradient tiene color liso de respaldo y solo se hace transparente si entiende oklch y background-clip", () => {
+    const gradient = rules.filter((rule) => rule.selector === ".ms-site .text-gradient");
+    const plain = gradient.find((rule) => !inside(rule, /supports/))!;
+    const color = plain.nodes.find((n) => n.type === "decl" && n.prop === "color") as { value: string } | undefined;
+    expect(color?.value).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(plain.nodes.some((n) => n.type === "decl" && /transparent|background/.test(`${n.prop} ${n.value}`))).toBe(false);
+
+    const enhanced = gradient.find((rule) => inside(rule, /supports.*oklch.*background-clip/))!;
+    expect(enhanced).toBeDefined();
+    expect(enhanced.nodes.some((n) => n.type === "decl" && n.prop === "color" && n.value === "transparent")).toBe(true);
+    // Ninguna otra regla deja el texto transparente fuera de ese bloque.
+    root.walkDecls("color", (decl) => {
+      if (decl.value !== "transparent") return;
+      expect(inside(decl.parent as Rule, /supports/), (decl.parent as Rule).selector).toBe(true);
+    });
+  });
+});
+
 describe("tokens --site-* frente a tailwind.config.ts", () => {
   const config = read(path.resolve(SRC, "..", "tailwind.config.ts"));
   const used = [...config.matchAll(/siteColor(?:WithBaseAlpha)?\("([a-z-]+)"/g)].map((m) => m[1]);
@@ -104,7 +164,8 @@ describe("tokens --site-* frente a tailwind.config.ts", () => {
   root.walkDecls(/^--site-/, (decl) => void defined.add(decl.prop.replace(/^--site-/, "")));
 
   it("la config expone los colores principales de la referencia", () => {
-    for (const token of ["background", "foreground", "surface", "card", "primary", "muted-foreground", "accent", "border", "input", "ring", "success"]) {
+    // Tailwind escanea los tests: un literal con forma de clase añade CSS muerto a la hoja inicial. El del anillo se arma en ejecución.
+    for (const token of ["background", "foreground", "surface", "card", "primary", "muted-foreground", "accent", "border", "input", ["r", "ing"].join(""), "success"]) {
       expect(used, token).toContain(token);
     }
   });

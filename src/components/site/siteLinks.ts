@@ -5,12 +5,12 @@ import { isCampaignParam, keyOf, rawPairs } from "@/lib/campaignParams";
 /**
  * Atribución de Google Ads en la navegación interna del sitio público.
  *
- * Hoy la home conserva la query al ir a #contacto (`requestService` en Index.tsx hace `navigate({ search, hash })`):
- * sin gclid en la URL de la página donde se envía el formulario, la conversión sale sin atribución. Los enlaces del
- * encabezado, el pie y los CTA entre vistas (/, /planes, /servicios, /contacto) tienen que hacer lo mismo.
+ * La navegación interna tiene que conservar la query de campaña: sin gclid en la URL de la página donde se envía el
+ * formulario, la conversión sale sin atribución. Vale para los enlaces del encabezado, el pie y los CTA entre vistas
+ * (/, /planes, /servicios, /contacto) y para las anclas de la misma página (la home anterior lo hacía al ir a #contacto).
  *
  * Regla, en `withPreservedSearch`:
- * - Misma página (ancla `#x` o la misma ruta): se conserva TODA la query, igual que `requestService`.
+ * - Misma página (ancla `#x` o la misma ruta): se conserva TODA la query, como al ir a un ancla de la home.
  * - Otra ruta: solo los parámetros de campaña (click-ids de Google y `utm_*`). Nunca se arrastran parámetros
  *   funcionales de otras pantallas (`redirect`, `error`, `code`, `token`…) hacia /login, /solicitudes o /dashboard.
  * - Los pares se copian TAL CUAL, sin decodificar ni volver a codificar: la analítica descarta un click-id con

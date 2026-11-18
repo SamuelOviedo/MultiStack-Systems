@@ -72,7 +72,7 @@ export function SiteFooter({ tagline, columns, copyright, logoLabel = "MultiStac
           </div>
         ))}
       </div>
-      {/* Barra inferior. `.site-foot-bar` (site.css) es el contenedor de la container query en `ch` que decide si el crédito
+      {/* Barra inferior. `.site-foot-bar` (site.css) es el contenedor de la container query en `em` que decide si el crédito
           va al lado del copyright o debajo; el copyright conserva su caja y su centrado en los dos casos. */}
       <div className="site-foot-bar border-t border-site-border py-5 text-center text-xs text-site-muted-foreground">
         <div className="site-foot-line">

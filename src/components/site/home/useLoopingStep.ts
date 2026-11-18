@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useInView } from "@/hooks/useInView";
+import { useMotionPaused } from "../motionPause";
 import { useReducedMotion } from "../useReducedMotion";
 
 /**
  * Repite una secuencia de `total` pasos (0 … total - 1) solo mientras `ref` está a la vista; fuera de pantalla el
- * reloj se detiene y no cuesta nada. Con movimiento reducido no hay reloj: se muestra el último paso, que en las
- * secuencias de la home es el estado final (terminal completa, conversación completa).
+ * reloj se detiene y no cuesta nada. Con movimiento reducido o con las animaciones pausadas (botón del hero, WCAG
+ * 2.2.2) no hay reloj: se muestra el último paso, que en las secuencias de la home es el estado final (terminal
+ * completa, conversación completa).
  */
 export function useLoopingStep<T extends HTMLElement = HTMLDivElement>(
   total: number,
@@ -14,15 +16,17 @@ export function useLoopingStep<T extends HTMLElement = HTMLDivElement>(
   const ref = useRef<T>(null);
   const inView = useInView(ref, { amount: 0.4 });
   const reduced = useReducedMotion();
+  const [paused] = useMotionPaused();
+  const still = reduced || paused;
   const [step, setStep] = useState(0);
 
   useEffect(() => {
-    if (reduced || !inView) return;
+    if (still || !inView) return;
     const id = window.setInterval(() => setStep((s) => (s >= total - 1 ? 0 : s + 1)), intervalMs);
     return () => window.clearInterval(id);
-  }, [inView, reduced, total, intervalMs]);
+  }, [inView, still, total, intervalMs]);
 
-  return { ref, step: reduced ? total - 1 : step };
+  return { ref, step: still ? total - 1 : step };
 }
 
 /**
