@@ -11,7 +11,7 @@ import ProtectedRoute from "@/components/common/ProtectedRoute";
 import BrandLoader from "@/components/common/BrandLoader";
 import RecoveryRedirect from "@/components/auth/RecoveryRedirect";
 import LegacyHomeGate from "@/components/common/LegacyHomeGate";
-import { legacyHomeDestination } from "@/lib/legacyHomeHash";
+import { preloadSiteView } from "@/lib/siteViewPreload";
 
 // Pages cargadas al inicio (rutas públicas críticas — no se lazy-load)
 import Index from "./pages/marketing/Index.tsx";
@@ -54,15 +54,7 @@ preloadPanelForPath(window.location.pathname);
 // Visita directa a una vista del sitio público: pide su chunk ya, en paralelo con el arranque, para que el BrandLoader
 // dure lo menos posible. Una ancla antigua de la home que hoy es otra vista (/#planes) pide el chunk de esa vista. La
 // home no se precarga: va en el chunk de entrada.
-const SITE_CHUNKS = new Map<string, () => Promise<unknown>>([
-  ["/planes", loadPlanes],
-  ["/servicios", loadServicios],
-  ["/contacto", loadContacto],
-]);
-const initialPath = legacyHomeDestination(window.location)?.split("?")[0] ?? window.location.pathname;
-SITE_CHUNKS.get(initialPath.length > 1 && initialPath.endsWith("/") ? initialPath.slice(0, -1) : initialPath)
-  ?.()
-  .catch(() => undefined); // si falla, el lazy de la ruta lo reintenta y lo muestra
+preloadSiteView(window.location, { planes: loadPlanes, servicios: loadServicios, contacto: loadContacto });
 
 const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">

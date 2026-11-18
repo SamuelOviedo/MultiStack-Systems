@@ -48,9 +48,17 @@ function anchorOf(hash: string): string {
  * vista nueva. Descarta el hash, que en la vista nueva ya no apunta a nada. Solo mira la home: `/planes#x` no se toca.
  */
 export function legacyHomeDestination(location: HomeLocation): string | null {
+  const path = legacyHomeDestinationPath(location);
+  return path ? `${path}${campaignSearch(location.search)}` : null;
+}
+
+/**
+ * Solo la ruta (`/planes`, `/contacto`, `/servicios`) a la que lleva una ancla antigua de la home, sin query, o `null`.
+ * No lee `search`: quien solo necesita saber qué vista es (la precarga de su chunk) no arrastra la query de la URL.
+ */
+export function legacyHomeDestinationPath(location: Pick<HomeLocation, "pathname" | "hash">): string | null {
   if (location.pathname !== "/" || location.hash.length < 2) return null;
-  const destination = LEGACY_HOME_ANCHORS.get(anchorOf(location.hash));
-  return destination ? `${destination}${campaignSearch(location.search)}` : null;
+  return LEGACY_HOME_ANCHORS.get(anchorOf(location.hash)) ?? null;
 }
 
 /** El `id` de la home nueva al que apunta un ancla antigua que se queda en `/`, o `null` si la URL no es una de ellas. */
