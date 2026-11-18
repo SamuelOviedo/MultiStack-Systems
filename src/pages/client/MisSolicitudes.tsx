@@ -15,7 +15,7 @@ import {
   type PackageIntentId,
 } from "@/lib/packageIntent";
 import { buildPackageRequest } from "@/lib/packageRequest";
-import { PACKAGES } from "@/lib/webPackages";
+import { SITE_PLANS } from "@/lib/webPackages";
 import {
   TICKET_STATUS_CONFIG,
   type Ticket,
@@ -40,12 +40,12 @@ export default function MisSolicitudes() {
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
-  // Paquete elegido en /paginas-web: primero `?paquete=<id>`, si no lo guardado (sobrevive al login y al registro).
+  // Paquete elegido en el sitio o en /paginas-web: primero `?paquete=<id>`, si no lo guardado (sobrevive al login y al registro).
   // Se lee una sola vez, al montar; si hay paquete, el formulario se abre en «modo paquete».
   // El h1 recibe el foco cuando desaparece el control que lo tenía (formulario de paquete cerrado o paquete quitado).
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [packageId, setPackageId] = useState<PackageIntentId | null>(() => readPackageIntent(location.search));
-  const selectedPackage = PACKAGES.find((p) => p.id === packageId);
+  const selectedPackage = SITE_PLANS.find((p) => p.id === packageId);
   const [solicitudes, setSolicitudes] = useState<(Ticket & { message_count: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(() => packageId !== null);

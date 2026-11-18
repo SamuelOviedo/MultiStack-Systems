@@ -249,6 +249,27 @@ describe("MisSolicitudes · casilla de LAU Graphic (Combo)", () => {
       "Paquete solicitado: Plan Estándar (L 3,500)\nEsta solicitud no es un pago ni un contrato.",
     );
   });
+
+  it("con ?paquete=intermedio abre el modo paquete del Intermedio, sin casilla, y se envía", async () => {
+    renderPage("/solicitudes?paquete=intermedio");
+
+    const box = await screen.findByRole("region", { name: "Paquete seleccionado" });
+    expect(within(box).getByText("Plan Intermedio")).toBeInTheDocument();
+    expect(within(box).getByText("L 7,500")).toHaveAttribute("aria-hidden", "true");
+    expect(within(box).getByText("7500 lempiras")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByText(/LAU Graphic/)).toBeNull();
+
+    fireEvent.click(submit());
+
+    await waitFor(() => expect(tickets.createSolicitud).toHaveBeenCalledTimes(1));
+    expect(tickets.createSolicitud).toHaveBeenCalledWith(
+      "cliente@example.test",
+      "cliente@example.test",
+      "Solicitud: Plan Intermedio",
+      "Paquete solicitado: Plan Intermedio (L 7,500)\nEsta solicitud no es un pago ni un contrato.",
+    );
+  });
 });
 
 describe("MisSolicitudes · Quitar paquete", () => {

@@ -1,4 +1,4 @@
-import { PACKAGES, type PaginasWebPackage } from "@/lib/webPackages";
+import { SITE_PLANS, type PaginasWebPackage } from "@/lib/webPackages";
 
 /**
  * Intención de paquete: qué paquete de página web quiso solicitar la persona antes de llegar al flujo de
@@ -18,9 +18,12 @@ export const PACKAGE_INTENT_PARAM = "paquete";
 /** La intención caduca a las 24 horas. */
 export const PACKAGE_INTENT_TTL_MS = 24 * 60 * 60 * 1000;
 
-/** Lista blanca: solo los ids de PACKAGES. Cualquier otro valor (de la URL o del almacenamiento) se ignora. */
+/**
+ * Lista blanca: solo los ids de SITE_PLANS (los tres planes del sitio, también los dos de /paginas-web). Cualquier
+ * otro valor (de la URL o del almacenamiento) se ignora.
+ */
 export function isPackageId(value: unknown): value is PackageIntentId {
-  return typeof value === "string" && PACKAGES.some((pkg) => pkg.id === value);
+  return typeof value === "string" && SITE_PLANS.some((pkg) => pkg.id === value);
 }
 
 /** Destino del flujo de solicitudes para un paquete: `/solicitudes?paquete=<id>`. */

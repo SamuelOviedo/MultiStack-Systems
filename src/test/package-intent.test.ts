@@ -8,7 +8,7 @@ import {
   readPackageIntent,
   rememberPackageIntent,
 } from "@/lib/packageIntent";
-import { PACKAGES } from "@/lib/webPackages";
+import { SITE_PLANS } from "@/lib/webPackages";
 
 const NOW = 1_800_000_000_000;
 const stored = (): unknown => JSON.parse(window.localStorage.getItem(PACKAGE_INTENT_KEY) ?? "null");
@@ -29,12 +29,30 @@ describe("packageIntent · constantes y lista blanca", () => {
     expect(PACKAGE_INTENT_TTL_MS).toBe(24 * 60 * 60 * 1000);
   });
 
-  it("la lista blanca son exactamente los ids de PACKAGES", () => {
-    expect(PACKAGES.map((pkg) => pkg.id)).toEqual(["estandar", "combo-emprendedor"]);
-    for (const pkg of PACKAGES) expect(isPackageId(pkg.id), pkg.id).toBe(true);
+  it("la lista blanca son exactamente los ids de SITE_PLANS: los tres planes del sitio", () => {
+    expect(SITE_PLANS.map((pkg) => pkg.id)).toEqual(["estandar", "intermedio", "combo-emprendedor"]);
+    for (const pkg of SITE_PLANS) expect(isPackageId(pkg.id), pkg.id).toBe(true);
   });
 
-  it.each(["", " ", "admin", "ESTANDAR", "estandar ", "combo", "__proto__", "constructor", "toString", "../estandar"])(
+  it("el Plan Intermedio se puede solicitar: «intermedio» es un id de paquete", () => {
+    expect(isPackageId("intermedio")).toBe(true);
+  });
+
+  it.each([
+    "",
+    " ",
+    "admin",
+    "ESTANDAR",
+    "estandar ",
+    "combo",
+    "INTERMEDIO",
+    "intermedio ",
+    "plan-intermedio",
+    "__proto__",
+    "constructor",
+    "toString",
+    "../estandar",
+  ])(
     "«%s» no es un id de paquete",
     (value) => {
       expect(isPackageId(value)).toBe(false);
@@ -48,6 +66,7 @@ describe("packageIntent · constantes y lista blanca", () => {
   it("packageRequestPath arma /solicitudes?paquete=<id>", () => {
     expect(packageRequestPath("combo-emprendedor")).toBe("/solicitudes?paquete=combo-emprendedor");
     expect(packageRequestPath("estandar")).toBe("/solicitudes?paquete=estandar");
+    expect(packageRequestPath("intermedio")).toBe("/solicitudes?paquete=intermedio");
   });
 });
 
@@ -73,7 +92,7 @@ describe("packageIntent · guardar y leer", () => {
     }
   });
 
-  it.each(PACKAGES.map((pkg) => pkg.id))("lo guardado (%s) se lee sin URL", (id) => {
+  it.each(SITE_PLANS.map((pkg) => pkg.id))("lo guardado (%s) se lee sin URL", (id) => {
     rememberPackageIntent(id, NOW);
 
     expect(readPackageIntent(undefined, NOW + 1000)).toBe(id);
@@ -122,6 +141,13 @@ describe("packageIntent · prioridad de la URL", () => {
   it("la URL funciona aunque no haya nada guardado, y leerla no escribe nada", () => {
     expect(readPackageIntent("?paquete=estandar")).toBe("estandar");
     expect(window.localStorage.getItem(PACKAGE_INTENT_KEY)).toBeNull();
+  });
+
+  it("?paquete=intermedio se lee de la URL y también gana sobre lo guardado", () => {
+    expect(readPackageIntent("?paquete=intermedio", NOW)).toBe("intermedio");
+
+    rememberPackageIntent("combo-emprendedor", NOW);
+    expect(readPackageIntent("?paquete=intermedio", NOW + 1)).toBe("intermedio");
   });
 
   it("la URL vale aunque lo guardado haya caducado, y no borra lo guardado", () => {

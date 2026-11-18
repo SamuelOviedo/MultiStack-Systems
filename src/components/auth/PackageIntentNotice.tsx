@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { readPackageIntent } from "@/lib/packageIntent";
-import { PACKAGES, lempiras, lempirasSpoken } from "@/lib/webPackages";
+import { SITE_PLANS, lempiras, lempirasSpoken } from "@/lib/webPackages";
 
 interface PackageIntentNoticeProps {
   /** Login: «Inicia sesión para enviar tu solicitud.» Signup: «Crea tu cuenta y confirma tu correo…» */
@@ -13,13 +13,13 @@ const CONTINUATION: Record<PackageIntentNoticeProps["variant"], string> = {
 };
 
 /**
- * Aviso sobre el formulario de Login y Signup cuando hay un paquete guardado (lo dejó el CTA de /paginas-web).
+ * Aviso sobre el formulario de Login y Signup cuando hay un paquete guardado (lo dejó un CTA del sitio o de /paginas-web).
  * Solo lee la intención: no la borra, porque la usa MisSolicitudes después de iniciar sesión. Sin intención no
  * pinta nada. El monto se ve como «L 3,950» y un lector de pantalla oye «3950 lempiras».
  */
 const PackageIntentNotice = ({ variant }: PackageIntentNoticeProps) => {
   const [id] = useState(() => readPackageIntent());
-  const pkg = id ? PACKAGES.find((p) => p.id === id) : undefined;
+  const pkg = id ? SITE_PLANS.find((p) => p.id === id) : undefined;
   if (!pkg) return null;
 
   return (
